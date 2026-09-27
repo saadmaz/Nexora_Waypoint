@@ -16,6 +16,7 @@ import Deferrals from './screens/Deferrals';
 import Release from './screens/Release';
 import Live from './screens/Live';
 import Conflict from './screens/Conflict';
+import Exception from './screens/Exception';
 import ScreenIndex from './screens/ScreenIndex';
 
 createRoot(document.getElementById('root')!).render(
@@ -31,6 +32,7 @@ createRoot(document.getElementById('root')!).render(
         <Route path="/plan/release" element={<Release />} />
         <Route path="/live" element={<Live />} />
         <Route path="/live/conflict" element={<Conflict />} />
+        <Route path="/live/exception" element={<Exception />} />
         <Route path="/screens" element={<ScreenIndex />} />
         <Route path="*" element={<Navigate to="/screens" replace />} />
       </Routes>

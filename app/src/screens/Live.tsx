@@ -752,7 +752,7 @@ export default function Live() {
           <LoadingBody />
         ) : (
           <div className="wp-col" style={{ gap: 16 }}>
-            <Inbox frame={frame} onResolve={() => go('/live/conflict', 'D7.1')} onReview={() => go('/live/exception', 'D8.1')} />
+            <Inbox frame={frame} onResolve={() => go('/live/conflict', 'D7.1')} onReview={() => go('/live/exception', 'D8.1&auto=1')} />
             <Counts held={held} />
             <VehicleTable frame={frame} onDefer={() => setFrame('D6.3')} onHistory={history} onRetry={() => setFrame('D6.1')} />
           </div>
