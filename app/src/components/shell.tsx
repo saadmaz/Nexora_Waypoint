@@ -53,9 +53,11 @@ interface AppBarProps {
   syncLabel?: string;
   /** Offline chip style: amber fill (default) or outlined. */
   offlineQuiet?: boolean;
+  /** Kandy-first frames list Kandy on the left of the switch. */
+  kandyFirst?: boolean;
 }
 
-export function AppBar({ current, deferrals, context, depot = 'Peliyagoda', onDepot, offline, planPill, showDepot = !planPill, time, syncLabel = 'Live', offlineQuiet }: AppBarProps) {
+export function AppBar({ current, deferrals, context, depot = 'Peliyagoda', onDepot, offline, planPill, showDepot = !planPill, time, syncLabel = 'Live', offlineQuiet, kandyFirst }: AppBarProps) {
   return (
     <header className="wp-appbar">
       <Link to="/plan/queue" className="wp-brand" aria-label="Waypoint Dispatch home">
@@ -70,7 +72,7 @@ export function AppBar({ current, deferrals, context, depot = 'Peliyagoda', onDe
             <span className="wp-nav__label">
               {n.icon}
               {n.label}
-              {n.key === 'deferrals' && deferrals ? <span className="wp-count">{deferrals}</span> : null}
+              {n.key === 'deferrals' && deferrals !== undefined ? <span className="wp-count">{deferrals}</span> : null}
             </span>
             <span className="wp-nav__bar" />
           </Link>
@@ -87,7 +89,7 @@ export function AppBar({ current, deferrals, context, depot = 'Peliyagoda', onDe
         )}
         {showDepot && (
         <div className="wp-depot" role="radiogroup" aria-label="Depot">
-          {(['Peliyagoda', 'Kandy'] as Depot[]).map((d) => (
+          {((kandyFirst ? ['Kandy', 'Peliyagoda'] : ['Peliyagoda', 'Kandy']) as Depot[]).map((d) => (
             <button key={d} role="radio" aria-checked={depot === d} className={cx(depot === d && 'is-selected')} onClick={() => onDepot?.(d)}>
               {d}
             </button>

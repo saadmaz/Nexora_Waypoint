@@ -53,7 +53,7 @@ const TIME: Record<Frame, string> = {
 /* ---------- Pills ---------- */
 type PillKind = 'departed' | 'planned' | 'delivered' | 'conflict' | 'deferred';
 
-function Pill({ kind, children }: { kind: PillKind; children: ReactNode }) {
+export function Pill({ kind, children }: { kind: PillKind; children: ReactNode }) {
   const icon =
     kind === 'departed' ? <Truck size={14} /> :
     kind === 'planned' ? <Route size={14} /> :
