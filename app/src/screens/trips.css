@@ -1,0 +1,631 @@
+.t-board {
+  display: flex;
+  gap: 24px;
+  flex: 1;
+  align-items: stretch;
+}
+
+.t-lanes {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+}
+
+.t-lane {
+  background: var(--surface-2);
+  border-radius: var(--radius-lg);
+  padding: 12px;
+  display: flex;
+  gap: 10px;
+}
+
+.t-lane--workshop {
+  min-height: 64px;
+  align-items: center;
+  gap: 16px;
+  background:
+    repeating-linear-gradient(135deg, transparent 0 40px, var(--line) 40px 41px),
+    var(--surface-2);
+}
+
+.t-lanehead {
+  width: 170px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.t-lanemeter {
+  display: block;
+  height: 5px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-1);
+  overflow: hidden;
+}
+
+.t-lanemeter span {
+  display: block;
+  height: 100%;
+  background: var(--route);
+  border-radius: var(--radius-pill);
+}
+
+.t-tag {
+  height: 20px;
+  font-weight: 700;
+}
+
+.t-tag--ol {
+  background: var(--surface-1);
+}
+
+.t-trips {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 8px;
+}
+
+.t-card {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: border-color 120ms;
+}
+
+.t-card.is-over {
+  border-color: var(--route);
+}
+
+.t-card.is-flat {
+  box-shadow: none;
+}
+
+.t-card.is-ok {
+  border: 2px solid var(--success);
+  padding: 0 11px 11px;
+}
+
+.t-card.is-bad {
+  border: 2px solid var(--danger);
+  padding: 11px;
+}
+
+.t-card__head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  line-height: 16px;
+  margin-bottom: -1px;
+}
+
+.t-card__head.is-ok {
+  background: var(--success-soft);
+  margin: 0 -11px;
+  padding: 8px 11px 6px;
+  border-radius: 10px 10px 0 0;
+}
+
+.t-stop {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+}
+
+.t-stop[draggable='true'] {
+  cursor: grab;
+}
+
+.t-stop.is-readonly {
+  gap: 6px;
+}
+
+.t-grip {
+  color: var(--ink-muted);
+  flex-shrink: 0;
+}
+
+.t-stopnum {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--route-soft);
+  border: 1px solid var(--route);
+  color: var(--route);
+  font-family: var(--font-data);
+  font-weight: 700;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.t-stop__details {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.t-moveto {
+  height: 20px;
+  padding: 0 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.t-moveto:hover:not(:disabled) {
+  background: var(--route-soft);
+  border-color: var(--route);
+  color: var(--route);
+}
+
+.t-moveto:disabled {
+  border-color: var(--line);
+  color: var(--line-strong);
+  cursor: not-allowed;
+}
+
+.t-slot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 26px;
+  margin: 2px 0;
+  padding: 0 8px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+
+.t-slot.is-route {
+  border-color: var(--route);
+  background: var(--route-soft);
+  color: var(--route);
+}
+
+.t-slot.is-ok {
+  border-color: var(--success);
+  background: var(--success-soft);
+  color: var(--success);
+  font-weight: 600;
+}
+
+.t-totals {
+  display: flex;
+  gap: 8px;
+  padding-top: 2px;
+  margin-top: auto;
+  line-height: 12px;
+}
+
+.t-total {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+}
+
+.t-total__label {
+  font-weight: 700;
+  color: var(--ink-muted);
+}
+
+.t-total__track {
+  display: block;
+  height: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.t-total__track span {
+  display: block;
+  height: 100%;
+  background: var(--route);
+}
+
+.t-pool {
+  width: 340px;
+  flex-shrink: 0;
+  height: 100%;
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.t-pool.is-refusing {
+  border: 2px dashed var(--danger);
+  padding: 15px;
+}
+
+.t-pool__dim {
+  opacity: 0.5;
+}
+
+.t-defcard {
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: grab;
+}
+
+.t-defcard.is-returned {
+  border-color: var(--warning);
+  background: #fffaf0;
+  gap: 10px;
+  min-height: 160px;
+}
+
+.t-defpill {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px dashed var(--warning);
+  border-radius: var(--radius-pill);
+  color: var(--warning);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Overlays */
+.t-dragged {
+  position: absolute;
+  z-index: 25;
+  width: 468px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--surface-1);
+  border: 2px solid var(--route);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-2);
+  transform: rotate(1deg);
+}
+
+.t-dragged--guard {
+  left: -74px;
+  top: 500px;
+  width: 390px;
+  transform: rotate(-1deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-dragged {
+    transform: none;
+  }
+}
+
+.t-consequence {
+  position: absolute;
+  z-index: 26;
+  left: -20px;
+  top: 166px;
+  width: 320px;
+  padding: 16px;
+  background: var(--surface-1);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.t-cq-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.t-cq-row > svg {
+  color: var(--success);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.t-before-after {
+  display: flex;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.t-before-after span {
+  display: block;
+  height: 100%;
+  background: var(--route);
+}
+
+.t-before-after span.is-added {
+  background: var(--route-hover);
+  opacity: 0.75;
+}
+
+.t-refusal {
+  position: absolute;
+  z-index: 25;
+  padding: 16px;
+  background: var(--danger-soft);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.t-refusal__title {
+  display: flex;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.t-refusal__title svg {
+  color: var(--danger);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.t-refusal__stem {
+  position: absolute;
+  bottom: -22px;
+  width: 2px;
+  background: var(--danger);
+}
+
+.t-rule {
+  display: flex;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.t-rule.is-bad > svg {
+  color: var(--danger);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.t-pass {
+  background: var(--surface-1);
+  border-radius: var(--radius-md);
+  padding: 10px;
+}
+
+.t-pass summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--success);
+  cursor: pointer;
+  list-style: none;
+}
+
+.t-pass summary::-webkit-details-marker {
+  display: none;
+}
+
+.t-pass p {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--ink-muted);
+  line-height: 1.45;
+}
+
+.t-checkgrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+  padding: 10px;
+  background: var(--surface-1);
+  border-radius: var(--radius-md);
+}
+
+.t-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.t-check.is-bad {
+  font-weight: 600;
+}
+
+.t-check.is-bad svg {
+  color: var(--danger);
+}
+
+.t-check.is-ok {
+  color: var(--ink-muted);
+}
+
+.t-check.is-ok svg {
+  color: var(--success);
+}
+
+.t-why {
+  position: absolute;
+  z-index: 25;
+  left: 528px;
+  top: 8px;
+  width: 380px;
+  padding: 18px 20px;
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.t-why__row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.t-why__row > svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.t-moveto-dialog {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.t-options {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.t-option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 54px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--line);
+  cursor: not-allowed;
+}
+
+.t-option:last-child {
+  border-bottom: 0;
+}
+
+.t-option.is-current {
+  background: var(--route-soft);
+  cursor: pointer;
+}
+
+.t-option.is-cursor {
+  box-shadow: inset 0 0 0 2px var(--route);
+}
+
+.t-radio {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 5px solid var(--route);
+  background: var(--surface-1);
+  flex-shrink: 0;
+}
+
+/* States */
+.t-empty {
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.t-facts {
+  width: 360px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.t-facts > div {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+
+.t-facts > div:first-child {
+  background: var(--surface-2);
+}
+
+.t-facts .mono {
+  color: var(--ink);
+}
+
+.t-skel-lane {
+  background: var(--surface-2);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  display: flex;
+  gap: 16px;
+}
+
+.t-skel-card {
+  width: 380px;
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.t-skel-def {
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.t-bar {
+  display: block;
+  height: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.t-bar.is-line {
+  background: var(--line);
+}

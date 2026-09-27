@@ -48,9 +48,14 @@ interface AppBarProps {
   planPill?: ReactNode;
   /** Released-plan frames swap the depot switch for the plan pill. */
   showDepot?: boolean;
+  /** Clock shown before the context line (Trips, Live). */
+  time?: string;
+  syncLabel?: string;
+  /** Offline chip style: amber fill (default) or outlined. */
+  offlineQuiet?: boolean;
 }
 
-export function AppBar({ current, deferrals, context, depot = 'Peliyagoda', onDepot, offline, planPill, showDepot = !planPill }: AppBarProps) {
+export function AppBar({ current, deferrals, context, depot = 'Peliyagoda', onDepot, offline, planPill, showDepot = !planPill, time, syncLabel = 'Live', offlineQuiet }: AppBarProps) {
   return (
     <header className="wp-appbar">
       <Link to="/plan/queue" className="wp-brand" aria-label="Waypoint Dispatch home">
@@ -72,6 +77,7 @@ export function AppBar({ current, deferrals, context, depot = 'Peliyagoda', onDe
         ))}
       </nav>
       <div className="wp-appbar__context">
+        {time && <span className="wp-appbar__meta">{time}</span>}
         <span className="wp-appbar__meta">{context}</span>
         {planPill && (
           <span className="wp-plan-pill">
@@ -88,7 +94,12 @@ export function AppBar({ current, deferrals, context, depot = 'Peliyagoda', onDe
           ))}
         </div>
         )}
-        {offline ? (
+        {offline && offlineQuiet ? (
+          <span className="wp-sync">
+            <span className="wp-sync__dot" style={{ background: 'var(--on-chrome)' }} />
+            Offline
+          </span>
+        ) : offline ? (
           <span className="wp-sync is-offline">
             <WifiOff size={13} />
             Offline
@@ -96,7 +107,7 @@ export function AppBar({ current, deferrals, context, depot = 'Peliyagoda', onDe
         ) : (
           <span className="wp-sync">
             <span className="wp-sync__dot" />
-            Live
+            {syncLabel}
           </span>
         )}
         <span className="wp-avatar" aria-label="Kumari">
@@ -184,12 +195,12 @@ export function PageHeader({ overline, title, titleAddon, actions, reason, child
   );
 }
 
-export function Screen({ bar, conn, children, toast }: { bar: ReactNode; conn?: ReactNode; children: ReactNode; toast?: ReactNode }) {
+export function Screen({ bar, conn, children, toast, dense }: { bar: ReactNode; conn?: ReactNode; children: ReactNode; toast?: ReactNode; dense?: boolean }) {
   return (
     <div className="wp-app">
       {bar}
       {conn}
-      <main className="wp-workspace">{children}</main>
+      <main className={cx('wp-workspace', dense && 'is-dense')}>{children}</main>
       {toast}
     </div>
   );

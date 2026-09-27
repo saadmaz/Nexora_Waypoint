@@ -219,6 +219,15 @@
   min-width: 0;
 }
 
+.wp-workspace.is-dense {
+  padding-top: 16px;
+  padding-bottom: 16px;
+}
+
+.wp-workspace.is-dense .wp-header {
+  gap: 8px;
+}
+
 /* ---------- Page header ---------- */
 .wp-header {
   display: flex;
