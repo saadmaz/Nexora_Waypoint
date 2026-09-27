@@ -1391,3 +1391,38 @@
   color: var(--ink-muted);
   text-transform: uppercase;
 }
+
+/* ---------- Shared state bits ---------- */
+.t-facts {
+  width: 360px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.t-facts > div {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+
+.t-facts > div:first-child {
+  background: var(--surface-2);
+}
+
+.t-facts .mono {
+  color: var(--ink);
+}
+
+.t-bar {
+  display: block;
+  height: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.t-bar.is-line {
+  background: var(--line);
+}

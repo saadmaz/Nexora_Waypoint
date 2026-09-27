@@ -12,6 +12,7 @@ import './styles/components.css';
 import Queue from './screens/Queue';
 import Capacity from './screens/Capacity';
 import Trips from './screens/Trips';
+import Deferrals from './screens/Deferrals';
 import ScreenIndex from './screens/ScreenIndex';
 
 createRoot(document.getElementById('root')!).render(
@@ -22,6 +23,8 @@ createRoot(document.getElementById('root')!).render(
         <Route path="/plan/queue" element={<Queue />} />
         <Route path="/plan/capacity" element={<Capacity />} />
         <Route path="/plan/trips" element={<Trips />} />
+        <Route path="/plan/deferrals" element={<Deferrals />} />
+        <Route path="/deferrals" element={<Deferrals />} />
         <Route path="/screens" element={<ScreenIndex />} />
         <Route path="*" element={<Navigate to="/screens" replace />} />
       </Routes>
