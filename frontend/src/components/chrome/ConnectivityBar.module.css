@@ -1,0 +1,13 @@
+/* The store's own offline state, as a bar under the top bar.
+   A driver being out of coverage is NOT shown here: that is a muted line on the
+   delivery card, with no alert box. */
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px var(--gutter-phone);
+  background: var(--offline-soft);
+  color: var(--offline);
+  font: var(--text-body-sm);
+  font-weight: 600;
+}
