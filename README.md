@@ -178,6 +178,65 @@ See the deployed application and `/docs` for the full walkthrough.
 
 ---
 
+## 🏬 Store Manager (Waypoint Store)
+
+The store manager role, built in `frontend/`. Branch: `feature/store-manager-frontend`.
+
+**Status:** in progress. Phases 1 and 2 are done; phases 3 to 8 are not started.
+
+### How to run
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The store role is not yet routed (phase 7). Once routed, it will live at
+`/store/orders`, `/store/deliveries`, `/store/deliveries/:date/receipt` and
+`/store/issues`, with a dev-only state gallery at `/store/_states` and a
+`?at=HH:MM` scenario clock.
+
+### Phase list
+
+| Phase | What lands | Status |
+|---|---|---|
+| 1 | Vite, React and TypeScript scaffold; tokens.css; base.css; fonts; Radix and fontsource dependencies | Done |
+| 2 | Shared primitives: Button, StatusPill, Tag, Alert, Card, Sheet, Modal, Toast, TopBar, AppBar, TabBar, ConnectivityBar, StateScreen, JourneyTimeline, Facts, DataTable | Done |
+| 3 | Order types, the 11 statuses and `statusLabel`, the `StoreApi` interface and mock with the hero fixture, cutoff and arrival-range rules | Not started |
+| 4 | S1 Place order: all states, edit and cancel until 16:00, after cutoff, offline, error, sending, empty, desktop form and review modal | Not started |
+| 5 | S2 Deliveries: every state, Under review card, deferral notices, OUT009, recent orders, desktop | Not started |
+| 6 | S3 Receipt and the Issues tab: confirm, shortfall, issue sheet, Dispatch asks, the open-review branch, states | Not started |
+| 7 | Routes, the state gallery, the scenario clock | Not started |
+| 8 | README update and a final lint, type and build pass | Not started |
+
+### Departures from source data
+
+- **PRD v2 assumption A1** (operating day Tue 29 Sep 2026) cannot be checked
+  against the shipped `calendar.csv`: that file runs 2024-01-01 to
+  2026-06-28 and does not reach September 2026. Every non-operating day in
+  the covered range is a Sunday, which matches the booklet's Monday to
+  Saturday schedule, so the hero date is treated as an operating day on
+  that basis rather than a dataset lookup. See PRD v2 section 4d, A1, for
+  the full note. This does not affect any screen or rule, since operating
+  days follow the weekday rule, not a calendar row.
+
+### Shared files this role has touched so far
+
+- `frontend/src/styles/tokens.css`: copied from `feature/dispatcher-frontend`
+  unchanged, then checked against the live Figma variable collection. No
+  values changed. Appended the type, space and size scale from PRD v2
+  section 6, additive only.
+- `frontend/tsconfig.app.json`: matches the dispatcher branch's strictness
+  settings (no `noUncheckedIndexedAccess` or `exactOptionalPropertyTypes`,
+  which fight CSS Modules' generated types).
+
+Dependency versions in `frontend/package.json` are pinned to match
+`feature/dispatcher-frontend` exactly where both branches use a package, so
+the two merge without a version conflict.
+
+---
+
 ## 🏆 Tech-Triathlon 2026
 
 Waypoint is built across the three stages of the challenge:
