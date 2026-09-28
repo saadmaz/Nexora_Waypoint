@@ -1,0 +1,58 @@
+/* Tags are square (radius 4), never pills. They are not interactive: no hover,
+   no shadow. A tag states a fixed attribute, a pill states a status. */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font: var(--text-pill);
+  white-space: nowrap;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+.fresh {
+  background: var(--brand-fresh-soft);
+  color: var(--brand-fresh);
+}
+
+.chilled {
+  background: var(--chilled-soft);
+  color: var(--chilled);
+}
+
+.ambient {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+/* Outline: Rear dock and other plain attributes. line-strong so it reads as a
+   label rather than a button. */
+.outline {
+  background: transparent;
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.warn {
+  background: var(--signal-soft);
+  color: var(--warning);
+}
+
+.danger {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.success {
+  background: var(--success-soft);
+  color: var(--success);
+}

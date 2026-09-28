@@ -1,0 +1,63 @@
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 5px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  font: var(--text-pill);
+  white-space: nowrap;
+  transition: background-color var(--duration-colour) ease, color var(--duration-colour) ease;
+}
+
+.neutral {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.info {
+  background: var(--route-soft);
+  color: var(--route);
+}
+
+.live {
+  background: var(--signal);
+  color: var(--on-signal);
+}
+
+.success {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.warning {
+  background: var(--signal-soft);
+  color: var(--warning);
+}
+
+.danger {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.offline {
+  background: var(--offline-soft);
+  color: var(--offline);
+}
+
+/* Deferred: dashed outline, no fill, so it reads as "not in this run". */
+.deferred {
+  background: transparent;
+  border: 1px dashed var(--line-strong);
+  color: var(--ink-muted);
+}
+
+/* Conflict, which stores see as "Under review": outlined amber. Soft fill with a
+   signal stroke keeps it distinct from Departed (solid amber) and Partial (soft
+   amber, no outline). PRD v2 section 4b. */
+.conflict {
+  background: var(--signal-soft);
+  border: 1.5px solid var(--signal);
+  color: var(--ink);
+}
