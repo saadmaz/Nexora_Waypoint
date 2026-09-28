@@ -210,7 +210,14 @@ The store role is not yet routed (phase 7). Once routed, it will live at
 | 7 | Routes, the state gallery, the scenario clock | Not started |
 | 8 | README update and a final lint, type and build pass | Not started |
 
-### Departures from source data
+### Departures from the Figma design
+
+None yet. No store screens are built (phases 4 to 6 are not started), so
+there is nothing to compare against the Day 5 Figma frames. This section
+will list every visual or copy difference from the store Figma page as each
+screen lands, with its reason, per the booklet's fidelity requirement.
+
+### Assumptions and data notes
 
 - **PRD v2 assumption A1** (operating day Tue 29 Sep 2026) cannot be checked
   against the shipped `calendar.csv`: that file runs 2024-01-01 to
@@ -221,7 +228,7 @@ The store role is not yet routed (phase 7). Once routed, it will live at
   the full note. This does not affect any screen or rule, since operating
   days follow the weekday rule, not a calendar row.
 
-### Shared files this role has touched so far
+### Shared files this role has changed
 
 - `frontend/src/styles/tokens.css`: copied from `feature/dispatcher-frontend`
   unchanged, then checked against the live Figma variable collection. No
@@ -230,10 +237,18 @@ The store role is not yet routed (phase 7). Once routed, it will live at
 - `frontend/tsconfig.app.json`: matches the dispatcher branch's strictness
   settings (no `noUncheckedIndexedAccess` or `exactOptionalPropertyTypes`,
   which fight CSS Modules' generated types).
+- `frontend/tsconfig.node.json`: **not yet reconciled.** This branch sets
+  `"module": "esnext"` with `"moduleResolution": "bundler"`; the dispatcher
+  branch sets `"module": "nodenext"` with no resolution override. Both
+  compile `vite.config.ts` today, so this is not blocking, but the two
+  should be aligned before the branches share a `tsconfig.node.json`.
 
 Dependency versions in `frontend/package.json` are pinned to match
 `feature/dispatcher-frontend` exactly where both branches use a package, so
-the two merge without a version conflict.
+the two merge without a version conflict. Two exceptions: this role adds
+`@radix-ui/react-dialog` and `@radix-ui/react-toast` (not yet used on the
+dispatcher branch), and uses `@fontsource-variable/archivo` in place of the
+dispatcher's `@fontsource/archivo`, per this build's font requirement.
 
 ---
 
