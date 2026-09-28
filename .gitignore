@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+.env.local
+*.local
+.DS_Store
+data/
+
+# Claude/AI project docs and specs: kept locally, not committed.
+claude/
