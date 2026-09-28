@@ -1,0 +1,129 @@
+.vertical {
+  display: flex;
+  flex-direction: column;
+}
+
+.step {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--line-strong);
+  background: var(--surface-1);
+  color: var(--ink-muted);
+  flex: 0 0 auto;
+}
+
+.line {
+  flex: 1 1 auto;
+  width: 2px;
+  min-height: 20px;
+  background: var(--line);
+  margin: 2px 0;
+}
+
+.body {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-bottom: var(--space-4);
+}
+
+.label {
+  font: var(--text-body);
+  font-weight: 600;
+}
+
+.meta {
+  font: var(--text-body-sm);
+  font-family: var(--font-mono);
+  color: var(--ink-muted);
+  margin-top: 2px;
+}
+
+/* Step states: never colour alone, since the dot also changes icon or fill. */
+.done .dot {
+  border-color: var(--success);
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.current .dot {
+  border-color: var(--route);
+  background: var(--route);
+  color: var(--on-route);
+}
+
+.current .line {
+  background: var(--route-soft);
+}
+
+.pending .dot {
+  border-color: var(--line);
+  color: var(--line-strong);
+}
+
+.pending .label {
+  color: var(--ink-muted);
+  font-weight: 400;
+}
+
+.issue .dot {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.deferred .dot {
+  border-color: var(--line-strong);
+  background: var(--surface-1);
+  color: var(--ink-muted);
+  border-style: dashed;
+}
+
+/* Horizontal: compact, for a short summary row above the fold. */
+.horizontal {
+  display: flex;
+  align-items: flex-start;
+}
+
+.horizontal .step {
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-2);
+}
+
+.horizontal .rail {
+  flex-direction: row;
+  width: 100%;
+}
+
+.horizontal .line {
+  height: 2px;
+  width: auto;
+  min-height: 0;
+  margin: 11px 0 0;
+}
+
+.horizontal .body {
+  padding-bottom: 0;
+}
+
+.horizontal .meta {
+  margin-top: 0;
+}

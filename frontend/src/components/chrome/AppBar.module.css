@@ -1,0 +1,60 @@
+.appbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  min-height: var(--size-appbar);
+  padding: 0 var(--padding-desktop-page);
+  background: var(--chrome);
+  color: var(--on-chrome);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.diamond {
+  width: 12px;
+  height: 12px;
+  transform: rotate(45deg);
+  background: var(--signal);
+  border-radius: 2px;
+}
+
+.brandText {
+  font: var(--text-h3);
+}
+
+.nav {
+  display: flex;
+  gap: var(--space-2);
+  flex: 1 1 auto;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--on-chrome-muted);
+  font: var(--text-body-sm);
+  font-weight: 600;
+  transition: background-color var(--duration-colour) ease, color var(--duration-colour) ease;
+}
+
+.navItem:hover {
+  background: rgba(245, 244, 240, 0.08);
+}
+
+.navCurrent {
+  color: var(--on-chrome);
+  background: rgba(245, 244, 240, 0.12);
+}
+
+.side {
+  flex: 0 0 auto;
+}

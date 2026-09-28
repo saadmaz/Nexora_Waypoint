@@ -1,0 +1,22 @@
+.facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.key {
+  font: var(--text-body-sm);
+  color: var(--ink-muted);
+}
+
+.value {
+  font: var(--text-data);
+  text-align: right;
+}
