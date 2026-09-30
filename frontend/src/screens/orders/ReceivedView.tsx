@@ -108,9 +108,9 @@ export function ReceivedView({ orders, now, onEdit, onSeeDeliveries }: ReceivedV
         <JourneyTimeline
           metaAlign="right"
           steps={[
-            { label: "Confirmed", meta: "16:00", state: editable ? "pending" : "done" },
-            { label: "Arrival time shared", meta: "23:40", state: released ? "done" : "pending" },
-            { label: "Delivery window", meta: WINDOW_LABEL, state: "pending" },
+            { label: "Confirmed", meta: <Mono>16:00</Mono>, state: editable ? "pending" : "done" },
+            { label: "Arrival time shared", meta: <Mono>23:40</Mono>, state: released ? "done" : "pending" },
+            { label: "Delivery window", meta: <Mono>{WINDOW_LABEL}</Mono>, state: "pending" },
           ]}
         />
       </section>

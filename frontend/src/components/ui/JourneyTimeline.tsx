@@ -5,7 +5,7 @@ export type JourneyStepState = "done" | "current" | "pending" | "issue" | "defer
 
 export type JourneyStep = {
   label: ReactNode;
-  /** Who and when, e.g. "Ruwan · 04:50". Rendered in Plex Mono. */
+  /** Who and when, e.g. "Loader · 04:50". Archivo; wrap the times in <Mono>. */
   meta?: ReactNode;
   state: JourneyStepState;
 };
