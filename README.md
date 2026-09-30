@@ -182,7 +182,7 @@ See the deployed application and `/docs` for the full walkthrough.
 
 The store manager role, built in `frontend/`. Branch: `feature/store-manager-frontend`.
 
-**Status:** in progress. Phases 1 to 5 are done; phases 6 to 8 are not started.
+**Status:** in progress. Phases 1 to 6 are done; phases 6b, 7 and 8 are not started.
 
 ### How to run
 
@@ -192,10 +192,10 @@ npm install
 npm run dev
 ```
 
-`/store/orders` (S1, phase 4) and `/store/deliveries` and
-`/store/deliveries/:date` (S2, phase 5) are routed so far. The full route set
-lands in phase 7: also `/store/deliveries/:date/receipt`, `/store/issues`
-(phase 6) and `/store/updates`, `/store/history` (S4, phase 6b), with a
+`/store/orders` (S1, phase 4), `/store/deliveries` and
+`/store/deliveries/:date` (S2, phase 5), and `/store/deliveries/:date/receipt`
+and `/store/issues` (S3, phase 6) are routed so far. The rest of the route set
+lands in phase 6b (`/store/updates`, `/store/history`, S4) and phase 7, with a
 dev-only state gallery at `/store/_states` and the scenario clock.
 
 Until then the screens take interim query params, read once when the app opens
@@ -211,8 +211,9 @@ Until then the screens take interim query params, read once when the app opens
   (S1.3). `form` starts with nothing placed (S1.1). `offline`, `queued`,
   `error`, `sending` and `empty` force S1.5 A, B, C and D; `empty` also leaves
   S2 with no orders (S2.S A).
-- S2 only: `?preview=loading|error|offline` forces S2.S B, D and C;
-  `?outlet=OUT009` shows OUT009's view (S2.9).
+- S2, S3 and the Issues tab: `?preview=loading|error|offline` forces S2.S B, D
+  and C and S3.S B, D and C. S2 also takes `?outlet=OUT009` (S2.9). The receipt
+  takes `?preview=asked` (S3.5) and `?report=1` (opens the report sheet).
 
 S1 examples: `?at=15:38&state=form` (S1.1), `?at=15:48&state=form` (S1.1 B),
 `?at=16:07&state=form` (S1.4), `?at=15:40` (S1.3). S1.6 is the same URL in a
@@ -234,6 +235,21 @@ S2 examples (each frame is a clock time, not a page; D = `2026-09-29`):
 | S2.9 OUT009 deferred by policy | `/store/deliveries/D?at=03:01&date=D&outlet=OUT009` |
 | S2.11 desktop | `/store/deliveries/D?at=07:28&date=D` in a window 1024 px or wider |
 
+S3 examples (R = `/store/deliveries/D/receipt`; the flows are taps, not URLs):
+
+| Frame | URL and taps |
+|---|---|
+| S3.1 to confirm | `R?at=07:28&date=D` |
+| S3.1 B shortfall | the same, then tap minus twice on ORD2001 (10 of 12) |
+| S3.2 confirmed | the same, then Confirm receipt |
+| S3.3 report sheet | the same, then Report issue |
+| S3.4 issue reported | the sheet, then Send to Dispatch |
+| S3.5 Dispatch asks | `R?at=06:41&date=D&preview=asked` |
+| S3.6 confirmed, review open | `R?at=06:41&date=D`, then Confirm receipt |
+| S3.7 Issues tab | `/store/issues?at=07:35&date=D` (after an issue: the Issues tab) |
+| S3.S A empty | `R?at=16:01` (nothing delivered yet) |
+| S3.S B, D, C | `R?at=07:28&date=D&preview=loading`, `error`, `offline` |
+
 This branch tracks **PRD v3** (`waypoint-prd-v3.md` at the repo root, which
 supersedes v2.1) and its companion `waypoint-central-context-v3.md`. Where
 the Figma frames and the spec differ, v3's source ranking applies (Figma wins
@@ -250,14 +266,14 @@ is one.
 | 3 | Order types, the 11 statuses and `statusLabel`, the `StoreApi` interface and mock with the hero fixture, cutoff and arrival-range rules | Done |
 | 4 | S1 Place order: all 15 frames (S1.1, S1.1 B, S1.2, S1.3, S1.3 B-D, S1.4, S1.4 B, S1.5 A-D, S1.6, S1.6 B), edit and cancel until 16:00, after cutoff, offline, error, sending, empty, desktop form, review modal and desktop recent-orders table. Pulled from Figma section `442:22594` on 30 Sep before starting; see the note below | Done |
 | 5 | S2 Deliveries: all 15 frames (S2.1 to S2.11, S2.S A to D), each derived from the scenario clock along the hero timeline; Under review card, deferral notices, OUT009's view, Recent, desktop with proof of delivery. Pulled from Figma section `442:24402` on 30 Sep | Done |
-| 6 | S3 Receipt and the Issues tab: confirm, shortfall, issue sheet, Dispatch asks, the open-review branch, states | Not started |
+| 6 | S3 Receipt and the Issues tab: all 12 frames (S3.1, S3.1 B, S3.2 to S3.7, S3.S A to D) at `/store/deliveries/:date/receipt` and `/store/issues`: confirm, shortfall with a reason, report-an-issue sheet, Dispatch asks, confirmed while the review is open, offline confirmation saved on the phone. The `Issue` type now uses the store's issue types. Pulled from Figma section `442:26109` on 30 Sep | Done |
 | 6b | S4 Updates and history: unread feed grouped by day (Order/Plan/Delivery/Deferral/Review tags, each row opens its source S1/S2 frame), History tab with All/Deferred/Partial filters, bell-icon entry point with unread count, states. Added to the phase plan 30 Sep after finding it built in Figma but missing from the PRD text (gap G-10) | Not started |
 | 7 | Routes, the state gallery, the scenario clock | Not started |
 | 8 | README update and a final lint, type and build pass | Not started |
 
 ### Departures from the Figma design
 
-S1 (phase 4) and S2 (phase 5) are built; S3 and S4 are not. Every visual or copy
+S1 to S3 (phases 4 to 6) are built; S4 is not. Every visual or copy
 difference between a built frame and its Figma frame, with its reason:
 
 - **The Updates bell is on every S1 screen (v3 DP-06, gap G-12).** Figma
@@ -310,6 +326,25 @@ difference between a built frame and its Figma frame, with its reason:
   delivery card. Where the phone has a frame the desktop lacks (deferral, the
   review question, the states), the phone content is shown in a centred
   480 px column under the app bar, as on S1.
+- **The receipt's top bar truncates its title.** "Receipt · ORD2001 + ORD2002"
+  fits Figma's bar, which has no bell; with the Updates bell on every screen
+  (DP-06) it shows "Receipt · ORD2001 + O…". Both IDs are on the page.
+- **The unit stepper's plus is disabled at the expected count** (S3.1 draws it
+  enabled). You cannot receive more than was delivered.
+- **The Issues tab lists reported issues, which Figma does not draw** (S3.7 is
+  the empty tab only). A row shows the order IDs, the issue tag, "2 units short"
+  and "Dispatch will follow up."; it opens that day's receipt. The "Issues"
+  heading shows only when there is a list, as the empty frame has none.
+- **"Confirm with a shortfall" opens a small reason sheet** (Missing, Damaged,
+  Wrong item, Other) before it sends. The S3 rationale says it asks for a reason;
+  no frame draws it.
+- **The photo is a placeholder.** The POD photo is the camera tile, and "Add
+  photo" on the report sheet only marks a photo as attached; the prototype has
+  no photo store.
+- **S3.5 needs Dispatch to have asked.** That is the dispatcher's "Review with
+  store first", which this build does not have, so S3.5 is shown with
+  `?preview=asked` and in the gallery. S2.7's own "Yes, we received it" and
+  "Report issue" do the same job on the phone.
 - **S2.9's headline is kept as drawn.** "Tomorrow's chilled order moved to
   Wednesday" is shown at 03:01 on the run day, where "today's" would read
   more naturally; Figma wins on copy.
@@ -397,6 +432,32 @@ just carried as static fixture values.
   timer: the screen re-reads on each minute of the clock. The store's own
   writes (Got it, "Yes, we received it", the receipt) are held per delivery
   day in the mock.
+- **S3 keeps the receipt with the delivery (PRD v3 handoff 10).** `confirmReceipt`
+  takes the count per order and an optional reason; fewer than delivered makes
+  that order Partial (A28: 10 of 12). `reportIssue` takes an issue type, the
+  affected orders and units, an optional note and photo; the order becomes Issue
+  with its tag. Neither changes the delivery's stage, so the clock still decides
+  Delivered. While the review is open (Under review) the status stays Dispatch's
+  and only the "Receipt confirmed" tag and the issue tag are added.
+- **The `Issue` type was replaced in phase 6.** Phase 3 had the driver's R6 road
+  and breakdown reasons; the store's are Missing, Short, Damaged, Wrong item,
+  Late, Arrived warm and Other (PRD v3 4b). "Short" is not a button on the
+  sheet: a Missing report on part of an order tags it Short.
+- **A49 (30 Sep, store build, phase 6).** The report sheet opens with Missing
+  chosen, the first order selected and 2 units (S3.3 draws 2 of 12); "Missing"
+  on part of an order is tagged Short (S3.4).
+- **A50.** "Confirm with a shortfall" asks for a reason on a sheet (Missing,
+  Damaged, Wrong item, Other) before sending. The order becomes Partial, and the
+  receipt shows "ORD2001 · 10 of 12 units received · Missing".
+- **A51.** S3.5 appears only when Dispatch has asked the store. On the receipt
+  route under review, with no ask, the store sees S3.1 with "Why you're seeing
+  this" and can Confirm receipt, which shows S3.6 ("No action needed from you");
+  the review stays open. S2.7's "Yes, we received it" settles the delivery for
+  the store (A47).
+- **A52.** A receipt confirmed offline is saved on the phone with the phone's
+  time (S3.S C) and sent when the connection returns; reporting an issue needs a
+  connection. The Issues tab rows (S3.7 draws only empty) are described under
+  Departures.
 - **A44 (30 Sep, store build, phase 5).** The delivery day the Deliveries tab
   looks at is today until 08:00 (the run is over) and otherwise the next
   operating day (`deliveryDayFor`); S2.S A's "No deliveries scheduled for Tue
@@ -427,6 +488,23 @@ just carried as static fixture values.
   outlet take the hero IDs ORD2001 and ORD2002.
 
 ### Shared files this role has changed
+
+Phase 6:
+
+- `components/ui/UnitStepper.tsx`: `expected` reads "/ 12" (was "of 12"), the
+  amber shortfall fill is gone (S3.1 B draws none), and a `compact` size (44 px
+  buttons) for the receipt row.
+- `components/ui/Sheet.tsx` and `.module.css`: the close button is out of the
+  flow, so the header is as tall as the title as in Figma, and focus goes to the
+  sheet on open (no ring on the close button).
+- `components/ui/Facts.module.css`: no default `dl`/`dd` margins.
+  `components/ui/Icon.tsx`: `inbox` and `store`.
+- `components/chrome/TopBar.tsx`, `PhoneLayout.tsx`: optional `placeMono` (the
+  receipt's second line in Plex Mono).
+- `domain/issue.ts` (new), `domain/delivery.ts` (`issues`, per-order `issue` and
+  `received`, `receiptBy`), `api/StoreApi.ts` and `mockStoreApi.ts`:
+  `confirmReceipt`, `reportIssue` and `listIssues` take and return the S3 shapes;
+  the phase 3 `Issue` and `ConfirmReceiptInput` types are gone.
 
 Phase 5 (each in its own commit, before the screens that use it):
 
