@@ -6,7 +6,9 @@ records sent through ``POST /sync``; there is no per-action route.
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from typing import Annotated
+
+from fastapi import APIRouter, Query
 
 from ..deps import Db, Loader
 from ..errors import not_implemented
@@ -40,10 +42,12 @@ def get_exception(exception_id: int, db: Db, user: Loader) -> LoaderExceptionOut
 
 
 @router.get("/docks/{dock}/diff", operation_id="getPlanDiff", response_model=PlanDiffOut)
-def get_plan_diff(dock: str, from_version: int, to_version: int, db: Db, user: Loader) -> PlanDiffOut:
-    """L1.5: what changed between two plan versions at this dock.
-
-    The contract names the query parameters ``from`` and ``to``; they are ``from_version`` and ``to_version``
-    here because ``from`` is a Python keyword. The real client maps them.
-    """
+def get_plan_diff(
+    dock: str,
+    from_version: Annotated[int, Query(alias="from")],
+    to_version: Annotated[int, Query(alias="to")],
+    db: Db,
+    user: Loader,
+) -> PlanDiffOut:
+    """L1.5: what changed between two plan versions at this dock (``?from=&to=`` are plan version numbers)."""
     raise not_implemented("getPlanDiff")
