@@ -182,7 +182,7 @@ See the deployed application and `/docs` for the full walkthrough.
 
 The store manager role, built in `frontend/`. Branch: `feature/store-manager-frontend`.
 
-**Status:** in progress. Phases 1 to 7 are done; phase 8 (final pass) is not started.
+**Status:** done for the hackathon scope: all four phases of the store frontend (S1 to S4) are built, verified and documented. Folder layout follows PRD v3 (see "Folder layout").
 
 ### How to run
 
@@ -283,7 +283,73 @@ is one.
 | 6 | S3 Receipt and the Issues tab: all 12 frames (S3.1, S3.1 B, S3.2 to S3.7, S3.S A to D) at `/store/deliveries/:date/receipt` and `/store/issues`: confirm, shortfall with a reason, report-an-issue sheet, Dispatch asks, confirmed while the review is open, offline confirmation saved on the phone. The `Issue` type now uses the store's issue types. Pulled from Figma section `442:26109` on 30 Sep | Done |
 | 6b | S4 Updates and history: all 7 frames (S4.1, S4.1 B, S4.2, S4.S A to D) at `/store/updates` and `/store/history`: feed grouped by day (Order/Plan/Delivery/Deferral/Review tags, each View opens its source S1/S2 state), Mark all read and All caught up, a settled review marked Resolved 06:44, History with All/Deferred/Partial filters, and the bell's unread dot on every screen. Added to the phase plan 30 Sep after finding it built in Figma but missing from the PRD text (gap G-10). Pulled from Figma section `585:40956` on 30 Sep | Done |
 | 7 | Routes, the state gallery and the scenario clock: the full route set, `/store/_states` (48 frames, each openable full screen with `?frame=`), one clock (`?at=` infers the day, `?date=` overrides) read through one `useNow()`, `data-theme="light"` on the store root, no clipping at 320 px | Done |
-| 8 | README update and a final lint, type and build pass | Not started |
+| 8 | README (walkthrough, departures, run and gallery), accessibility pass, a full browser pass of every gallery frame against Figma, the hero flow end to end, typecheck, lint and build | Done |
+
+### The store's part of the judge walkthrough (mock mode)
+
+PRD v3 section 16 steps 1, 2, 3, 6, 8, 13, 15, 16 and 17, the Anusha (store) side, in one browser
+tab with no backend. The scenario clock starts at Mon 28 Sep 15:40 and the **presenter control**
+(the floating panel, `?presenter=1`) jumps it forward to the next moment without a reload, so
+the orders placed in step 1 are still there at 07:28. It never goes backwards; Reset demo reloads.
+
+Open `http://localhost:5173/store/orders?at=15:40&state=form&presenter=1` (Vite's default port;
+`state=form` starts with nothing placed).
+
+1. **Step 1, Mon 15:40.** Orders tab: Chilled 12, Dry 8 are already set. Tap **Place 2 orders**, then
+   **Place orders**. You see S1.3: "Received 15:40", "Counts for Tue 29 Sep.", "You can edit until
+   16:00", "Arrival time is shown after the plan is released at 23:40", and the two orders
+   ORD2001 (chilled, 12 units) and ORD2002 (dry, 8 units), both Ordered. Try **Edit order** (S1.3 B,
+   C) and **Cancel order** (S1.3 D) now if you want; place the orders again to continue.
+2. **Step 2, Dispatcher.** Nothing on the store side: ORD2001 and ORD2002 are in the record the
+   dispatcher reads.
+3. **Step 3, Go to 16:01.** Deliveries tab, tap the Tue 29 Sep card: **S2.1** "Confirmed for Tue 29
+   Sep.", "Plan not released yet, arrival time follows." Both orders read Confirmed; Orders no
+   longer offers Edit order (S1 is after cutoff).
+4. **Step 6, Go to 23:41.** S2.2: arrival "from 05:30", "Truck may arrive 05:26 and wait", "Have
+   receivers ready by 05:30", Planned, on VEH039.
+5. **Step 8.** OUT009's store, deferred by policy at 03:00: open
+   `/store/deliveries/2026-09-29?at=03:01&outlet=OUT009` in a second tab (S2.9: "Tomorrow's chilled
+   order moved to Wednesday", decided by Kumari 03:00, next run Wed 30 Sep).
+6. **Steps 10 to 12, Go to 04:51, 05:11, 05:19.** S2.3 Loaded at Kandy dock 04:50 · 12 + 8 units on
+   board; S2.4 On the way, arrives about 05:26, unloading from 05:30; S2.5 the same with the muted
+   line "Last update 05:17: records arrive when the driver is back in coverage." (no alert).
+7. **Step 13, Go to 05:22.** S2.6 **Deferred at your request**: "Next run Wed 30 Sep.", Reason
+   "Receiving staff unavailable (your call at 05:20)", Decided by Kumari · 05:21, New ETA Wed 30 Sep
+   · from 05:30. The bell shows one unread. Tap **Got it**: the bell clears.
+8. **Step 15, Go to 06:41.** S2.7 **Under review** (stores never see "Conflict") with "Why you're
+   seeing this", the 05:42 proof of delivery, and "Did you receive this delivery?" (Yes, we
+   received it / Report issue).
+9. **Step 16, Go to 06:45.** S2.8 Delivered 05:42 · received by S. Fernando · 12 + 8 units, tag
+   **Deferral withdrawn**, "Wed 30 Sep re-run removed." The bell shows 2 unread.
+10. **Step 17, Go to 07:28.** Tap **Confirm receipt**: S3.1 shows the photo, S. Fernando, 05:42,
+    Nimal · VEH039 and 12 / 12, 8 / 8. Tap **Confirm receipt**: S3.2 "Receipt confirmed 07:30 ·
+    Anusha", "Who already knows: Dispatch", the whole journey done. Tap the **bell**: S4.1 lists the
+    updates from Mon 15:40 to Tue 06:44 (the review row reads "Resolved 06:44"); **Mark all read**
+    gives "All caught up". **History** (S4.2) lists Tue 29 Sep 05:42 Delivered with its tags and the
+    days before it.
+
+Branches worth showing: lower ORD2001 to 10 before confirming (S3.1 B, **Confirm with a shortfall**
+asks for a reason and the order reads Partial), **Report issue** (S3.3, S3.4, then the Issues tab
+S3.7), an order placed after 16:00 (S1.4, placed for Wed), going offline while ordering or
+confirming (S1.5 A, S3.S C; both send on reconnect), and every state in the gallery at
+`/store/_states`.
+
+### Checks run (phase 8)
+
+- `npm run typecheck`, `npm run lint` and `npm run build` are clean.
+- Every frame in the gallery (48) was rendered at its Figma size in real Chrome and compared with
+  its Figma screenshot; what still differs is under "Departures".
+- The hero flow above was run end to end through the UI in one session (place, Go to each moment,
+  Got it, Confirm receipt, the feed and History) and asserted on the visible text.
+- Accessibility: every colour pair the screens use in the Light theme is at least 4.5:1 (text) and
+  the borders at least 3:1 (script over `tokens.css`; the lowest text pair is 5.07:1); no text is
+  smaller than 12 px; interactive targets are at least 44 px (list of the exceptions under
+  "Departures"); keyboard order follows the layout, every control has a visible 3 px focus ring,
+  dialogs are Radix (focus trapped, Esc closes, focus returns); the cutoff countdown, the delivery
+  card and the S3 pages are `aria-live="polite"` regions; status never rests on colour alone (icon
+  and word on every pill; dots and tint on unread rows).
+- Nothing breaks at 320 px (no horizontal scroll; rows and chips wrap; the outlet name in the top
+  bar truncates with an ellipsis beside the bell and sync chip).
 
 ### Departures from the Figma design
 
@@ -373,6 +439,12 @@ difference between a built frame and its Figma frame, with its reason:
 - **The bell's unread dot has no number** (Figma's "Unread dot", a 10 px amber
   dot); the count is in its accessible label, "Updates, 2 unread". Phase 4
   drew a number.
+- **S1 steppers stay disabled while an order is queued offline** (S1.5 A draws them
+  enabled): editing a queued order would change what is about to be sent.
+- **S1.3's "2 orders received." toast appears only after placing,** not on a direct load
+  of the frame, because it confirms an action.
+- **Sheet and Modal keep a close button** that S1.2 and S1.6 B do not draw, for touch and
+  screen-reader users; it sits out of the flow, so the sheet is as tall as Figma's.
 - **S2.9's headline is kept as drawn.** "Tomorrow's chilled order moved to
   Wednesday" is shown at 03:01 on the run day, where "today's" would read
   more naturally; Figma wins on copy.
