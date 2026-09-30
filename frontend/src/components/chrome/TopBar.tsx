@@ -56,12 +56,19 @@ export type TopBarProps = {
   waiting?: number;
   /** The Updates bell (entry point to S4). Omit to leave it out. */
   bell?: BellProps;
+  /** A back arrow before the title, on S4 (Updates and history), which the bell opens. */
+  onBack?: () => void;
 };
 
 /** The phone top bar, 56 px, on the chrome surface. */
-export function TopBar({ outlet, place, placeMono, sync, waiting, bell }: TopBarProps) {
+export function TopBar({ outlet, place, placeMono, sync, waiting, bell, onBack }: TopBarProps) {
   return (
-    <header className={styles.topbar}>
+    <header className={[styles.topbar, onBack && styles.withBack].filter(Boolean).join(" ")}>
+      {onBack && (
+        <button type="button" className={styles.back} onClick={onBack} aria-label="Back">
+          <Icon name="chevron-left" size={24} />
+        </button>
+      )}
       <div className={styles.title}>
         <div className={styles.outlet}>{outlet}</div>
         <div className={[styles.place, placeMono && styles.placeMono].filter(Boolean).join(" ")}>{place}</div>

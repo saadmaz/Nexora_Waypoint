@@ -56,3 +56,16 @@
   background: var(--success-soft);
   color: var(--success);
 }
+
+/* Info: the Plan tag on S4's feed. */
+.info {
+  background: var(--route-soft);
+  color: var(--route);
+}
+
+/* Review: outlined amber, like the Under review pill, for S4's Review tag. */
+.review {
+  background: var(--signal-soft);
+  border-color: var(--signal);
+  color: var(--ink);
+}

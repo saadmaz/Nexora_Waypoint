@@ -11,6 +11,29 @@
 
 .title {
   min-width: 0;
+  flex: 1 1 auto;
+}
+
+/* With a back arrow the bar starts 8 px in, so the 44 px arrow sits where Figma draws it. */
+.withBack {
+  padding-left: 8px;
+}
+
+.back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: var(--size-tap-min);
+  height: var(--size-tap-min);
+  margin-block: -6px;
+  margin-right: -4px;
+  border-radius: var(--radius-md);
+  color: var(--on-chrome);
+}
+
+.back:hover {
+  background: rgba(245, 244, 240, 0.08);
 }
 
 .outlet {

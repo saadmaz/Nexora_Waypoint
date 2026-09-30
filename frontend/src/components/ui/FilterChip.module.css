@@ -1,0 +1,16 @@
+.chip {
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface-1);
+  color: var(--ink);
+  font: var(--text-button-md);
+  transition: background-color var(--duration-colour) ease, color var(--duration-colour) ease;
+}
+
+.selected {
+  border-color: var(--route);
+  background: var(--route);
+  color: var(--on-route);
+}
