@@ -19,6 +19,10 @@
   animation: slideUp 220ms ease;
 }
 
+.content:focus {
+  outline: none;
+}
+
 .grip {
   width: 36px;
   height: 4px;
@@ -39,13 +43,16 @@
   font: var(--text-h2);
 }
 
+/* Out of the flow, so the header is as tall as the title and the sheet matches Figma's. */
 .close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 44px;
   height: 44px;
-  margin: -10px -10px 0 0;
   border-radius: var(--radius-md);
   color: var(--ink-muted);
 }

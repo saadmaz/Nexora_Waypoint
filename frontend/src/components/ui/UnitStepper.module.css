@@ -53,3 +53,13 @@
   display: inline-flex;
   align-items: center;
 }
+
+.compact .step {
+  width: 44px;
+  min-height: 44px;
+}
+
+.compact .value {
+  min-width: 38px;
+  padding: 0 4px;
+}

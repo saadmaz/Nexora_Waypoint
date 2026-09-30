@@ -12,6 +12,8 @@ export type UnitStepperProps = {
   /** On the receipt, the count expected: "/ 12" beside the stepper. Lowering the count below it is a shortfall. */
   expected?: number;
   disabled?: boolean;
+  /** 44 px buttons and a narrower count, for a row that also carries a tag and a status (S3.1). */
+  compact?: boolean;
 };
 
 /**
@@ -27,13 +29,14 @@ export function UnitStepper({
   label,
   expected,
   disabled,
+  compact,
 }: UnitStepperProps) {
   const valueId = useId();
   const isShortfall = expected !== undefined && value < expected;
 
   return (
     <span className={styles.wrap}>
-      <span className={styles.stepper}>
+      <span className={[styles.stepper, compact && styles.compact].filter(Boolean).join(" ")}>
         <button
           type="button"
           className={styles.step}
