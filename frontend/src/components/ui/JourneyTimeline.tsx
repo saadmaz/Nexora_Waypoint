@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { Icon } from "./Icon";
 import styles from "./JourneyTimeline.module.css";
 
 export type JourneyStepState = "done" | "current" | "pending" | "issue" | "deferred";
@@ -28,8 +27,9 @@ const STATE_CLASS: Record<JourneyStepState, string> = {
 
 /**
  * The order's journey, vertical (S2 "Show all steps") or horizontal (a short
- * summary row). Each step shows who and when; the dot's shape and icon carry
- * the state, never colour alone.
+ * summary row). Each step shows who and when. A dot is filled when reached (green),
+ * filled amber for where the order is now, and hollow for what is still to come, so
+ * state never rests on colour alone.
  */
 export function JourneyTimeline({
   steps,
@@ -49,11 +49,7 @@ export function JourneyTimeline({
         return (
           <li className={[styles.step, STATE_CLASS[step.state]].join(" ")} key={i}>
             <span className={styles.rail}>
-              <span className={styles.dot}>
-                {step.state === "done" && <Icon name="check" size={14} />}
-                {step.state === "issue" && <Icon name="alert-circle" size={14} />}
-                {step.state === "deferred" && <Icon name="calendar-clock" size={14} />}
-              </span>
+              <span className={styles.dot} />
               {!isLast && <span className={styles.line} aria-hidden />}
             </span>
             <span className={styles.body}>

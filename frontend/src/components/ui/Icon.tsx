@@ -1,6 +1,7 @@
 import {
   AlertCircle,
   AlertTriangle,
+  ArrowRight,
   Bell,
   Calendar,
   CalendarClock,
@@ -13,6 +14,8 @@ import {
   ClipboardList,
   Clock,
   Cloud,
+  Image,
+  Info,
   Lock,
   Minus,
   Pencil,
@@ -43,10 +46,14 @@ import { tokenColor } from "./tokens";
  *   camera         Photo
  *   bell           Updates (S4), with an unread-count dot
  *   circle-check   Received
+ *   info            Why you're seeing this
+ *   image           Proof-of-delivery photo
+ *   arrow-right     Confirm receipt
  */
 const ICONS = {
   "alert-circle": AlertCircle,
   "alert-triangle": AlertTriangle,
+  "arrow-right": ArrowRight,
   bell: Bell,
   calendar: Calendar,
   "calendar-clock": CalendarClock,
@@ -59,6 +66,8 @@ const ICONS = {
   "clipboard-list": ClipboardList,
   clock: Clock,
   cloud: Cloud,
+  image: Image,
+  info: Info,
   lock: Lock,
   minus: Minus,
   pencil: Pencil,

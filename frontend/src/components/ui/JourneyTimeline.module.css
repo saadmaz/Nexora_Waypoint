@@ -15,12 +15,16 @@
   flex: 0 0 auto;
 }
 
+/* Figma draws the journey with small 12 px dots, not 24 px badges: filled green when
+   reached, filled amber for where the order is now, hollow grey for what is still to come.
+   The fill differs as well as the colour, so state never rests on colour alone. */
 .dot {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 12px;
+  height: 12px;
+  margin: 5px 0;
   border-radius: var(--radius-pill);
   border: 2px solid var(--line-strong);
   background: var(--surface-1);
@@ -31,15 +35,15 @@
 .line {
   flex: 1 1 auto;
   width: 2px;
-  min-height: 20px;
+  min-height: 8px;
   background: var(--line);
-  margin: 2px 0;
+  margin: -2px 0;
 }
 
 .body {
   flex: 1 1 auto;
   min-width: 0;
-  padding-bottom: var(--space-4);
+  padding-bottom: var(--space-2);
 }
 
 .label {
@@ -54,7 +58,7 @@
   margin-top: 2px;
 }
 
-/* Meta right-aligned on the label's row, as on S1's "What happens next". */
+/* Meta right-aligned on the label's row, as on S1's "What happens next" and S2's journey. */
 .metaRight .body {
   display: flex;
   align-items: flex-start;
@@ -66,47 +70,42 @@
   margin-top: 0;
 }
 
-/* Step states: never colour alone, since the dot also changes icon or fill. */
+/* Step states. */
 .done .dot {
   border-color: var(--success);
-  background: var(--success-soft);
-  color: var(--success);
+  background: var(--success);
+}
+
+.done .line {
+  background: var(--success);
 }
 
 .current .dot {
-  border-color: var(--route);
-  background: var(--route);
-  color: var(--on-route);
-}
-
-.current .line {
-  background: var(--route-soft);
+  border-color: var(--signal);
+  background: var(--signal);
 }
 
 .pending .dot {
-  border-color: var(--line);
-  color: var(--line-strong);
+  border-color: var(--line-strong);
+  background: var(--surface-1);
 }
 
 .pending .label {
   color: var(--ink-muted);
-  font-weight: 400;
 }
 
 .issue .dot {
   border-color: var(--danger);
-  background: var(--danger-soft);
-  color: var(--danger);
+  background: var(--danger);
 }
 
 .deferred .dot {
   border-color: var(--line-strong);
   background: var(--surface-1);
-  color: var(--ink-muted);
   border-style: dashed;
 }
 
-/* Horizontal: compact, for a short summary row above the fold. */
+/* Horizontal (desktop S2.11): the dots run along one line, each step's label and meta under its dot. */
 .horizontal {
   display: flex;
   align-items: flex-start;
@@ -115,21 +114,25 @@
 .horizontal .step {
   flex: 1 1 0;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
+  align-items: stretch;
   gap: var(--space-2);
 }
 
 .horizontal .rail {
   flex-direction: row;
+  align-items: center;
   width: 100%;
+}
+
+.horizontal .dot {
+  margin: 0;
 }
 
 .horizontal .line {
   height: 2px;
   width: auto;
   min-height: 0;
-  margin: 11px 0 0;
+  margin: 0 0 0 8px;
 }
 
 .horizontal .body {
@@ -137,5 +140,5 @@
 }
 
 .horizontal .meta {
-  margin-top: 0;
+  margin-top: 2px;
 }
