@@ -1,6 +1,7 @@
+/* On the phone the toast floats above the 64 px tab bar, as on S1.3; the desktop has no tab bar. */
 .viewport {
   position: fixed;
-  bottom: 0;
+  bottom: var(--size-tabbar);
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -12,6 +13,12 @@
   list-style: none;
   z-index: 2147483647;
   outline: none;
+}
+
+@media (min-width: 1024px) {
+  .viewport {
+    bottom: 0;
+  }
 }
 
 .toast {

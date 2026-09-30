@@ -54,6 +54,18 @@
   margin-top: 2px;
 }
 
+/* Meta right-aligned on the label's row, as on S1's "What happens next". */
+.metaRight .body {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.metaRight .meta {
+  margin-top: 0;
+}
+
 /* Step states: never colour alone, since the dot also changes icon or fill. */
 .done .dot {
   border-color: var(--success);

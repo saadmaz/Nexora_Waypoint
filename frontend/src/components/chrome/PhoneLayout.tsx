@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { BellProps } from "./BellButton";
 import { TopBar, type SyncState } from "./TopBar";
 import { TabBar } from "./TabBar";
 import { ConnectivityBar } from "./ConnectivityBar";
@@ -7,6 +8,8 @@ import styles from "./PhoneLayout.module.css";
 export type PhoneLayoutProps = {
   sync?: SyncState;
   waiting?: number;
+  /** The Updates bell in the top bar. Omit to leave it out. */
+  bell?: BellProps;
   /** The store's own offline line. Omit when the store is online. */
   connectivity?: ReactNode;
   /** A pinned action area above the tab bar. */
@@ -20,6 +23,7 @@ export type PhoneLayoutProps = {
 export function PhoneLayout({
   sync = "synced",
   waiting,
+  bell,
   connectivity,
   actions,
   hideTabs,
@@ -32,10 +36,13 @@ export function PhoneLayout({
         place="Kandy"
         sync={sync}
         {...(waiting === undefined ? {} : { waiting })}
+        {...(bell ? { bell } : {})}
       />
       {connectivity && <ConnectivityBar>{connectivity}</ConnectivityBar>}
       <main className={styles.content}>{children}</main>
-      {actions && <div className={styles.pinned}>{actions}</div>}
+      {actions && (
+        <div className={[styles.pinned, hideTabs && styles.pinnedFlush].filter(Boolean).join(" ")}>{actions}</div>
+      )}
       {!hideTabs && (
         <div className={styles.tabs}>
           <TabBar />

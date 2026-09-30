@@ -41,7 +41,7 @@ export function UnitStepper({
           type="button"
           className={styles.step}
           onClick={() => onChange(Math.max(min, value - 1))}
-          disabled={disabled ?? value <= min}
+          disabled={disabled || value <= min}
           aria-label={`Remove one ${label}`}
         >
           <Icon name="minus" size={20} />
@@ -53,7 +53,7 @@ export function UnitStepper({
           type="button"
           className={styles.step}
           onClick={() => onChange(Math.min(max, value + 1))}
-          disabled={disabled ?? value >= max}
+          disabled={disabled || value >= max}
           aria-label={`Add one ${label}`}
         >
           <Icon name="plus" size={20} />
