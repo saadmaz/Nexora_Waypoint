@@ -1021,7 +1021,7 @@ git push -u origin feature/new-feature
 
 # 🤖 29. AI Tools, Figma and Data
 
-* **AI coding tools** (Claude Code, Copilot, Cursor and the like) must read this file, especially sections 2, 18, 19, 24 and 29, and `waypoint-prd-v3.md` before changing code. This is the only rules file; there is no separate `CLAUDE.md`. Point your tool at this file at the start of each session.
+* **AI coding tools** (Claude Code, Copilot, Cursor and the like) must read this file, especially sections 2, 18, 19, 24 and 29, and `waypoint-prd-v3.md` before changing code. This is the only rules file. `CLAUDE.md` is a one-line pointer to it so Claude Code loads it automatically; other tools need to be pointed at this file at the start of each session.
   * The PRD is the spec. When a Figma frame and the PRD disagree, follow the PRD and add a row to the departures register (PRD §18).
   * Stay inside the paths your branch owns (section 2). Touching a shared contract (section 18) needs a note in the PR description.
   * Stage files by path and never run `git add .` without reading `git status` (section 8). Never commit to `main` or `develop` directly and never force push.
