@@ -27,7 +27,6 @@
   width: var(--size-tap-min);
   height: var(--size-tap-min);
   margin-block: -6px;
-  margin-right: -4px;
   border-radius: var(--radius-md);
   color: var(--on-chrome);
 }
