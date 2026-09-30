@@ -182,7 +182,7 @@ See the deployed application and `/docs` for the full walkthrough.
 
 The store manager role, built in `frontend/`. Branch: `feature/store-manager-frontend`.
 
-**Status:** in progress. Phases 1 to 4 are done; phases 5 to 8 are not started.
+**Status:** in progress. Phases 1 to 5 are done; phases 6 to 8 are not started.
 
 ### How to run
 
@@ -192,25 +192,47 @@ npm install
 npm run dev
 ```
 
-Only `/store/orders` (S1, phase 4) is routed so far. The full route set lands in
-phase 7: `/store/orders`, `/store/deliveries`,
-`/store/deliveries/:date/receipt`, `/store/issues` and `/store/updates` (S4,
-phase 6b), with a dev-only state gallery at `/store/_states` and the scenario
-clock.
+`/store/orders` (S1, phase 4) and `/store/deliveries` and
+`/store/deliveries/:date` (S2, phase 5) are routed so far. The full route set
+lands in phase 7: also `/store/deliveries/:date/receipt`, `/store/issues`
+(phase 6) and `/store/updates`, `/store/history` (S4, phase 6b), with a
+dev-only state gallery at `/store/_states` and the scenario clock.
 
-Until then `/store/orders` takes two interim query params (see
-`frontend/src/screens/orders/OrdersRoute.tsx`, to be replaced by phase 7):
+Until then the screens take interim query params, read once when the app opens
+(`frontend/src/app/StoreProvider.tsx`; phase 7 replaces them):
 
-- `?at=HH:MM` starts the clock at that time on Mon 28 Sep 2026 and lets it tick,
-  so the cutoff countdown moves and 16:00 flips the screen to the after-cutoff
-  frames. Without it the clock is real time.
-- `?state=` picks a frame. Absent: the hero orders are already received (S1.3).
-  `form` starts with nothing placed (S1.1). `offline`, `queued`, `error`,
-  `sending` and `empty` force S1.5 A (before and after tapping), B, C and D.
+- `?at=HH:MM` starts the clock at that time and lets it tick, so the cutoff
+  countdown moves, 16:00 flips S1 to the after-cutoff frames and every S2
+  status follows the hero timeline. Without it the clock is real time.
+- `?date=YYYY-MM-DD` is the day the clock starts on. Default Mon 28 Sep 2026,
+  so `?at=16:01` is the hero evening; the early-morning frames need
+  `&date=2026-09-29`.
+- `?state=` picks an S1 frame. Absent: the hero orders are already received
+  (S1.3). `form` starts with nothing placed (S1.1). `offline`, `queued`,
+  `error`, `sending` and `empty` force S1.5 A, B, C and D; `empty` also leaves
+  S2 with no orders (S2.S A).
+- S2 only: `?preview=loading|error|offline` forces S2.S B, D and C;
+  `?outlet=OUT009` shows OUT009's view (S2.9).
 
-Examples: `?at=15:38&state=form` (S1.1), `?at=15:48&state=form` (S1.1 B),
+S1 examples: `?at=15:38&state=form` (S1.1), `?at=15:48&state=form` (S1.1 B),
 `?at=16:07&state=form` (S1.4), `?at=15:40` (S1.3). S1.6 is the same URL in a
 window 1024 px or wider.
+
+S2 examples (each frame is a clock time, not a page; D = `2026-09-29`):
+
+| Frame | URL |
+|---|---|
+| S2.10 list | `/store/deliveries?at=23:41` |
+| S2.1 confirmed | `/store/deliveries/D?at=16:01` |
+| S2.2 planned + arrival | `/store/deliveries/D?at=23:41` |
+| S2.3 loaded | `/store/deliveries/D?at=04:51&date=D` |
+| S2.4 on the way | `/store/deliveries/D?at=05:11&date=D` |
+| S2.5 driver out of coverage | `/store/deliveries/D?at=05:19&date=D` |
+| S2.6 deferred at your request | `/store/deliveries/D?at=05:22&date=D` |
+| S2.7 under review | `/store/deliveries/D?at=06:41&date=D` |
+| S2.8 delivered + deferral withdrawn | `/store/deliveries/D?at=06:45&date=D` |
+| S2.9 OUT009 deferred by policy | `/store/deliveries/D?at=03:01&date=D&outlet=OUT009` |
+| S2.11 desktop | `/store/deliveries/D?at=07:28&date=D` in a window 1024 px or wider |
 
 This branch tracks **PRD v3** (`waypoint-prd-v3.md` at the repo root, which
 supersedes v2.1) and its companion `waypoint-central-context-v3.md`. Where
@@ -227,7 +249,7 @@ is one.
 | 2 | Shared primitives: Button, StatusPill, Tag, Alert, Card, Sheet, Modal, Toast, TopBar, AppBar, TabBar, ConnectivityBar, StateScreen, JourneyTimeline, Facts, DataTable | Done |
 | 3 | Order types, the 11 statuses and `statusLabel`, the `StoreApi` interface and mock with the hero fixture, cutoff and arrival-range rules | Done |
 | 4 | S1 Place order: all 15 frames (S1.1, S1.1 B, S1.2, S1.3, S1.3 B-D, S1.4, S1.4 B, S1.5 A-D, S1.6, S1.6 B), edit and cancel until 16:00, after cutoff, offline, error, sending, empty, desktop form, review modal and desktop recent-orders table. Pulled from Figma section `442:22594` on 30 Sep before starting; see the note below | Done |
-| 5 | S2 Deliveries: every state, Under review card, deferral notices, OUT009, recent orders, desktop | Not started |
+| 5 | S2 Deliveries: all 15 frames (S2.1 to S2.11, S2.S A to D), each derived from the scenario clock along the hero timeline; Under review card, deferral notices, OUT009's view, Recent, desktop with proof of delivery. Pulled from Figma section `442:24402` on 30 Sep | Done |
 | 6 | S3 Receipt and the Issues tab: confirm, shortfall, issue sheet, Dispatch asks, the open-review branch, states | Not started |
 | 6b | S4 Updates and history: unread feed grouped by day (Order/Plan/Delivery/Deferral/Review tags, each row opens its source S1/S2 frame), History tab with All/Deferred/Partial filters, bell-icon entry point with unread count, states. Added to the phase plan 30 Sep after finding it built in Figma but missing from the PRD text (gap G-10) | Not started |
 | 7 | Routes, the state gallery, the scenario clock | Not started |
@@ -235,8 +257,8 @@ is one.
 
 ### Departures from the Figma design
 
-S1 (phase 4) is built; S2 to S4 are not. Every visual or copy difference
-between a built S1 frame and its Figma frame, with its reason:
+S1 (phase 4) and S2 (phase 5) are built; S3 and S4 are not. Every visual or copy
+difference between a built frame and its Figma frame, with its reason:
 
 - **The Updates bell is on every S1 screen (v3 DP-06, gap G-12).** Figma
   draws "Bell · Updates · plain" on S1.1, S1.1 B and S1.3 only (the other 12
@@ -259,13 +281,43 @@ between a built S1 frame and its Figma frame, with its reason:
   placing, editing, cancelling or after the cutoff on desktop, the phone
   content is shown in a centred 480 px column under the app bar, since no
   wide frame exists for those states.
-- **Primitive-level differences, inherited from phase 2:** the sync chip is
-  filled where Figma outlines it; alert body text is 13 px where Figma uses
-  15 px; the "What happens next" dots are 24 px with regular-weight pending
-  labels where Figma's are smaller and heavier; Sheet and Modal carry a close
-  button that S1.2 and S1.6 B do not draw. Each is a small change in the
-  primitive if the team wants an exact match, and would then apply to S2 and
-  S3 as well.
+- **Primitive-level differences, inherited from phase 2:** Sheet and Modal
+  carry a close button that S1.2 and S1.6 B do not draw. *Fixed in phase 5,
+  once, in the shared primitives (see "Shared files"):* the sync chip is now
+  outlined; alert body text is 15 px; the journey dots are 12 px with an amber
+  current marker; the pinned bar is white; the connectivity bar is the dark
+  bar with an amber icon; state screens use the 64 px tile; the desktop nav
+  is text with an amber underline; the top bar's outlet line is 22 px so the
+  bar is 56 px tall.
+- **S2.10 and the Fri 25 / Thu 24 swap (v3 DP-05, G-10, A35).** Figma S2.10
+  draws Thu 24 as "Deferred · policy" and Fri 25 as "Delivered 05:38"; the
+  build swaps them, and moves the order count and delivery time with their
+  rows: Fri 25 Sep is "1 order, Deferred · policy → served next day", Thu 24
+  Sep is "2 orders, Delivered 05:38".
+- **S2.10 summary card wraps.** "ORD2001 · ORD2002 · arrives from 05:30" sits
+  on the pill's row in Figma but overflows the card at 390 px, so it wraps to
+  a second line here.
+- **The Updates bell shows on S2.9, S2.S A to D and the S2 desktop bar (v3
+  DP-06, G-12).** Figma omits it there. It is drawn plain; the unread count
+  (S2.6 to S2.8 draw a dot with no number) lands with S4 in phase 6b.
+- **The Offline sync chip is in Archivo, not Plex Mono.** With the bell (DP-06)
+  a mono "Offline" pushes the outlet name into an ellipsis on a 390 px bar.
+- **S2.S C shows the saved summary only.** Offline, the card keeps the orders and
+  the "On the way" tile and drops the receivers cue, the coverage line and
+  the journey, as the frame does; the bar reads "Showing deliveries as of
+  HH:MM, reconnect for updates." with the time the screen last loaded.
+- **S2.11 has no Recent table in Figma.** The build adds the S1.6 table under the
+  delivery card. Where the phone has a frame the desktop lacks (deferral, the
+  review question, the states), the phone content is shown in a centred
+  480 px column under the app bar, as on S1.
+- **S2.9's headline is kept as drawn.** "Tomorrow's chilled order moved to
+  Wednesday" is shown at 03:01 on the run day, where "today's" would read
+  more naturally; Figma wins on copy.
+- **Times in body text are Plex Mono at the surrounding weight.** Figma sets
+  them at 500; the shared `Mono` inherits, so a time in 400-weight text looks
+  a little lighter.
+- **Confirm receipt and Report issue lead to the S3 route,** which is not built
+  until phase 6; until then they land on `/store/orders`.
 - **Frames with no inbound link stay that way.** S1.5 B (error) and S1.5 D
   (no orders yet) are orphans in Figma (PRD gap G-3). Error is reachable for
   real when the API rejects; "no orders yet" appears via `?state=empty` and
@@ -273,7 +325,7 @@ between a built S1 frame and its Figma frame, with its reason:
   wording.
 
 Copy and behaviour Figma does not draw, added because the flow needs it (also
-in PRD v3 4d, A43): "Orders closed at 16:00 / This order can no longer be edited
+in PRD v3 4d, A43 for S1 and A44 to A48 for S2, listed under "Assumptions"): "Orders closed at 16:00 / This order can no longer be edited
 or cancelled." when an edit or cancel is refused as the cutoff passes; "Place 1
 order" and a disabled "Place orders" when fewer than two, or no, orders are
 filled in; a line lowered to 0 is cancelled on Save changes, and Save is
@@ -335,12 +387,73 @@ just carried as static fixture values.
   45 kg / 0.6 m³ per 8 dry), which reproduces S1.3 B (10 units is about
   58 kg / 0.6 m³). Recorded as A42 in PRD v3 4d; the real backend supplies
   per-outlet factors (A14).
+- **S2 follows the clock and the record (PRD v3 handoff 14).**
+  `listDeliveries` derives each day's status from the scenario clock along the
+  hero timeline: 16:00 Confirmed, 23:40 Planned with the arrival range,
+  04:50 Loaded, 05:10 Departed, 05:17 driver out of coverage (a muted line),
+  05:21 Deferred · store request, 06:40 Under review, 06:44 Delivered with
+  Deferral withdrawn. The timeline applies to ORD2001 and ORD2002 for Tue 29
+  Sep; any other day advances only to Confirmed and Planned. Nothing uses a
+  timer: the screen re-reads on each minute of the clock. The store's own
+  writes (Got it, "Yes, we received it", the receipt) are held per delivery
+  day in the mock.
+- **A44 (30 Sep, store build, phase 5).** The delivery day the Deliveries tab
+  looks at is today until 08:00 (the run is over) and otherwise the next
+  operating day (`deliveryDayFor`); S2.S A's "No deliveries scheduled for Tue
+  29 Sep" uses it. The interim clock takes `?date=`.
+- **A45.** The journey shows only the steps reached, behind "Show all steps",
+  while two or fewer are reached (S2.1); from Planned every step is listed
+  (S2.2 to S2.8). Ordered and Confirmed are green; the amber marker starts at
+  Planned; once Delivered, Receipt confirmed is the amber step (it waits on
+  the store), as S2.8 and S2.11 draw it.
+- **A46.** After Got it on a deferral, the button becomes a disabled "Dispatch
+  has seen this" (Figma draws no after-state). The S2.6 caption "Dispatch sees
+  when you tap Got it." is shown for store-request deferrals only, as the
+  frames do.
+- **A47.** Answering "Yes, we received it" on S2.7 settles the delivery for
+  the store at once: Delivered 05:42 with Deferral withdrawn (S2.8), without
+  waiting for Dispatch at 06:44. The review stays Dispatch's to close.
+- **A48.** S2 wording Figma does not draw: an Ordered day reads "Confirmed at
+  16:00 when orders close." (S1's line); the S2.10 summary card's second line
+  reads "arrives from HH:MM", "delivered HH:MM", "next run Wed 30 Sep",
+  "Dispatch is reviewing" or "arrival time follows" by status; a deferred
+  day's pill on that card carries its type and next run.
+- **OUT009 (S2.9).** The mock holds one order for OUT009, ORD1002 (chilled, 35
+  units, window 04:00 to 07:45, PRD v3 4c), deferred by policy at 03:00 by
+  Kumari. Only OUT084 can place orders.
 - **`createMockStoreApi(now, { seed })`.** `seed: "placed"` (default) holds the
   hero orders already received at 15:40; `seed: "empty"` holds nothing, so S1.1
   can be walked through, and the first chilled and dry orders placed for the
   outlet take the hero IDs ORD2001 and ORD2002.
 
 ### Shared files this role has changed
+
+Phase 5 (each in its own commit, before the screens that use it):
+
+- `components/ui/JourneyTimeline.tsx` and `.module.css`: 12 px dots (green
+  reached, amber current with an ink ring, hollow pending), short connectors,
+  meta in Archivo so callers wrap times in `<Mono>`; the horizontal variant
+  (S2.11) lines the dots up on one rail. `ReceivedView` (S1) wraps its times.
+- `components/ui/Icon.tsx`: added `info`, `image`, `arrow-right`.
+- `components/ui/Alert.module.css`: body text 15 px. `Facts.tsx`: `ruled`
+  variant. `StateScreen.module.css`: 64 px tile, 22 px title, centred action.
+- `components/chrome/PhoneLayout.tsx`: optional `outlet` and `place` (S2.9 is
+  OUT009's view). `PhoneLayout.module.css`: white pinned bar.
+- `components/chrome/TopBar.module.css`: outlined sync chip (Offline keeps it
+  outlined with an amber icon), 22 px outlet line. `ConnectivityBar`: dark
+  bar with an amber icon, and its text is one flex item so inline times do not
+  split. `AppBar`: text nav with an amber underline, "Waypoint" in bold.
+- `domain/delivery.ts` (new), `domain/order.ts` (`RecentOrderDay` gains
+  `deliveredAt`, `shortUnits`, `servedNextDay`), `domain/schedule.ts`
+  (`deliveryDayFor`).
+- `api/StoreApi.ts`, `mockStoreApi.ts`, new `mockDeliveries.ts`:
+  `listDeliveries`, `acknowledgeDeferral` and `answerReceivedQuestion`;
+  `listRecent(outletId, { limit, before })` now lists Mon 28 to Mon 21 per A35
+  (S1.6 passes `before` = today so its list is unchanged).
+- `app/StoreContext.ts`, `StoreProvider.tsx`, `scenarioClock.ts`, `App.tsx`,
+  `screens/orders/OrdersRoute.tsx`: one API and one clock for every route.
+
+Phase 4:
 
 - `frontend/src/components/chrome/TopBar.tsx`, `AppBar.tsx`,
   `PhoneLayout.tsx` and new `BellButton.tsx`: an optional `bell` slot (the
