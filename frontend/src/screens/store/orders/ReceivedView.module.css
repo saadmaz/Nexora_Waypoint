@@ -1,0 +1,93 @@
+.ack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--success-soft);
+  color: var(--ink);
+}
+
+.ackHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.ackTitle {
+  font: var(--text-h2);
+}
+
+.counts {
+  font: var(--text-body);
+  color: var(--ink);
+}
+
+/* The two orders sit on a plain white panel inside the green acknowledgement, as Figma draws it. */
+.orders {
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  color: var(--ink);
+}
+
+.orderList {
+  display: flex;
+  flex-direction: column;
+  padding: 0 var(--space-3);
+}
+
+.order {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+}
+
+.order + .order {
+  border-top: 1px solid var(--line);
+}
+
+.orderTop {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font: var(--text-data);
+}
+
+.units {
+  margin-top: var(--space-1);
+  font: var(--text-body-sm);
+  color: var(--ink-muted);
+}
+
+.note {
+  font: var(--text-body-sm);
+  color: var(--ink-muted);
+}
+
+.facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font: var(--text-body);
+}
+
+.facts li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.facts li > :first-child {
+  flex: 0 0 auto;
+  margin-top: 3px;
+}
+
+.next {
+  margin-bottom: var(--space-3);
+  font: var(--text-label);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
