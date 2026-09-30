@@ -64,3 +64,10 @@ def test_reset_returns_to_the_checkpoint(client, auth, reseed):
     assert res.status_code == 200, res.text
     assert res.json()["seeded"] is True
     assert _now(client, auth) == CHECKPOINT
+
+
+def test_reset_is_dispatcher_only(client, auth):
+    for role in ("store", "loader", "driver"):
+        res = client.post("/api/v1/demo/reset", headers=auth(role))
+        assert res.status_code == 403, role
+        assert res.json()["code"] == "forbidden"
