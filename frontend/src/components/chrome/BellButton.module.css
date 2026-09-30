@@ -18,18 +18,14 @@
   background: rgba(245, 244, 240, 0.08);
 }
 
+/* Figma's "Unread dot": a 10 px amber dot at the bell's top right, no number. The count is in the label. */
 .dot {
   position: absolute;
-  top: 4px;
-  right: 2px;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 4px;
+  top: 8px;
+  right: 9px;
+  width: 10px;
+  height: 10px;
   border-radius: var(--radius-pill);
   background: var(--signal);
-  color: var(--on-signal);
-  font: var(--text-data);
-  font-size: 12px;
-  line-height: 18px;
-  text-align: center;
+  border: 1px solid var(--chrome);
 }

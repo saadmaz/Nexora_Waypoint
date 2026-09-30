@@ -9,7 +9,9 @@ export type TagKind =
   | "outline"
   | "warn"
   | "danger"
-  | "success";
+  | "success"
+  | "info"
+  | "review";
 
 export type TagProps = {
   kind?: TagKind;
@@ -28,6 +30,8 @@ const KIND_CLASS: Record<TagKind, string> = {
   warn: styles.warn,
   danger: styles.danger,
   success: styles.success,
+  info: styles.info,
+  review: styles.review,
 };
 
 /**

@@ -16,6 +16,8 @@ export type PhoneLayoutProps = {
   waiting?: number;
   /** The Updates bell in the top bar. Omit to leave it out. */
   bell?: BellProps;
+  /** A back arrow in the top bar (S4). */
+  onBack?: () => void;
   /** The store's own offline line. Omit when the store is online. */
   connectivity?: ReactNode;
   /** A pinned action area above the tab bar. */
@@ -33,6 +35,7 @@ export function PhoneLayout({
   sync = "synced",
   waiting,
   bell,
+  onBack,
   connectivity,
   actions,
   hideTabs,
@@ -47,6 +50,7 @@ export function PhoneLayout({
         sync={sync}
         {...(waiting === undefined ? {} : { waiting })}
         {...(bell ? { bell } : {})}
+        {...(onBack ? { onBack } : {})}
       />
       {connectivity && <ConnectivityBar>{connectivity}</ConnectivityBar>}
       <main className={styles.content}>{children}</main>
