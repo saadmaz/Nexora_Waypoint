@@ -32,19 +32,24 @@
   gap: 6px;
   flex: 0 0 auto;
   min-height: 32px;
-  padding: 8px 12px;
+  padding: 8px 10px;
   border: 1px solid var(--on-chrome-muted);
   border-radius: var(--radius-pill);
   background: transparent;
   color: var(--on-chrome);
   font: var(--text-body-sm);
-  font-weight: 600;
+  font-weight: 500;
 }
 
+/* Offline and Pending sync stay outlined on the dark bar, with an amber icon and the label in
+   Plex Mono, as S1.5 A and S2.S C draw them. */
 .chipOffline {
-  border-color: transparent;
-  background: var(--offline-soft);
-  color: var(--offline);
+  color: var(--on-chrome);
+  font-family: var(--font-mono);
+}
+
+.chipOffline svg {
+  color: var(--signal);
 }
 
 .chipSending .spin {
