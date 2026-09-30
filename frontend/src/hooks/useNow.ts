@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
+import { useStore } from "../app/StoreContext";
 
 /**
- * The current time from a `now` function, refreshed every `everyMs`. Give it a stable
- * `now`; a new one is picked up on the next tick. Screens take
- * `now` rather than calling Date directly so the scenario clock (?at=HH:MM,
- * phase 7) can drive the cutoff countdown.
+ * The current scenario time, refreshed every `everyMs`. The one hook every screen reads "now"
+ * from: it takes the clock from the StoreProvider, so nothing else reads the wall clock.
  */
-export function useNow(now: () => Date, everyMs = 15_000): Date {
+export function useNow(everyMs = 15_000): Date {
+  const { now } = useStore();
   const [value, setValue] = useState(now);
   useEffect(() => {
     const id = window.setInterval(() => setValue(now()), everyMs);

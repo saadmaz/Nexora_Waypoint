@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import type { StoreApi } from "../../api/StoreApi";
 import { AppBar } from "../../components/chrome/AppBar";
 import { ConnectivityBar } from "../../components/chrome/ConnectivityBar";
 import { PhoneLayout } from "../../components/chrome/PhoneLayout";
@@ -32,14 +31,12 @@ import { ShortfallSheet, type ShortfallReason } from "./ShortfallSheet";
 
 /**
  * Forces a state frame for the dev server and the gallery: S3.S B, D and C (loading, error,
- * offline with a confirmation saved), and S3.5 (Dispatch asks the store), which needs the
- * dispatcher's "Review with store first" to happen for real.
+ * offline with a confirmation saved), S3.1 B (a shortfall counted), and S3.5 (Dispatch asks the
+ * store), which needs the dispatcher's "Review with store first" to happen for real.
  */
-export type ReceiptPreview = "loading" | "error" | "offline" | "asked";
+export type ReceiptPreview = "loading" | "error" | "offline" | "asked" | "shortfall";
 
 export type ReceiptPageProps = {
-  api: StoreApi;
-  now?: () => Date;
   outletId?: string;
   /** ISO date of the delivery day. */
   date: string;
@@ -51,25 +48,24 @@ export type ReceiptPageProps = {
 type Loaded = { delivery: Delivery | undefined };
 type Queued = { at: string; lines: { orderId: string; received: number }[]; reason?: string };
 
-const realNow = () => new Date();
-
 /**
  * S3 Receipt. One route for every frame: confirm what arrived (S3.1), with a shortfall (S3.1 B),
  * report an issue (S3.3), then what Dispatch and the store know (S3.2, S3.4, S3.6), Dispatch's
  * question (S3.5), and the empty, loading, offline and error states (S3.S).
  */
-export function ReceiptPage({ api, now = realNow, outletId = OUTLET.id, date, preview, openReport }: ReceiptPageProps) {
+export function ReceiptPage({ outletId = OUTLET.id, date, preview, openReport }: ReceiptPageProps) {
   const navigate = useNavigate();
-  const { unread } = useStore();
+  const { api, now, unread } = useStore();
   const desktop = useMediaQuery("(min-width: 1024px)");
-  const currentTime = useNow(now);
+  const currentTime = useNow();
   const browserOnline = useOnline();
   const online = browserOnline && preview !== "offline";
 
   const [data, setData] = useState<Loaded | null>(null);
   const [failed, setFailed] = useState(preview === "error");
   const [attempt, setAttempt] = useState(0);
-  const [counts, setCounts] = useState<Record<string, number>>({});
+  // S3.1 B starts with ORD2001 counted at 10 of 12 (A28).
+  const [counts, setCounts] = useState<Record<string, number>>(preview === "shortfall" ? { ORD2001: 10 } : {});
   const [busy, setBusy] = useState(false);
   const [reportOpen, setReportOpen] = useState(Boolean(openReport));
   const [shortfallOpen, setShortfallOpen] = useState(false);

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import type { StoreApi } from "../../api/StoreApi";
 import { AppBar } from "../../components/chrome/AppBar";
 import { ConnectivityBar } from "../../components/chrome/ConnectivityBar";
 import { PhoneLayout } from "../../components/chrome/PhoneLayout";
@@ -31,8 +30,6 @@ import { ReceiptQuestion, ReviewNotice } from "./ReviewNotice";
 export type DeliveriesPreview = "loading" | "error" | "offline";
 
 export type DeliveriesPageProps = {
-  api: StoreApi;
-  now?: () => Date;
   /** Whose deliveries. OUT009 is the S2.9 view of a store deferred by policy. */
   outletId?: string;
   /** One day's delivery (S2.1 to S2.9, S2.11). Without it the page lists the days and Recent (S2.10). */
@@ -42,17 +39,15 @@ export type DeliveriesPageProps = {
 
 type Loaded = { deliveries: Delivery[]; recent: RecentOrderDay[]; at: string };
 
-const realNow = () => new Date();
-
 /**
  * S2 Deliveries. One route for every frame: which one shows follows from the delivery the
  * API derives from the order record and the clock, and from the connection (S2.S).
  */
-export function DeliveriesPage({ api, now = realNow, outletId = OUTLET.id, date, preview }: DeliveriesPageProps) {
+export function DeliveriesPage({ outletId = OUTLET.id, date, preview }: DeliveriesPageProps) {
   const navigate = useNavigate();
-  const { unread, refreshUnread } = useStore();
+  const { api, now, unread, refreshUnread } = useStore();
   const desktop = useMediaQuery("(min-width: 1024px)");
-  const currentTime = useNow(now);
+  const currentTime = useNow();
   const browserOnline = useOnline();
   const online = browserOnline && preview !== "offline";
 

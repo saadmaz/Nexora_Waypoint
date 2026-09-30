@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import type { StoreApi } from "../../api/StoreApi";
 import { useStore } from "../../app/StoreContext";
 import { AppBar } from "../../components/chrome/AppBar";
 import { ConnectivityBar } from "../../components/chrome/ConnectivityBar";
@@ -31,8 +30,6 @@ import styles from "./UpdatesPage.module.css";
 export type UpdatesPreview = "loading" | "error" | "offline";
 
 export type UpdatesPageProps = {
-  api: StoreApi;
-  now?: () => Date;
   outletId?: string;
   /** Which segment: the feed (S4.1) or past delivery days (S4.2). */
   view: "updates" | "history";
@@ -43,19 +40,17 @@ type Loaded = { feed: UpdatesFeed; recent: RecentOrderDay[]; at: string };
 type Filter = "All" | "Deferred" | "Partial";
 const FILTERS: Filter[] = ["All", "Deferred", "Partial"];
 
-const realNow = () => new Date();
-
 /**
  * S4 Updates and history, entered from the bell. The Updates segment is every change the order
  * record sends the store, newest first, grouped by day, with unread and "Mark all read". The
  * History segment is past delivery days, Monday to Saturday, filtered All, Deferred or Partial.
  */
-export function UpdatesPage({ api, now = realNow, outletId = OUTLET.id, view, preview }: UpdatesPageProps) {
+export function UpdatesPage({ outletId = OUTLET.id, view, preview }: UpdatesPageProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { refreshUnread } = useStore();
+  const { api, now, refreshUnread } = useStore();
   const desktop = useMediaQuery("(min-width: 1024px)");
-  const currentTime = useNow(now);
+  const currentTime = useNow();
   const browserOnline = useOnline();
   const online = browserOnline && preview !== "offline";
 

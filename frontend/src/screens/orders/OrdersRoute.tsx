@@ -1,20 +1,18 @@
 import { useSearchParams } from "react-router-dom";
-import { useStore } from "../../app/StoreContext";
 import { OrdersPage, type OrdersPreview } from "./OrdersPage";
 
-const PREVIEWS: OrdersPreview[] = ["offline", "queued", "error", "sending", "empty"];
+const PREVIEWS: OrdersPreview[] = ["offline", "queued", "error", "sending", "empty", "review", "edit", "cancelled"];
 
 /**
- * /store/orders. Wires the page to the shared API and clock. `?state=` picks a frame: "form"
- * starts with nothing placed (S1.1), "offline", "queued", "error", "sending" and "empty"
- * force S1.5 A to D, and no state shows the hero orders already received (S1.3). The clock
- * (`?at=15:38`) and the seed come from the StoreProvider. Interim, until phase 7.
+ * /store/orders. `?state=` picks a frame: "form" starts with nothing placed (S1.1), "review" opens
+ * the review (S1.2, S1.6 B), "edit" opens the edit form at 10 units (S1.3 B), "cancelled" is
+ * S1.3 D, and "offline", "queued", "error", "sending" and "empty" force S1.5 A to D. No state
+ * shows the hero orders already received (S1.3). The API and the clock come from the StoreProvider.
  */
 export function OrdersRoute() {
   const [params] = useSearchParams();
   const state = params.get("state");
-  const { api, now } = useStore();
   const preview = PREVIEWS.find((p) => p === state);
 
-  return <OrdersPage key={state ?? ""} api={api} now={now} {...(preview ? { preview } : {})} />;
+  return <OrdersPage key={state ?? ""} {...(preview ? { preview } : {})} />;
 }

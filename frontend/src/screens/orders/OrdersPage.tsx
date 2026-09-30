@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { CutoffError, type StoreApi } from "../../api/StoreApi";
+import { CutoffError } from "../../api/StoreApi";
 import { AppBar } from "../../components/chrome/AppBar";
 import { PhoneLayout } from "../../components/chrome/PhoneLayout";
 import { SyncChip, type SyncState } from "../../components/chrome/TopBar";
@@ -39,15 +39,13 @@ import styles from "./OrdersPage.module.css";
 const KINDS: OrderKind[] = ["chilled", "dry"];
 
 /**
- * Forces one of the state frames for the gallery and the dev server: S1.5 A
- * (offline, and queued), B (error), C (sending) and D (empty).
+ * Forces one of the state frames for the gallery and the dev server: S1.5 A (offline, and queued),
+ * B (error), C (sending) and D (empty), S1.2 and S1.6 B (the review open), S1.3 B (edit order at
+ * 10 units, A25) and S1.3 D (cancelled).
  */
-export type OrdersPreview = "offline" | "queued" | "error" | "sending" | "empty";
+export type OrdersPreview = "offline" | "queued" | "error" | "sending" | "empty" | "review" | "edit" | "cancelled";
 
 export type OrdersPageProps = {
-  api: StoreApi;
-  /** The clock. The scenario clock (?at=HH:MM) supplies this from phase 7. */
-  now?: () => Date;
   preview?: OrdersPreview;
 };
 
@@ -55,8 +53,6 @@ type Mode = "view" | "edit" | "cancelled";
 type Submit = "idle" | "sending" | "error" | "queued";
 type Line = { kind: OrderKind; units: number };
 type Quantities = Record<OrderKind, number>;
-
-const realNow = () => new Date();
 
 /** Stand-in while the form loads; never shown, because loading renders a skeleton. */
 const NO_FACTORS: UnitFactors = { chilled: { kg: 0, m3: 0 }, dry: { kg: 0, m3: 0 } };
@@ -79,21 +75,21 @@ function toInput(line: Line, deliveryDate: string, factors: UnitFactors): NewOrd
  * the acknowledgement, edit, cancelled, and the after-cutoff frames from the
  * orders the API holds and the clock, and lays them out for phone or desktop.
  */
-export function OrdersPage({ api, now = realNow, preview }: OrdersPageProps) {
+export function OrdersPage({ preview }: OrdersPageProps) {
   const navigate = useNavigate();
-  const { unread } = useStore();
+  const { api, now, unread } = useStore();
   const toast = useToast();
   const desktop = useMediaQuery("(min-width: 1024px)");
-  const currentTime = useNow(now);
+  const currentTime = useNow();
   const browserOnline = useOnline();
   const online = browserOnline && preview !== "offline" && preview !== "queued";
 
   // The API's order form for the target day: window, unit factors, starting quantities, placed orders.
   const [day, setDay] = useState<OrderDraft | null>(null);
   const [recent, setRecent] = useState<RecentOrderDay[]>([]);
-  const [mode, setMode] = useState<Mode>("view");
+  const [mode, setMode] = useState<Mode>(preview === "edit" ? "edit" : preview === "cancelled" ? "cancelled" : "view");
   // What the store has typed into the steppers; until then the API's starting quantities.
-  const [edited, setEdited] = useState<Quantities | null>(null);
+  const [edited, setEdited] = useState<Quantities | null>(preview === "edit" ? { chilled: 10, dry: 8 } : null);
   const [submit, setSubmit] = useState<Submit>(
     preview === "sending" ? "sending" : preview === "error" ? "error" : preview === "queued" ? "queued" : "idle",
   );
@@ -104,7 +100,7 @@ export function OrdersPage({ api, now = realNow, preview }: OrdersPageProps) {
     queuedRef.current = value;
     setQueuedState(value);
   }, []);
-  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(preview === "review");
   const [closedNotice, setClosedNotice] = useState(false);
 
   const target = operatingDayFor(currentTime);

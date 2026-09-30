@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { StoreApi } from "../../api/StoreApi";
 import { AppBar } from "../../components/chrome/AppBar";
 import { ConnectivityBar } from "../../components/chrome/ConnectivityBar";
 import { PhoneLayout } from "../../components/chrome/PhoneLayout";
@@ -27,20 +26,16 @@ import styles from "./IssuesPage.module.css";
 export type IssuesPreview = "loading" | "error" | "offline";
 
 export type IssuesPageProps = {
-  api: StoreApi;
-  now?: () => Date;
   outletId?: string;
   preview?: IssuesPreview;
 };
 
-const realNow = () => new Date();
-
 /** The Issues tab (S3.7): the problems the store has reported, or "No open issues". */
-export function IssuesPage({ api, now = realNow, outletId = OUTLET.id, preview }: IssuesPageProps) {
+export function IssuesPage({ outletId = OUTLET.id, preview }: IssuesPageProps) {
   const navigate = useNavigate();
-  const { unread } = useStore();
+  const { api, now, unread } = useStore();
   const desktop = useMediaQuery("(min-width: 1024px)");
-  const currentTime = useNow(now);
+  const currentTime = useNow();
   const browserOnline = useOnline();
   const online = browserOnline && preview !== "offline";
 
