@@ -1,15 +1,14 @@
 import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
-import { Icon, type IconName } from "../ui/Icon";
 import { BellButton, type BellProps } from "./BellButton";
 import styles from "./AppBar.module.css";
 
-type NavItem = { to: string; label: string; icon: IconName };
+type NavItem = { to: string; label: string };
 
 const NAV: NavItem[] = [
-  { to: "/store/orders", label: "Orders", icon: "clipboard-list" },
-  { to: "/store/deliveries", label: "Deliveries", icon: "truck" },
-  { to: "/store/issues", label: "Issues", icon: "alert-circle" },
+  { to: "/store/orders", label: "Orders" },
+  { to: "/store/deliveries", label: "Deliveries" },
+  { to: "/store/issues", label: "Issues" },
 ];
 
 /**
@@ -22,7 +21,9 @@ export function AppBar({ right, bell }: { right?: ReactNode; bell?: BellProps })
     <header className={styles.appbar}>
       <span className={styles.brand}>
         <span className={styles.diamond} aria-hidden />
-        <span className={styles.brandText}>Waypoint Store</span>
+        <span className={styles.brandText}>
+          <strong>Waypoint</strong> Store
+        </span>
       </span>
       <nav className={styles.nav} aria-label="Primary">
         {NAV.map((item) => (
@@ -33,7 +34,6 @@ export function AppBar({ right, bell }: { right?: ReactNode; bell?: BellProps })
               [styles.navItem, isActive && styles.navCurrent].filter(Boolean).join(" ")
             }
           >
-            <Icon name={item.icon} size={16} />
             {item.label}
           </NavLink>
         ))}
