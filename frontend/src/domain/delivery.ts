@@ -22,6 +22,11 @@ export function storeArrival(predicted: string, windowStart: string): ArrivalRan
   return predicted < windowStart ? { from: windowStart, mayArriveAt: predicted } : { from: predicted };
 }
 
+/** "12 + 8": the units on each order of a delivery, in order. */
+export function unitsSum(delivery: Pick<Delivery, "orders">): string {
+  return delivery.orders.map((order) => order.units).join(" + ");
+}
+
 /** The seven steps of the journey, in order (S2 "Show all steps"). */
 export const JOURNEY_STEPS = [
   "Ordered",
@@ -56,15 +61,20 @@ export type JourneyStep = {
 };
 
 /**
- * Builds the journey from the times each step happened. The step the order is at is
- * `current`; once the truck has delivered, the step that is waiting on the store,
+ * Builds the journey from the times each step happened. From Planned on, the step the order
+ * is at is `current`; once the truck has delivered, the step that is waiting on the store,
  * Receipt confirmed, becomes the current one (S2.8, S2.11).
  */
 export function buildJourney(times: Partial<Record<JourneyStepName, string>>): JourneyStep[] {
   const reached = JOURNEY_STEPS.filter((step) => times[step] !== undefined);
   const last = reached.at(-1);
+  // Ordered and Confirmed stay green: the amber marker starts once the plan is out (S2.1 against S2.2).
   const current: JourneyStepName | undefined =
-    last === "Delivered" ? "Receipt confirmed" : last === "Receipt confirmed" ? undefined : last;
+    last === "Delivered"
+      ? "Receipt confirmed"
+      : last === "Receipt confirmed" || last === "Ordered" || last === "Confirmed"
+        ? undefined
+        : last;
 
   return JOURNEY_STEPS.map((step) => {
     const at = times[step];
