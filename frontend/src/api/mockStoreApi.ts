@@ -155,7 +155,7 @@ export type MockStoreApiOptions = {
  * that function from phase 7 onward. Defaults to real time.
  */
 export function createMockStoreApi(
-  now: () => Date = () => new Date(),
+  now: () => Date,
   { seed = "placed" }: MockStoreApiOptions = {},
 ): StoreApi {
   const orders = new Map((seed === "placed" ? heroFixture() : []).map((order) => [order.id, order]));

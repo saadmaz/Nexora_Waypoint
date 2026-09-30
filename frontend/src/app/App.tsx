@@ -1,31 +1,20 @@
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-import { DeliveriesRoute } from "../screens/deliveries/DeliveriesRoute";
-import { IssuesRoute } from "../screens/issues/IssuesRoute";
-import { OrdersRoute } from "../screens/orders/OrdersRoute";
-import { ReceiptRoute } from "../screens/receipt/ReceiptRoute";
-import { UpdatesRoute } from "../screens/updates/UpdatesRoute";
+import { BrowserRouter } from "react-router-dom";
 import { StoreProvider } from "./StoreProvider";
+import { StoreRoot } from "./StoreRoot";
+import { StoreRoutes } from "./StoreRoutes";
 
 /**
- * Waypoint Store. /store/orders (phase 4) and /store/deliveries (phase 5) are routed so far;
- * the rest of the route set lands with its phase and phase 7.
+ * Waypoint Store: the full route set (PRD v3 section 15) under one API and one scenario clock, in
+ * a root that sets the Light theme.
  */
 export default function App() {
   return (
-    <StoreProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Navigate to="/store/orders" replace />} />
-          <Route path="/store/orders" element={<OrdersRoute />} />
-          <Route path="/store/deliveries" element={<DeliveriesRoute />} />
-          <Route path="/store/deliveries/:date" element={<DeliveriesRoute />} />
-          <Route path="/store/deliveries/:date/receipt" element={<ReceiptRoute />} />
-          <Route path="/store/issues" element={<IssuesRoute />} />
-          <Route path="/store/updates" element={<UpdatesRoute view="updates" />} />
-          <Route path="/store/history" element={<UpdatesRoute view="history" />} />
-          <Route path="*" element={<Navigate to="/store/orders" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </StoreProvider>
+    <BrowserRouter>
+      <StoreProvider>
+        <StoreRoot>
+          <StoreRoutes />
+        </StoreRoot>
+      </StoreProvider>
+    </BrowserRouter>
   );
 }
