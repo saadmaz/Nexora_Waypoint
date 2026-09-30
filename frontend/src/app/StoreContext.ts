@@ -10,6 +10,12 @@ export type StoreContextValue = {
   unread: number;
   /** Re-reads the unread count now, after the store has read something. */
   refreshUnread: () => void;
+  /** Moves the scenario clock forward (the presenter control); absent when the clock is real time. */
+  advanceTo?: (to: Date) => void;
+  /** `?presenter=1` was given when the app opened: show the presenter control on every screen. */
+  presenter: boolean;
+  /** Bumped whenever the clock jumps, so screens re-read "now" at once instead of on the next tick. */
+  clockVersion: number;
 };
 
 export const StoreContext = createContext<StoreContextValue | null>(null);

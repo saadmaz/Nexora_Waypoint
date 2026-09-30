@@ -1,5 +1,6 @@
 import { BrowserRouter } from "react-router-dom";
 import { Gallery } from "../screens/gallery/Gallery";
+import { PresenterControl } from "./PresenterControl";
 import { StoreProvider } from "./StoreProvider";
 import { StoreRoot } from "./StoreRoot";
 import { StoreRoutes } from "./StoreRoutes";
@@ -20,6 +21,7 @@ export default function App() {
       <StoreProvider>
         <StoreRoot>
           <StoreRoutes />
+          <PresenterControl />
         </StoreRoot>
       </StoreProvider>
     </BrowserRouter>
