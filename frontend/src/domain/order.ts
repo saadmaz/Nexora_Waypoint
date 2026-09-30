@@ -81,3 +81,26 @@ export type RecentOrderDay = {
   /** Present when status is Deferred. */
   deferral?: { type: DeferralType; nextRunShort?: string };
 };
+
+/** Estimated kg and m3 per unit, per order kind: how the store's unit counts become estimates (PRD v3 A14, A42). */
+export type UnitFactors = Record<OrderKind, { kg: number; m3: number }>;
+
+/**
+ * What S1 needs to draw the order form for one day (PRD v3 StoreApi `getOrderDraft`):
+ * the day, its window and dock, the unit factors, the quantities to start from, and
+ * the orders already placed for that day.
+ */
+export type OrderDraft = {
+  outletId: string;
+  /** ISO date (YYYY-MM-DD) an order placed now counts for. */
+  deliveryDate: string;
+  /** True when an order placed now rolls to the following run (S1.4). */
+  afterCutoff: boolean;
+  window: { start: string; end: string };
+  dock: string;
+  unitFactors: UnitFactors;
+  /** The quantities S1.1 opens with. */
+  defaultUnits: Record<OrderKind, number>;
+  /** Orders already placed for `deliveryDate`, chilled first. */
+  orders: Order[];
+};

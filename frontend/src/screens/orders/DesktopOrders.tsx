@@ -5,7 +5,7 @@ import { Mono } from "../../components/ui/Mono";
 import { Tag } from "../../components/ui/Tag";
 import { estimateFor, formatEstimate, unitsLabel } from "../../domain/estimate";
 import { OUTLET, WINDOW_LABEL } from "../../domain/outlet";
-import type { OrderKind, RecentOrderDay } from "../../domain/order";
+import type { OrderKind, RecentOrderDay, UnitFactors } from "../../domain/order";
 import { OrderCard } from "./OrderCard";
 import { OrderHeader } from "./OrderHeader";
 import { RecentOrdersTable } from "./RecentOrdersTable";
@@ -20,6 +20,7 @@ export type DesktopOrdersProps = {
   /** An alert above the cards: the queued, error or cutoff notice. */
   notice?: ReactNode;
   quantities: Record<OrderKind, number>;
+  factors: UnitFactors;
   onChange: (kind: OrderKind, units: number) => void;
   pendingSync?: boolean;
   disabled?: boolean;
@@ -39,6 +40,7 @@ export function DesktopOrders({
   dateLabel,
   notice,
   quantities,
+  factors,
   onChange,
   pendingSync,
   disabled,
@@ -60,6 +62,7 @@ export function DesktopOrders({
               key={kind}
               kind={kind}
               units={quantities[kind]}
+              factors={factors}
               onChange={(units) => onChange(kind, units)}
               {...(pendingSync ? { pendingSync: true } : {})}
               {...(disabled ? { disabled: true } : {})}
@@ -91,7 +94,7 @@ export function DesktopOrders({
                   {kind === "chilled" ? <Tag kind="chilled">Chilled</Tag> : <Tag kind="ambient">Dry</Tag>}
                   <Mono>{unitsLabel(quantities[kind])}</Mono>
                 </div>
-                <div className={styles.estimate}>{formatEstimate(estimateFor(kind, quantities[kind]))}</div>
+                <div className={styles.estimate}>{formatEstimate(estimateFor(factors, kind, quantities[kind]))}</div>
               </div>
             ))}
             <p className={styles.estimate}>

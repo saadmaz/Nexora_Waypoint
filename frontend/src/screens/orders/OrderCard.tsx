@@ -2,7 +2,7 @@ import { StatusPill } from "../../components/ui/StatusPill";
 import { Card } from "../../components/ui/Card";
 import { Tag } from "../../components/ui/Tag";
 import { UnitStepper } from "../../components/ui/UnitStepper";
-import type { OrderKind } from "../../domain/order";
+import type { OrderKind, UnitFactors } from "../../domain/order";
 import { estimateFor, formatEstimate } from "../../domain/estimate";
 import styles from "./OrderCard.module.css";
 
@@ -14,6 +14,8 @@ const CARD: Record<OrderKind, { title: string; temp: string }> = {
 export type OrderCardProps = {
   kind: OrderKind;
   units: number;
+  /** Per-unit kg and m3 from the API, so the estimate can follow the stepper. */
+  factors: UnitFactors;
   onChange: (units: number) => void;
   /** Show the Pending sync pill (S1.5 A, queued offline). */
   pendingSync?: boolean;
@@ -25,7 +27,7 @@ export type OrderCardProps = {
  * estimate is computed from the unit count every render, so it follows the
  * stepper (12 units is about 70 kg, 10 units about 58 kg).
  */
-export function OrderCard({ kind, units, onChange, pendingSync, disabled }: OrderCardProps) {
+export function OrderCard({ kind, units, factors, onChange, pendingSync, disabled }: OrderCardProps) {
   const { title, temp } = CARD[kind];
   return (
     <Card>
@@ -41,7 +43,7 @@ export function OrderCard({ kind, units, onChange, pendingSync, disabled }: Orde
         <div className={styles.units}>
           <div className={styles.estimate}>
             <span className={styles.label}>Units</span>
-            <span className={styles.figures}>{formatEstimate(estimateFor(kind, units))}</span>
+            <span className={styles.figures}>{formatEstimate(estimateFor(factors, kind, units))}</span>
           </div>
           <UnitStepper
             value={units}
