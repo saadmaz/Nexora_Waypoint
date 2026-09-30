@@ -45,7 +45,6 @@
    Plex Mono, as S1.5 A and S2.S C draw them. */
 .chipOffline {
   color: var(--on-chrome);
-  font-family: var(--font-mono);
 }
 
 .chipOffline svg {

@@ -11,7 +11,7 @@ export function ConnectivityBar({ children }: { children: ReactNode }) {
   return (
     <div className={styles.bar} role="status">
       <Icon name="wifi-off" size={16} />
-      {children}
+      <span>{children}</span>
     </div>
   );
 }
