@@ -20,13 +20,13 @@ function dateOnly(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-function addDays(date: Date, days: number): Date {
+export function addDays(date: Date, days: number): Date {
   const next = dateOnly(date);
   next.setDate(next.getDate() + days);
   return next;
 }
 
-function toIsoDate(date: Date): string {
+export function toIsoDate(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
@@ -76,4 +76,19 @@ export function operatingDayFor(now: Date): string {
 export function minutesUntilCutoff(operatingDate: string, now: Date): number {
   const ms = cutoffFor(operatingDate).getTime() - now.getTime();
   return Math.max(0, Math.round(ms / 60_000));
+}
+
+/**
+ * True once `now` is past the 16:00 cutoff for the next calendar day, so an order
+ * placed now rolls to the following run and is tagged "After cutoff" (S1.4).
+ */
+export function isAfterCutoff(now: Date): boolean {
+  return isPastCutoff(toIsoDate(addDays(now, 1)), now);
+}
+
+/** The operating day after `operatingDate`, skipping Sunday. "Reconnect before 16:00 or this order moves to Wed." */
+export function nextOperatingDayAfter(operatingDate: string): string {
+  let candidate = addDays(new Date(`${operatingDate}T00:00:00`), 1);
+  while (candidate.getDay() === 0) candidate = addDays(candidate, 1);
+  return toIsoDate(candidate);
 }

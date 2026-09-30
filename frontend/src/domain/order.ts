@@ -44,7 +44,12 @@ export type Order = {
   status: OrderStatus;
   /** When the store submitted the order, ISO 8601 with offset or "Z". */
   receivedAt: string;
-  /** True once edits are no longer allowed (cutoff has passed for this order's date). */
+  /** When the store last edited the order, same format as receivedAt. Absent if never edited. */
+  updatedAt?: string;
+  /**
+   * True when the order was placed after the cutoff for the day it would otherwise
+   * have counted for, so it rolled to the following run and is tagged "After cutoff".
+   */
   afterCutoff: boolean;
   /** Window-aware arrival range, only present once the plan is released (23:40 the day before). */
   arrival?: { start: string; end: string };
@@ -61,4 +66,18 @@ export type EditOrderInput = {
   units: number;
   estimatedKg: number;
   estimatedM3: number;
+};
+
+/**
+ * One past delivery day for the outlet: how many orders it had and how it ended.
+ * Read by S1.6's "Recent orders" table now, and by S4's History tab later.
+ * Sundays never appear (Waypoint operates Monday to Saturday).
+ */
+export type RecentOrderDay = {
+  /** ISO date (YYYY-MM-DD). */
+  date: string;
+  orderCount: number;
+  status: OrderStatus;
+  /** Present when status is Deferred. */
+  deferral?: { type: DeferralType; nextRunShort?: string };
 };

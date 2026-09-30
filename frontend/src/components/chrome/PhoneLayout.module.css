@@ -19,13 +19,18 @@
   gap: var(--space-4);
 }
 
-/* Pinned actions sit above the tab bar and never scroll away. */
+/* Pinned actions sit above the tab bar and never scroll away. Both stick to the
+   bottom, so the pinned area is lifted by the tab bar's height or the two overlap. */
 .pinned {
   position: sticky;
-  bottom: 0;
+  bottom: var(--size-tabbar);
   padding: var(--space-4) var(--gutter-phone);
   background: var(--surface-0);
   border-top: 1px solid var(--line);
+}
+
+.pinnedFlush {
+  bottom: 0;
 }
 
 .tabs {

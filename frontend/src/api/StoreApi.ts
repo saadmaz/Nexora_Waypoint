@@ -1,4 +1,4 @@
-import type { EditOrderInput, NewOrderInput, Order } from "../domain/order";
+import type { EditOrderInput, NewOrderInput, Order, RecentOrderDay } from "../domain/order";
 
 export type Issue = {
   id: string;
@@ -26,6 +26,8 @@ export interface StoreApi {
   listOrders(outletId: string): Promise<Order[]>;
   getOrder(orderId: string): Promise<Order | undefined>;
   placeOrder(input: NewOrderInput): Promise<Order>;
+  /** Places several orders together (chilled and dry): all are received or none is. */
+  placeOrders(inputs: NewOrderInput[]): Promise<Order[]>;
   /** Edits quantities on an order. Rejects once the order is past cutoff. */
   editOrder(orderId: string, input: EditOrderInput): Promise<Order>;
   /** Cancels an order. Rejects once the order is past cutoff. */
@@ -33,6 +35,11 @@ export interface StoreApi {
   confirmReceipt(input: ConfirmReceiptInput): Promise<Order>;
   reportIssue(issue: Omit<Issue, "id" | "reportedAt" | "resolved">): Promise<Issue>;
   listIssues(outletId: string): Promise<Issue[]>;
+  /**
+   * Past delivery days for the outlet, newest first, Sundays skipped. Feeds S1.6's
+   * "Recent orders" table and, later, S4's History tab.
+   */
+  listRecentOrders(outletId: string, limit?: number): Promise<RecentOrderDay[]>;
 }
 
 export class CutoffError extends Error {

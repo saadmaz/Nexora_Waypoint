@@ -1,5 +1,5 @@
-import type { EditOrderInput, NewOrderInput, Order } from "../domain/order";
-import { isPastCutoff } from "../domain/schedule";
+import type { EditOrderInput, NewOrderInput, Order, RecentOrderDay } from "../domain/order";
+import { isAfterCutoff, isPastCutoff } from "../domain/schedule";
 import {
   CutoffError,
   NotFoundError,
@@ -48,7 +48,34 @@ function heroFixture(): Order[] {
   ];
 }
 
+/**
+ * Recent delivery days for OUT084, as drawn on S1.6 (Sunday 27 Sep is skipped:
+ * Waypoint operates Monday to Saturday). The frame shows date, order count and
+ * status only. PRD 4d A35 lists different times and outcomes for these days;
+ * the Figma frame is what is judged, so it wins (see the store README).
+ */
+function recentFixture(): RecentOrderDay[] {
+  return [
+    { date: "2026-09-26", orderCount: 2, status: "Delivered" },
+    { date: "2026-09-25", orderCount: 2, status: "Delivered" },
+    { date: "2026-09-24", orderCount: 1, status: "Deferred", deferral: { type: "policy" } },
+    { date: "2026-09-23", orderCount: 2, status: "Delivered" },
+    { date: "2026-09-22", orderCount: 2, status: "Delivered" },
+  ];
+}
+
+/** The hero orders keep their fixture IDs when they are placed fresh (H1: ORD2001 chilled, ORD2002 dry). */
+const HERO_IDS = { chilled: "ORD2001", dry: "ORD2002" } as const;
+
 let nextOrderSeq = 3;
+
+export type MockStoreApiOptions = {
+  /**
+   * "placed" (default): the hero orders already exist, received Mon 28 Sep 15:40.
+   * "empty": nothing is placed yet, so S1.1 can be walked through from the start.
+   */
+  seed?: "placed" | "empty";
+};
 
 /**
  * In-memory StoreApi mock, seeded with the hero fixture. Takes `now` as a
@@ -56,9 +83,33 @@ let nextOrderSeq = 3;
  * without recreating the mock; the scenario clock (?at=HH:MM) will supply
  * that function from phase 7 onward. Defaults to real time.
  */
-export function createMockStoreApi(now: () => Date = () => new Date()): StoreApi {
-  const orders = new Map(heroFixture().map((order) => [order.id, order]));
+export function createMockStoreApi(
+  now: () => Date = () => new Date(),
+  { seed = "placed" }: MockStoreApiOptions = {},
+): StoreApi {
+  const orders = new Map((seed === "placed" ? heroFixture() : []).map((order) => [order.id, order]));
   const issues = new Map<string, Issue>();
+
+  function placeOne(input: NewOrderInput): Order {
+    const heroId = HERO_IDS[input.line.kind];
+    const id =
+      input.outletId === HERO_OUTLET.id && !orders.has(heroId) ? heroId : `ORD${9000 + nextOrderSeq++}`;
+    const order: Order = {
+      id,
+      outletId: input.outletId,
+      outletName: HERO_OUTLET.name,
+      district: HERO_OUTLET.district,
+      deliveryDate: input.deliveryDate,
+      dock: "rear_dock",
+      window: { start: "05:30", end: "08:00" },
+      line: { id: `${id}-L1`, ...input.line },
+      status: "Ordered",
+      receivedAt: now().toISOString(),
+      afterCutoff: isAfterCutoff(now()),
+    };
+    orders.set(id, order);
+    return order;
+  }
 
   function requireOrder(orderId: string): Order {
     const order = orders.get(orderId);
@@ -78,24 +129,11 @@ export function createMockStoreApi(now: () => Date = () => new Date()): StoreApi
     },
 
     async placeOrder(input: NewOrderInput) {
-      const id = `ORD${9000 + nextOrderSeq++}`;
-      const receivedAt = now().toISOString();
-      const afterCutoff = isPastCutoff(input.deliveryDate, now());
-      const order: Order = {
-        id,
-        outletId: input.outletId,
-        outletName: HERO_OUTLET.name,
-        district: HERO_OUTLET.district,
-        deliveryDate: input.deliveryDate,
-        dock: "rear_dock",
-        window: { start: "05:30", end: "08:00" },
-        line: { id: `${id}-L1`, ...input.line },
-        status: "Ordered",
-        receivedAt,
-        afterCutoff,
-      };
-      orders.set(id, order);
-      return order;
+      return placeOne(input);
+    },
+
+    async placeOrders(inputs) {
+      return inputs.map(placeOne);
     },
 
     async editOrder(orderId, input: EditOrderInput) {
@@ -104,6 +142,7 @@ export function createMockStoreApi(now: () => Date = () => new Date()): StoreApi
       const updated: Order = {
         ...order,
         line: { ...order.line, units: input.units, estimatedKg: input.estimatedKg, estimatedM3: input.estimatedM3 },
+        updatedAt: now().toISOString(),
       };
       orders.set(orderId, updated);
       return updated;
@@ -139,6 +178,13 @@ export function createMockStoreApi(now: () => Date = () => new Date()): StoreApi
         const order = orders.get(issue.orderId);
         return order?.outletId === outletId;
       });
+    },
+
+    async listRecentOrders(outletId, limit = 5) {
+      if (outletId !== HERO_OUTLET.id) return [];
+      return recentFixture()
+        .filter((day) => new Date(`${day.date}T00:00:00`).getDay() !== 0)
+        .slice(0, limit);
     },
   };
 }

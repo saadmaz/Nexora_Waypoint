@@ -14,6 +14,8 @@ export type JourneyStep = {
 export type JourneyTimelineProps = {
   steps: JourneyStep[];
   orientation?: "vertical" | "horizontal";
+  /** Where a step's meta sits in the vertical timeline: under the label (default) or right-aligned on its row (S1 "What happens next"). */
+  metaAlign?: "below" | "right";
 };
 
 const STATE_CLASS: Record<JourneyStepState, string> = {
@@ -29,9 +31,19 @@ const STATE_CLASS: Record<JourneyStepState, string> = {
  * summary row). Each step shows who and when; the dot's shape and icon carry
  * the state, never colour alone.
  */
-export function JourneyTimeline({ steps, orientation = "vertical" }: JourneyTimelineProps) {
+export function JourneyTimeline({
+  steps,
+  orientation = "vertical",
+  metaAlign = "below",
+}: JourneyTimelineProps) {
+  const classes = [
+    orientation === "vertical" ? styles.vertical : styles.horizontal,
+    orientation === "vertical" && metaAlign === "right" && styles.metaRight,
+  ]
+    .filter(Boolean)
+    .join(" ");
   return (
-    <ol className={orientation === "vertical" ? styles.vertical : styles.horizontal}>
+    <ol className={classes}>
       {steps.map((step, i) => {
         const isLast = i === steps.length - 1;
         return (

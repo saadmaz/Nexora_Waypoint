@@ -1,0 +1,35 @@
+/* A 44 px tap target on the chrome surface, the size of the "Bell · Updates" frame. */
+.bell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: var(--size-tap-min);
+  height: var(--size-tap-min);
+  /* The top bar pads 9 px top and bottom; this keeps it at 56. */
+  margin-block: -6px;
+  border-radius: var(--radius-md);
+  color: var(--on-chrome);
+  transition: background-color var(--duration-colour) ease;
+}
+
+.bell:hover {
+  background: rgba(245, 244, 240, 0.08);
+}
+
+.dot {
+  position: absolute;
+  top: 4px;
+  right: 2px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: var(--radius-pill);
+  background: var(--signal);
+  color: var(--on-signal);
+  font: var(--text-data);
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
+}

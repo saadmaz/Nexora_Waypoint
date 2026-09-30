@@ -1,4 +1,5 @@
 import { Icon } from "../ui/Icon";
+import { BellButton, type BellProps } from "./BellButton";
 import styles from "./TopBar.module.css";
 
 export type SyncState = "synced" | "sending" | "offline" | "pending";
@@ -51,16 +52,19 @@ export type TopBarProps = {
   place: string;
   sync: SyncState;
   waiting?: number;
+  /** The Updates bell (entry point to S4). Omit to leave it out. */
+  bell?: BellProps;
 };
 
 /** The phone top bar, 56 px, on the chrome surface. */
-export function TopBar({ outlet, place, sync, waiting }: TopBarProps) {
+export function TopBar({ outlet, place, sync, waiting, bell }: TopBarProps) {
   return (
     <header className={styles.topbar}>
       <div className={styles.title}>
         <div className={styles.outlet}>{outlet}</div>
         <div className={styles.place}>{place}</div>
       </div>
+      {bell && <BellButton {...bell} />}
       <SyncChip state={sync} {...(waiting === undefined ? {} : { waiting })} />
     </header>
   );

@@ -1,6 +1,7 @@
 import {
   AlertCircle,
   AlertTriangle,
+  Bell,
   Calendar,
   CalendarClock,
   Camera,
@@ -8,6 +9,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  CircleCheck,
   ClipboardList,
   Clock,
   Cloud,
@@ -39,10 +41,13 @@ import { tokenColor } from "./tokens";
  *   wifi-off       Offline            snowflake       Chilled / Arrived warm
  *   calendar-clock Deferred           user            Receivers cue
  *   camera         Photo
+ *   bell           Updates (S4), with an unread-count dot
+ *   circle-check   Received
  */
 const ICONS = {
   "alert-circle": AlertCircle,
   "alert-triangle": AlertTriangle,
+  bell: Bell,
   calendar: Calendar,
   "calendar-clock": CalendarClock,
   camera: Camera,
@@ -50,6 +55,7 @@ const ICONS = {
   "chevron-down": ChevronDown,
   "chevron-left": ChevronLeft,
   "chevron-right": ChevronRight,
+  "circle-check": CircleCheck,
   "clipboard-list": ClipboardList,
   clock: Clock,
   cloud: Cloud,

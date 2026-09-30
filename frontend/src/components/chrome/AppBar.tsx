@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import { Icon, type IconName } from "../ui/Icon";
+import { BellButton, type BellProps } from "./BellButton";
 import styles from "./AppBar.module.css";
 
 type NavItem = { to: string; label: string; icon: IconName };
@@ -16,7 +17,7 @@ const NAV: NavItem[] = [
  * The mark reads Waypoint Store, never Waypoint Dispatch, per cross-role
  * fix X3: each role app names itself.
  */
-export function AppBar({ right }: { right?: ReactNode }) {
+export function AppBar({ right, bell }: { right?: ReactNode; bell?: BellProps }) {
   return (
     <header className={styles.appbar}>
       <span className={styles.brand}>
@@ -37,7 +38,12 @@ export function AppBar({ right }: { right?: ReactNode }) {
           </NavLink>
         ))}
       </nav>
-      {right && <div className={styles.side}>{right}</div>}
+      {(right || bell) && (
+        <div className={styles.side}>
+          {bell && <BellButton {...bell} />}
+          {right}
+        </div>
+      )}
     </header>
   );
 }
