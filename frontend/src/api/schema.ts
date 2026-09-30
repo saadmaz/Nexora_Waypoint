@@ -865,10 +865,7 @@ export interface paths {
         };
         /**
          * Get Plan Diff
-         * @description L1.5: what changed between two plan versions at this dock.
-         *
-         *     The contract names the query parameters ``from`` and ``to``; they are ``from_version`` and ``to_version``
-         *     here because ``from`` is a Python keyword. The real client maps them.
+         * @description L1.5: what changed between two plan versions at this dock (``?from=&to=`` are plan version numbers).
          */
         get: operations["getPlanDiff"];
         put?: never;
@@ -5388,8 +5385,8 @@ export interface operations {
     getPlanDiff: {
         parameters: {
             query: {
-                from_version: number;
-                to_version: number;
+                from: number;
+                to: number;
             };
             header?: never;
             path: {

@@ -130,3 +130,14 @@ def test_schema_ts_is_not_stale():
         if f"    {op['operationId']}: {{" not in text
     ]
     assert not missing, f"schema.ts is stale; missing operations: {missing}"
+
+
+def test_query_parameter_names_match_the_contract():
+    """PRD §19 names ``from`` and ``to`` on the plan diff and on the store's delivery list."""
+    paths = app.openapi()["paths"]
+
+    def params(path: str) -> set[str]:
+        return {p["name"] for p in paths[path]["get"]["parameters"]}
+
+    assert {"from", "to"} <= params("/api/v1/loader/docks/{dock}/diff")
+    assert {"from", "to"} <= params("/api/v1/store/deliveries")
