@@ -1,0 +1,32 @@
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--route-soft);
+  color: var(--ink);
+}
+
+.label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: var(--text-label);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--route);
+}
+
+.big {
+  font: var(--text-h2);
+}
+
+.unloading {
+  font: var(--text-body);
+}
+
+.window {
+  font: var(--text-body-sm);
+  color: var(--ink-muted);
+}
