@@ -15,6 +15,7 @@
 
 .outlet {
   font: var(--text-h3);
+  line-height: 22px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -32,14 +33,16 @@
   flex: 0 0 auto;
   min-height: 32px;
   padding: 8px 12px;
+  border: 1px solid var(--on-chrome-muted);
   border-radius: var(--radius-pill);
-  background: rgba(245, 244, 240, 0.12);
+  background: transparent;
   color: var(--on-chrome);
   font: var(--text-body-sm);
   font-weight: 600;
 }
 
 .chipOffline {
+  border-color: transparent;
   background: var(--offline-soft);
   color: var(--offline);
 }

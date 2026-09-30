@@ -24,7 +24,7 @@
   justify-content: center;
   width: 12px;
   height: 12px;
-  margin: 5px 0;
+  margin: 5px 0 0;
   border-radius: var(--radius-pill);
   border: 2px solid var(--line-strong);
   background: var(--surface-1);
@@ -32,12 +32,12 @@
   flex: 0 0 auto;
 }
 
+/* A short connector with a 4 px gap either side of it, as Figma draws it. */
 .line {
-  flex: 1 1 auto;
+  flex: 0 0 10px;
   width: 2px;
-  min-height: 8px;
   background: var(--line);
-  margin: -2px 0;
+  margin: -1px 0 0;
 }
 
 .body {
@@ -80,7 +80,7 @@
 }
 
 .current .dot {
-  border-color: var(--signal);
+  border-color: var(--ink);
   background: var(--signal);
 }
 
@@ -128,9 +128,9 @@
 }
 
 .horizontal .line {
+  flex: 1 1 auto;
   height: 2px;
   width: auto;
-  min-height: 0;
   margin: 0 0 0 8px;
 }
 
