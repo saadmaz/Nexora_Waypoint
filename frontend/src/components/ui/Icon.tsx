@@ -15,6 +15,7 @@ import {
   Clock,
   Cloud,
   Image,
+  Inbox,
   Info,
   Lock,
   Minus,
@@ -23,6 +24,7 @@ import {
   RefreshCw,
   Route,
   Snowflake,
+  Store,
   Trash2,
   Truck,
   User,
@@ -49,6 +51,8 @@ import { tokenColor } from "./tokens";
  *   info            Why you're seeing this
  *   image           Proof-of-delivery photo
  *   arrow-right     Confirm receipt
+ *   inbox           Nothing here yet (No open issues)
+ *   store           Dispatch asks the store
  */
 const ICONS = {
   "alert-circle": AlertCircle,
@@ -67,6 +71,7 @@ const ICONS = {
   clock: Clock,
   cloud: Cloud,
   image: Image,
+  inbox: Inbox,
   info: Info,
   lock: Lock,
   minus: Minus,
@@ -75,6 +80,7 @@ const ICONS = {
   "refresh-cw": RefreshCw,
   route: Route,
   snowflake: Snowflake,
+  store: Store,
   trash: Trash2,
   truck: Truck,
   user: User,
