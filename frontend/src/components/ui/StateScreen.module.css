@@ -4,24 +4,24 @@
   align-items: center;
   text-align: center;
   gap: var(--space-3);
-  padding: var(--space-8) var(--gutter-phone);
+  padding: 40px var(--gutter-phone) var(--space-8);
 }
 
 .iconTile {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-pill);
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-lg);
 }
 
 .title {
-  font: var(--text-h3);
+  font: var(--text-h2);
 }
 
 .body {
-  font: var(--text-body-sm);
+  font: var(--text-body);
   color: var(--ink-muted);
   max-width: 320px;
 }
@@ -35,6 +35,7 @@
 .actions {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: var(--space-2);
   width: 100%;
   max-width: 320px;
