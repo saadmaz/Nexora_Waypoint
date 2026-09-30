@@ -21,7 +21,15 @@ export function Modal({ open, onOpenChange, title, children, trigger }: ModalPro
       {trigger && <Dialog.Trigger asChild>{trigger}</Dialog.Trigger>}
       <Dialog.Portal>
         <Dialog.Overlay className={styles.overlay} />
-        <Dialog.Content className={styles.content} aria-describedby={undefined}>
+        <Dialog.Content
+          className={styles.content}
+          aria-describedby={undefined}
+          onOpenAutoFocus={(event) => {
+            // Focus the dialog, not its close button, so no ring is drawn on open; Tab still reaches everything.
+            event.preventDefault();
+            (event.currentTarget as HTMLElement).focus();
+          }}
+        >
           <div className={styles.header}>
             <Dialog.Title className={styles.title}>{title}</Dialog.Title>
             <Dialog.Close className={styles.close} aria-label="Close">
