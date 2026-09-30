@@ -21,6 +21,10 @@
   animation: pop 180ms ease;
 }
 
+.content:focus {
+  outline: none;
+}
+
 .header {
   display: flex;
   align-items: flex-start;
@@ -33,13 +37,16 @@
   font: var(--text-h2);
 }
 
+/* Out of the flow, so the header is as tall as the title, as Figma draws it. */
 .close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 44px;
   height: 44px;
-  margin: -10px -10px 0 0;
   border-radius: var(--radius-md);
   color: var(--ink-muted);
 }
