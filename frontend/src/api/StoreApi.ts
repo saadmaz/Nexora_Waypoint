@@ -10,6 +10,8 @@ export type ConfirmReceiptInput = {
   lines: { orderId: string; received: number }[];
   /** Why it was short, asked for when any count is below what was expected. */
   reason?: string;
+  /** "HH:MM" on the phone when the store pressed the button, for a confirmation saved offline and sent later. */
+  deviceTime?: string;
 };
 
 export type ReportIssueInput = {

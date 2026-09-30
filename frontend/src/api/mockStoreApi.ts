@@ -257,11 +257,11 @@ export function createMockStoreApi(
       orders.delete(orderId);
     },
 
-    async confirmReceipt({ outletId, date, lines, reason }) {
+    async confirmReceipt({ outletId, date, lines, reason, deviceTime }) {
       const [delivery] = await listDeliveries(outletId, date);
       if (!delivery || !delivery.proof) throw new NotFoundError(date);
       updateRecord(outletId, date, {
-        receipt: { at: clockTime(now()), lines, ...(reason ? { reason } : {}) },
+        receipt: { at: deviceTime ?? clockTime(now()), lines, ...(reason ? { reason } : {}) },
       });
       const [updated] = await listDeliveries(outletId, date);
       if (!updated) throw new NotFoundError(date);
