@@ -26,7 +26,7 @@
 }
 
 .text {
-  font: var(--text-body-sm);
+  font: var(--text-body);
 }
 
 .title + .text {
