@@ -1,0 +1,40 @@
+# Competition data: never committed (team rule, PRD O-1)
+data/*
+!data/.gitkeep
+!data/README.md
+
+# Secrets
+.env
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node / frontend
+node_modules/
+dist/
+dev-dist/
+frontend/.figma/
+frontend/.compare/
+*.tsbuildinfo
+
+# Playwright
+e2e/test-results/
+e2e/playwright-report/
+
+# Uploads (POD photos, O-3)
+uploads/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
