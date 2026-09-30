@@ -92,3 +92,19 @@ export function nextOperatingDayAfter(operatingDate: string): string {
   while (candidate.getDay() === 0) candidate = addDays(candidate, 1);
   return toIsoDate(candidate);
 }
+
+/** The hour the day's run is over: after this the next delivery day is the one to look at (windows close at 08:00). */
+const RUN_END_HOUR = 8;
+
+/**
+ * The delivery day the store is looking at: today until the run is over (08:00), otherwise the
+ * next operating day. At Mon 16:01 that is Tue 29 Sep, at Tue 05:20 it is still Tue 29 Sep.
+ * Not the same as `operatingDayFor`, which is the day an order placed now counts for.
+ */
+export function deliveryDayFor(now: Date): string {
+  const today = dateOnly(now);
+  if (today.getDay() !== 0 && now.getHours() < RUN_END_HOUR) return toIsoDate(today);
+  let candidate = addDays(now, 1);
+  while (candidate.getDay() === 0) candidate = addDays(candidate, 1);
+  return toIsoDate(candidate);
+}
