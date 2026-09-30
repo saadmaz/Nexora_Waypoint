@@ -1,15 +1,15 @@
 import { Icon } from "../../components/ui/Icon";
 import styles from "./DeliveriesSkeleton.module.css";
 
-/** S2.S B: "Loading deliveries…" over a card of pulsing bars. */
-export function DeliveriesSkeleton() {
+/** S2.S B: "Loading deliveries…" over a card of pulsing bars. The label changes for other lists. */
+export function DeliveriesSkeleton({ label = "Loading deliveries…" }: { label?: string }) {
   return (
-    <div role="status" aria-label="Loading deliveries">
+    <div role="status" aria-label={label}>
       <p className={styles.label}>
         <span className={styles.spin}>
           <Icon name="refresh-cw" size={16} />
         </span>
-        Loading deliveries…
+        {label}
       </p>
       <div className={styles.card} aria-hidden>
         <div className={[styles.bar, styles.title].join(" ")} />
