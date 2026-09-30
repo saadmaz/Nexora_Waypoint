@@ -1,5 +1,5 @@
-import { Button } from "../components/ui/Button";
-import { Mono } from "../components/ui/Mono";
+import { Button } from "../shared/ui/Button";
+import { Mono } from "../shared/ui/Mono";
 import { clockTime, dayLabel } from "../domain/format";
 import { toIsoDate } from "../domain/schedule";
 import { useNow } from "../hooks/useNow";

@@ -209,7 +209,7 @@ and clock are its own. `/store/_states?frame=s2.3` renders one frame full screen
 (ids are lower case: `s1.3b`, `s2.sc`, `s3.1b`, `s4.1`). A frame is a state of its
 screen, not a page: each is a route, a scenario time, and where a tap cannot be
 avoided a preview or preset, listed in
-`frontend/src/screens/gallery/frames.ts`.
+`frontend/src/screens/store/gallery/frames.ts`.
 
 **The scenario clock.** One clock for the whole app
 (`frontend/src/app/scenarioClock.ts`), read through one `useNow()`; nothing else
@@ -270,6 +270,19 @@ the Figma frames and the spec differ, v3's source ranking applies (Figma wins
 on UI and copy, the spec on behaviour and data), and every visible difference
 is listed under "Departures" below with its v3 register number where there
 is one.
+
+### Folder layout
+
+Follows PRD v3 (migrated at the end of phase 8, in one commit of renames):
+
+| Path | What |
+|---|---|
+| `frontend/src/screens/store/` | The store's screens: `orders` (S1), `deliveries` (S2), `receipt` and `issues` (S3), `updates` (S4), `gallery` |
+| `frontend/src/shared/` | Cross-role UI: `ui/` (primitives) and `chrome/` (top bar, tab bar, app bar, bell, connectivity bar) |
+| `frontend/src/domain/`, `api/`, `hooks/`, `app/` | Rules and types, the `StoreApi` and its mock, `useNow` and friends, the provider, clock and routes |
+
+Older entries below name the files by the paths they had when the phase landed;
+`components/` is now `shared/` and `screens/<name>/` is now `screens/store/<name>/`.
 
 ### Phase list
 
@@ -618,15 +631,15 @@ Phase 7:
 - `app/scenarioClock.ts` (day inferred from the time), `hooks/useNow.ts` (reads
   the clock from the provider; no `now` prop on any screen), `app/StoreProvider.tsx`
   (inside the router; `?preset=`), new `app/presets.ts`, `StoreRoutes.tsx`,
-  `StoreRoot.tsx` (`data-theme="light"`), `App.tsx`; `screens/gallery/`.
+  `StoreRoot.tsx` (`data-theme="light"`), `App.tsx`; `screens/store/gallery/`.
   `createMockStoreApi` requires its clock.
 
 Phase 6b:
 
-- `components/chrome/BellButton.tsx` and `.module.css`: a plain 10 px unread dot,
+- `shared/chrome/BellButton.tsx` and `.module.css`: a plain 10 px unread dot,
   the count in the label. `TopBar.tsx`, `PhoneLayout.tsx`: optional `onBack`
   (S4's back arrow).
-- New `components/ui/Segmented.tsx`, `FilterChip.tsx`, `MonoText.tsx` (IDs and
+- New `shared/ui/Segmented.tsx`, `FilterChip.tsx`, `MonoText.tsx` (IDs and
   times inside a sentence in Plex Mono); `Tag.tsx`: `info` and `review` kinds.
 - `domain/update.ts` (new), `domain/order.ts` (`RecentOrderDay` gains
   `orderIds`, `deferralWithdrawn`, `receiptConfirmedAt`, `current`),
@@ -638,15 +651,15 @@ Phase 6b:
 
 Phase 6:
 
-- `components/ui/UnitStepper.tsx`: `expected` reads "/ 12" (was "of 12"), the
+- `shared/ui/UnitStepper.tsx`: `expected` reads "/ 12" (was "of 12"), the
   amber shortfall fill is gone (S3.1 B draws none), and a `compact` size (44 px
   buttons) for the receipt row.
-- `components/ui/Sheet.tsx` and `.module.css`: the close button is out of the
+- `shared/ui/Sheet.tsx` and `.module.css`: the close button is out of the
   flow, so the header is as tall as the title as in Figma, and focus goes to the
   sheet on open (no ring on the close button).
-- `components/ui/Facts.module.css`: no default `dl`/`dd` margins.
-  `components/ui/Icon.tsx`: `inbox` and `store`.
-- `components/chrome/TopBar.tsx`, `PhoneLayout.tsx`: optional `placeMono` (the
+- `shared/ui/Facts.module.css`: no default `dl`/`dd` margins.
+  `shared/ui/Icon.tsx`: `inbox` and `store`.
+- `shared/chrome/TopBar.tsx`, `PhoneLayout.tsx`: optional `placeMono` (the
   receipt's second line in Plex Mono).
 - `domain/issue.ts` (new), `domain/delivery.ts` (`issues`, per-order `issue` and
   `received`, `receiptBy`), `api/StoreApi.ts` and `mockStoreApi.ts`:
@@ -655,16 +668,16 @@ Phase 6:
 
 Phase 5 (each in its own commit, before the screens that use it):
 
-- `components/ui/JourneyTimeline.tsx` and `.module.css`: 12 px dots (green
+- `shared/ui/JourneyTimeline.tsx` and `.module.css`: 12 px dots (green
   reached, amber current with an ink ring, hollow pending), short connectors,
   meta in Archivo so callers wrap times in `<Mono>`; the horizontal variant
   (S2.11) lines the dots up on one rail. `ReceivedView` (S1) wraps its times.
-- `components/ui/Icon.tsx`: added `info`, `image`, `arrow-right`.
-- `components/ui/Alert.module.css`: body text 15 px. `Facts.tsx`: `ruled`
+- `shared/ui/Icon.tsx`: added `info`, `image`, `arrow-right`.
+- `shared/ui/Alert.module.css`: body text 15 px. `Facts.tsx`: `ruled`
   variant. `StateScreen.module.css`: 64 px tile, 22 px title, centred action.
-- `components/chrome/PhoneLayout.tsx`: optional `outlet` and `place` (S2.9 is
+- `shared/chrome/PhoneLayout.tsx`: optional `outlet` and `place` (S2.9 is
   OUT009's view). `PhoneLayout.module.css`: white pinned bar.
-- `components/chrome/TopBar.module.css`: outlined sync chip (Offline keeps it
+- `shared/chrome/TopBar.module.css`: outlined sync chip (Offline keeps it
   outlined with an amber icon), 22 px outlet line. `ConnectivityBar`: dark
   bar with an amber icon, and its text is one flex item so inline times do not
   split. `AppBar`: text nav with an amber underline, "Waypoint" in bold.
@@ -676,23 +689,23 @@ Phase 5 (each in its own commit, before the screens that use it):
   `listRecent(outletId, { limit, before })` now lists Mon 28 to Mon 21 per A35
   (S1.6 passes `before` = today so its list is unchanged).
 - `app/StoreContext.ts`, `StoreProvider.tsx`, `scenarioClock.ts`, `App.tsx`,
-  `screens/orders/OrdersRoute.tsx`: one API and one clock for every route.
+  `screens/store/orders/OrdersRoute.tsx`: one API and one clock for every route.
 
 Phase 4:
 
-- `frontend/src/components/chrome/TopBar.tsx`, `AppBar.tsx`,
+- `frontend/src/shared/chrome/TopBar.tsx`, `AppBar.tsx`,
   `PhoneLayout.tsx` and new `BellButton.tsx`: an optional `bell` slot (the
   Updates bell with an unread-count dot). Additive; omit it and nothing changes.
-- `frontend/src/components/chrome/PhoneLayout.module.css`: the pinned action
+- `frontend/src/shared/chrome/PhoneLayout.module.css`: the pinned action
   bar now sticks above the tab bar (it overlapped it on long pages).
-- `frontend/src/components/ui/JourneyTimeline.tsx`: optional
+- `frontend/src/shared/ui/JourneyTimeline.tsx`: optional
   `metaAlign="right"` (default unchanged), for S1's timeline times.
-- `frontend/src/components/ui/UnitStepper.tsx`: `disabled || at limit` in place
+- `frontend/src/shared/ui/UnitStepper.tsx`: `disabled || at limit` in place
   of `disabled ?? at limit`, which never stopped the stepper at its min or max
   when a caller passed `disabled={false}`.
-- `frontend/src/components/ui/Toast.module.css`: on the phone the toast floats
+- `frontend/src/shared/ui/Toast.module.css`: on the phone the toast floats
   above the tab bar, as on S1.3.
-- `frontend/src/components/ui/Icon.tsx`: added `bell` and `circle-check`.
+- `frontend/src/shared/ui/Icon.tsx`: added `bell` and `circle-check`.
 - `frontend/src/domain/schedule.ts`: exported `addDays` and `toIsoDate`; added
   `isAfterCutoff` and `nextOperatingDayAfter`. Existing rules unchanged.
 - `frontend/src/domain/order.ts`, `api/StoreApi.ts`, `api/mockStoreApi.ts`:

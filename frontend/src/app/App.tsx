@@ -1,5 +1,5 @@
 import { BrowserRouter } from "react-router-dom";
-import { Gallery } from "../screens/gallery/Gallery";
+import { Gallery } from "../screens/store/gallery/Gallery";
 import { PresenterControl } from "./PresenterControl";
 import { StoreProvider } from "./StoreProvider";
 import { StoreRoot } from "./StoreRoot";

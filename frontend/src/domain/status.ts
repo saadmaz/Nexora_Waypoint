@@ -1,4 +1,4 @@
-import type { IconName } from "../components/ui/Icon";
+import type { IconName } from "../shared/ui/Icon";
 
 /**
  * The 11 order statuses (PRD v2 section 4b). Everything else is a tag.

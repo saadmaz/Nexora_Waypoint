@@ -1,9 +1,9 @@
 import { Navigate, Route, Routes } from "react-router-dom";
-import { DeliveriesRoute } from "../screens/deliveries/DeliveriesRoute";
-import { IssuesRoute } from "../screens/issues/IssuesRoute";
-import { OrdersRoute } from "../screens/orders/OrdersRoute";
-import { ReceiptRoute } from "../screens/receipt/ReceiptRoute";
-import { UpdatesRoute } from "../screens/updates/UpdatesRoute";
+import { DeliveriesRoute } from "../screens/store/deliveries/DeliveriesRoute";
+import { IssuesRoute } from "../screens/store/issues/IssuesRoute";
+import { OrdersRoute } from "../screens/store/orders/OrdersRoute";
+import { ReceiptRoute } from "../screens/store/receipt/ReceiptRoute";
+import { UpdatesRoute } from "../screens/store/updates/UpdatesRoute";
 
 /**
  * The store's route set (PRD v3 section 15). Anything else goes to the orders. Used by the app
