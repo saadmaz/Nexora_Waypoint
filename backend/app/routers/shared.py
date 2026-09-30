@@ -8,7 +8,7 @@ from sqlalchemy import select
 from waypoint_rules import service_day_for
 
 from .. import clock
-from ..deps import AnyUser, Db
+from ..deps import AnyUser, Db, Dispatcher
 from ..models.reference import CalendarDay
 from ..schemas.common import AdvanceIn, ClockOut, ResetOut
 
@@ -37,8 +37,8 @@ def advance_clock(body: AdvanceIn, db: Db, user: AnyUser) -> ClockOut:
 
 
 @router.post("/demo/reset", operation_id="resetDemo", response_model=ResetOut)
-def reset_demo(db: Db, user: AnyUser) -> ResetOut:
-    """Truncate the operational tables and re-run the seed (PRD §13)."""
+def reset_demo(db: Db, user: Dispatcher) -> ResetOut:
+    """Truncate the operational tables and re-run the seed (PRD §13). Presenter only: the dispatcher's avatar menu."""
     from seed import run as seed_run
 
     db.rollback()
