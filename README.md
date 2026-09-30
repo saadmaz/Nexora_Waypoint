@@ -209,7 +209,7 @@ which supersedes `claude/waypoint-prd-v2.md`) and its companion
 | 1 | Vite, React and TypeScript scaffold; tokens.css; base.css; fonts; Radix and fontsource dependencies | Done |
 | 2 | Shared primitives: Button, StatusPill, Tag, Alert, Card, Sheet, Modal, Toast, TopBar, AppBar, TabBar, ConnectivityBar, StateScreen, JourneyTimeline, Facts, DataTable | Done |
 | 3 | Order types, the 11 statuses and `statusLabel`, the `StoreApi` interface and mock with the hero fixture, cutoff and arrival-range rules | Done |
-| 4 | S1 Place order: all states, edit and cancel until 16:00, after cutoff, offline, error, sending, empty, desktop form and review modal | Not started |
+| 4 | S1 Place order: all 15 frames (S1.1, S1.1 B, S1.2, S1.3, S1.3 B-D, S1.4, S1.4 B, S1.5 A-D, S1.6, S1.6 B), edit and cancel until 16:00, after cutoff, offline, error, sending, empty, desktop form, review modal and desktop recent-orders table. Pulled from Figma section `442:22594` on 30 Sep before starting; see the note below | Not started |
 | 5 | S2 Deliveries: every state, Under review card, deferral notices, OUT009, recent orders, desktop | Not started |
 | 6 | S3 Receipt and the Issues tab: confirm, shortfall, issue sheet, Dispatch asks, the open-review branch, states | Not started |
 | 6b | S4 Updates and history: unread feed grouped by day (Order/Plan/Delivery/Deferral/Review tags, each row opens its source S1/S2 frame), History tab with All/Deferred/Partial filters, bell-icon entry point with unread count, states. Added to the phase plan 30 Sep after finding it built in Figma but missing from the PRD text (gap G-10) | Not started |
@@ -237,6 +237,36 @@ spec-vs-prototype gap was found and corrected in the docs, not the design:
 This section will otherwise list every visual or copy difference between a
 built screen and its Figma frame as each screen lands, with its reason,
 per the booklet's fidelity requirement.
+
+### Notes from pulling the S1 Figma frames (30 Sep, before phase 4)
+
+Pulled Figma section `442:22594` ("S1 · Place order: Anusha · OUT084 ·
+Kandy", all 15 frames plus its rationale card) to check the PRD table's
+frame list against the actual designs before writing phase 4 code. Two
+findings that change scope:
+
+- **The bell icon (Updates entry point for S4) is in the topbar on every
+  S1 frame**, not just on S4. It belongs in the shared `TopBar` / `AppBar`
+  component from phase 2, with an unread-count dot, and should render on
+  S1, S2 and S3 too once they're built. Phase 2's `TopBar` will need a
+  small addition (an optional bell slot) when phase 4 starts, rather than
+  being S4-only as first assumed.
+- **S1.6 (desktop) shows a "Recent orders" table** (Sat 26 Sep down to
+  Tue 22 Sep, Sunday skipped, one row per day with order count and status)
+  that duplicates data S4's History tab will also need. `StoreApi`
+  (phase 3) has no method for this yet — phase 4 needs to add one (e.g.
+  `listRecentOrders`) rather than inventing a second, separate data path
+  for phase 6b later.
+
+Exact copy worth preserving verbatim in the build (not paraphrasing):
+"Orders close at 16:00 · N min left", "Received HH:MM", "Counts for Tue
+29 Sep.", "You can edit until 16:00", "Arrival time is shown after the
+plan is released", the "What happens next" timeline (Confirmed 16:00 →
+Arrival time shared 23:40 → Delivery window 05:30-08:00), and the
+per-order estimate line "≈ NN kg · N.N m³" which scales with the unit
+stepper (12 units ≈ 70 kg / 0.7 m³ down to 10 units ≈ 58 kg / 0.6 m³ on
+S1.3 B), confirming kg/m³ must be computed live from the stepper, not
+just carried as static fixture values.
 
 ### Assumptions and data notes
 
