@@ -1,3 +1,4 @@
+import type { Issue, IssueType } from "./issue";
 import type { OrderKind } from "./order";
 import type { DeferralType, OrderStatus } from "./status";
 
@@ -7,6 +8,10 @@ export type DeliveryOrder = {
   kind: OrderKind;
   units: number;
   status: OrderStatus;
+  /** The issue tag when the store has reported a problem on this order (S3.4: Short). */
+  issue?: IssueType;
+  /** Units the store counted when it confirmed receipt with a shortfall (S3.1 B: 10 of 12). */
+  received?: number;
 };
 
 /**
@@ -159,6 +164,12 @@ export type Delivery = {
   withdrawnNote?: string;
   /** "07:30", once the store has confirmed receipt. */
   receiptConfirmedAt?: string;
+  /** Who confirmed it: "Anusha". */
+  receiptBy?: string;
+  /** The reason the store gave for a shortfall. */
+  shortfallReason?: string;
+  /** Problems the store has reported on this day, newest first (S3.4). */
+  issues: Issue[];
   /** True when the store has already answered "Did you receive this delivery?" while it was under review. */
   receivedAnswered: boolean;
 };

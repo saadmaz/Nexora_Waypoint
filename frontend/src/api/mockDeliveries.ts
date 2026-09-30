@@ -8,6 +8,7 @@ import {
   type JourneyStepName,
 } from "../domain/delivery";
 import { clockTime, dayLabel, weekdayShort } from "../domain/format";
+import { issueTagFor, type Issue } from "../domain/issue";
 import type { Order } from "../domain/order";
 import { cutoffFor, nextOperatingDayAfter, releaseFor } from "../domain/schedule";
 import type { OrderStatus } from "../domain/status";
@@ -18,9 +19,12 @@ export type DeliveryRecord = {
   deferralAcknowledged: boolean;
   /** The store answered "Did you receive this delivery?" while the review was open. */
   reviewAnswer?: "received";
-  /** "07:30", when the store confirmed receipt. */
-  receiptConfirmedAt?: string;
+  /** The store confirmed receipt: when, and what it counted per order. */
+  receipt?: { at: string; lines: { orderId: string; received: number }[]; reason?: string };
 };
+
+/** The store manager who confirms receipt: "Receipt confirmed 07:30 · Anusha". */
+const RECEIPT_BY = "Anusha";
 
 export const EMPTY_RECORD: DeliveryRecord = { deferralAcknowledged: false };
 
@@ -120,6 +124,7 @@ export function deriveDelivery(
   orders: Order[],
   now: Date,
   record: DeliveryRecord,
+  issues: Issue[] = [],
 ): Delivery {
   const hero = date === HERO_DATE && outlet.id === "OUT084";
   const out009 = date === OUT009_DATE && outlet.id === "OUT009";
@@ -130,6 +135,24 @@ export function deriveDelivery(
 
   const status = STAGE_STATUS[stage];
   const list = deliveryOrders(orders, status);
+  const receiptAt = record.receipt?.at;
+
+  // The store's own writes change its orders' words, not the delivery's stage: a counted
+  // shortfall makes an order Partial, a reported problem makes it Issue with a tag. While the
+  // review is open Dispatch still owns the status, so an order stays Under review.
+  for (const order of list) {
+    const counted = record.receipt?.lines.find((line) => line.orderId === order.id);
+    if (counted && counted.received < order.units) {
+      order.received = counted.received;
+      if (stage === "delivered") order.status = "Partial";
+    }
+    for (const issue of issues) {
+      const line = issue.lines.find((l) => l.orderId === order.id);
+      if (!line) continue;
+      order.issue = issueTagFor(issue.type, line);
+      if (stage === "delivered") order.status = "Issue";
+    }
+  }
 
   const times: Partial<Record<JourneyStepName, string>> = {};
   const earliest = orders.map((o) => o.receivedAt).sort()[0];
@@ -142,7 +165,7 @@ export function deriveDelivery(
     if (reached("loaded")) times.Loaded = HERO.loadedAt;
     if (reached("departed")) times.Departed = HERO.departedAt;
     if (stage === "delivered") times.Delivered = HERO.deliveredAt;
-    if (record.receiptConfirmedAt) times["Receipt confirmed"] = record.receiptConfirmedAt;
+    if (receiptAt) times["Receipt confirmed"] = receiptAt;
   }
 
   const predicted = hero ? HERO.predictedArrival : out009 ? OUT009.predictedArrival : outlet.window.start;
@@ -182,7 +205,7 @@ export function deriveDelivery(
   const hasProof = hero && (stage === "review" || stage === "delivered");
   const tags: DeliveryTag[] = [];
   if (hero && stage === "delivered") tags.push("Deferral withdrawn");
-  if (record.receiptConfirmedAt && stage === "delivered") tags.push("Receipt confirmed");
+  if (receiptAt) tags.push("Receipt confirmed");
 
   return {
     date,
@@ -222,7 +245,9 @@ export function deriveDelivery(
       : {}),
     tags,
     ...(hero && stage === "delivered" ? { withdrawnNote: `${dayLabel(nextRun)} re-run removed.` } : {}),
-    ...(record.receiptConfirmedAt ? { receiptConfirmedAt: record.receiptConfirmedAt } : {}),
+    ...(receiptAt ? { receiptConfirmedAt: receiptAt, receiptBy: RECEIPT_BY } : {}),
+    ...(record.receipt?.reason ? { shortfallReason: record.receipt.reason } : {}),
+    issues: [...issues].sort((a, b) => b.reportedAt.localeCompare(a.reportedAt)),
     receivedAnswered: record.reviewAnswer === "received",
   };
 }

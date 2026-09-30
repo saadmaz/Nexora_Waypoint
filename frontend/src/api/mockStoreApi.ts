@@ -8,13 +8,13 @@ import type {
   RecentOrderDay,
   UnitFactors,
 } from "../domain/order";
+import { clockTime } from "../domain/format";
+import type { Issue } from "../domain/issue";
 import { isAfterCutoff, isPastCutoff, operatingDayFor } from "../domain/schedule";
 import { EMPTY_RECORD, deriveDelivery, type DeliveryRecord, type OutletFixture } from "./mockDeliveries";
 import {
   CutoffError,
   NotFoundError,
-  type ConfirmReceiptInput,
-  type Issue,
   type StoreApi,
 } from "./StoreApi";
 
@@ -193,6 +193,30 @@ export function createMockStoreApi(
     return order;
   }
 
+  const listDeliveries: StoreApi["listDeliveries"] = async (outletId, date) => {
+    const fixture =
+      outletId === HERO_OUTLET.id ? HERO_OUTLET_FIXTURE : outletId === OUT009_OUTLET.id ? OUT009_OUTLET : null;
+    if (!fixture) return [];
+    const outletOrders =
+      outletId === OUT009_OUTLET.id
+        ? out009Orders()
+        : [...orders.values()].filter((order) => order.outletId === outletId);
+    const today = toIsoDate(now());
+    const dates = [...new Set(outletOrders.map((order) => order.deliveryDate))]
+      .filter((d) => (date ? d === date : d >= today))
+      .sort();
+    return dates.map((d): Delivery =>
+      deriveDelivery(
+        fixture,
+        d,
+        outletOrders.filter((order) => order.deliveryDate === d),
+        now(),
+        recordOf(outletId, d),
+        [...issues.values()].filter((issue) => issue.outletId === outletId && issue.date === d),
+      ),
+    );
+  };
+
   return {
     async getOrderDraft(outletId, date) {
       const deliveryDate = date ?? operatingDayFor(now());
@@ -233,48 +257,51 @@ export function createMockStoreApi(
       orders.delete(orderId);
     },
 
-    async confirmReceipt(input: ConfirmReceiptInput) {
-      const order = requireOrder(input.orderId);
-      const updated: Order = {
-        ...order,
-        status: input.received ? "Delivered" : "Partial",
-      };
-      orders.set(input.orderId, updated);
+    async confirmReceipt({ outletId, date, lines, reason }) {
+      const [delivery] = await listDeliveries(outletId, date);
+      if (!delivery || !delivery.proof) throw new NotFoundError(date);
+      updateRecord(outletId, date, {
+        receipt: { at: clockTime(now()), lines, ...(reason ? { reason } : {}) },
+      });
+      const [updated] = await listDeliveries(outletId, date);
+      if (!updated) throw new NotFoundError(date);
       return updated;
     },
 
-    async reportIssue(issue) {
+    async reportIssue({ outletId, date, type, lines, note, photo }) {
+      const [delivery] = await listDeliveries(outletId, date);
+      if (!delivery || !delivery.proof) throw new NotFoundError(date);
       const id = `ISS${issues.size + 1}`;
-      const record: Issue = { ...issue, id, reportedAt: now().toISOString(), resolved: false };
+      const record: Issue = {
+        id,
+        outletId,
+        date,
+        type,
+        lines: lines.map((line) => {
+          const order = delivery.orders.find((o) => o.id === line.orderId);
+          return {
+            orderId: line.orderId,
+            kind: order?.kind ?? "chilled",
+            units: line.units,
+            orderUnits: order?.units ?? line.units,
+          };
+        }),
+        ...(note ? { note } : {}),
+        photo,
+        reportedAt: clockTime(now()),
+        resolved: false,
+      };
       issues.set(id, record);
-      const order = orders.get(issue.orderId);
-      if (order) orders.set(order.id, { ...order, status: "Issue" });
       return record;
     },
 
     async listIssues(outletId) {
-      return [...issues.values()].filter((issue) => {
-        const order = orders.get(issue.orderId);
-        return order?.outletId === outletId;
-      });
+      return [...issues.values()]
+        .filter((issue) => issue.outletId === outletId)
+        .sort((a, b) => Number(a.resolved) - Number(b.resolved) || b.reportedAt.localeCompare(a.reportedAt));
     },
 
-    async listDeliveries(outletId, date) {
-      const fixture =
-        outletId === HERO_OUTLET.id ? HERO_OUTLET_FIXTURE : outletId === OUT009_OUTLET.id ? OUT009_OUTLET : null;
-      if (!fixture) return [];
-      const outletOrders =
-        outletId === OUT009_OUTLET.id
-          ? out009Orders()
-          : [...orders.values()].filter((order) => order.outletId === outletId);
-      const today = toIsoDate(now());
-      const dates = [...new Set(outletOrders.map((order) => order.deliveryDate))]
-        .filter((d) => (date ? d === date : d >= today))
-        .sort();
-      return dates.map((d): Delivery =>
-        deriveDelivery(fixture, d, outletOrders.filter((order) => order.deliveryDate === d), now(), recordOf(outletId, d)),
-      );
-    },
+    listDeliveries,
 
     async acknowledgeDeferral({ outletId, date }) {
       updateRecord(outletId, date, { deferralAcknowledged: true });
