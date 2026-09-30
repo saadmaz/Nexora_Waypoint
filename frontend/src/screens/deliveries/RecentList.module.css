@@ -1,0 +1,35 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  padding: 0 var(--space-4);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+}
+
+.row + .row {
+  border-top: 1px solid var(--line);
+}
+
+.top {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  font: var(--text-data);
+  font-size: 15px;
+}
+
+.count {
+  font: var(--text-body-sm);
+  color: var(--ink-muted);
+}
+
+.detail {
+  font: var(--text-body-sm);
+  color: var(--ink-muted);
+}
