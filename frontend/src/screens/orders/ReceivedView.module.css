@@ -5,7 +5,7 @@
   padding: var(--space-4);
   border-radius: var(--radius-lg);
   background: var(--success-soft);
-  color: var(--success);
+  color: var(--ink);
 }
 
 .ackHead {
@@ -23,8 +23,17 @@
   color: var(--ink);
 }
 
+/* The two orders sit on a plain white panel inside the green acknowledgement, as Figma draws it. */
 .orders {
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
   color: var(--ink);
+}
+
+.orderList {
+  display: flex;
+  flex-direction: column;
+  padding: 0 var(--space-3);
 }
 
 .order {
@@ -32,7 +41,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  padding: var(--space-3);
+  padding: var(--space-3) 0;
 }
 
 .order + .order {

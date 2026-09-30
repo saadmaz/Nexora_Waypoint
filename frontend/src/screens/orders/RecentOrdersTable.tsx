@@ -16,7 +16,7 @@ export function RecentOrdersTable({ days, onOpenDay }: RecentOrdersTableProps) {
     <DataTable
       columns={[
         { header: "Date", width: "76px" },
-        { header: "Orders", width: "46px", right: true },
+        { header: "Orders", width: "64px", right: true },
         { header: "Status", width: "auto" },
       ]}
       rows={days.map((day) => [

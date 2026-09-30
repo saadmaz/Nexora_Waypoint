@@ -1,5 +1,4 @@
 import { Button } from "../../components/ui/Button";
-import { Card } from "../../components/ui/Card";
 import { Icon } from "../../components/ui/Icon";
 import { JourneyTimeline } from "../../components/ui/JourneyTimeline";
 import { Mono } from "../../components/ui/Mono";
@@ -41,14 +40,14 @@ export function ReceivedView({ orders, now, onEdit, onSeeDeliveries }: ReceivedV
     <>
       <section className={styles.ack} aria-labelledby="ack-title">
         <div className={styles.ackHead}>
-          <Icon name="circle-check" size={24} />
+          <Icon name="circle-check" size={24} color="success" />
           <h1 className={styles.ackTitle} id="ack-title">
             {updatedAt ? "Updated" : "Received"} <Mono>{clockTime(updatedAt ?? receivedAt)}</Mono>
           </h1>
         </div>
         <p className={styles.counts}>Counts for {dayLabel(first.deliveryDate)}.</p>
-        <Card padded={false} flat>
-          <ul className={styles.orders}>
+        <div className={styles.orders}>
+          <ul className={styles.orderList}>
             {orders.map((order) => (
               <li className={styles.order} key={order.id}>
                 <div>
@@ -66,7 +65,7 @@ export function ReceivedView({ orders, now, onEdit, onSeeDeliveries }: ReceivedV
               </li>
             ))}
           </ul>
-        </Card>
+        </div>
         {editable && (
           <p className={styles.note}>
             Confirmed at <Mono>16:00</Mono> when orders close.

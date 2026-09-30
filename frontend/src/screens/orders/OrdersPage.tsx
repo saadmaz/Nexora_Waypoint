@@ -295,6 +295,10 @@ export function OrdersPage({ preview }: OrdersPageProps) {
   // Editing changes an order that is already in, so there is nothing to "move to" tomorrow.
   const editNotice: ReactNode = submit === "error" ? errorAlert : <CutoffAlert minutesLeft={minutesLeft} />;
 
+  // S1.6 draws no cutoff alert: the countdown is the card beside the form. A failed send and a
+  // queued order still need telling.
+  const desktopNotice: ReactNode = submit === "error" ? errorAlert : !online && !showEdit ? notice : null;
+
   const closed = closedNotice ? (
     <Alert
       tone="danger"
@@ -487,7 +491,7 @@ export function OrdersPage({ preview }: OrdersPageProps) {
         <DesktopOrders
           title={showEdit ? `Edit order for ${targetLabel}` : `Order for ${targetLabel}`}
           dateLabel={targetLabel}
-          notice={showEdit ? editNotice : notice}
+          {...(desktopNotice ? { notice: desktopNotice } : {})}
           quantities={quantities}
           factors={factors}
           onChange={changeUnits}
