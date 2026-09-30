@@ -6,6 +6,10 @@ import { ConnectivityBar } from "./ConnectivityBar";
 import styles from "./PhoneLayout.module.css";
 
 export type PhoneLayoutProps = {
+  /** "OUT084 · Waypoint Fresh". Defaults to Anusha's outlet; S2.9 shows OUT009's view. */
+  outlet?: string;
+  /** "Kandy" */
+  place?: string;
   sync?: SyncState;
   waiting?: number;
   /** The Updates bell in the top bar. Omit to leave it out. */
@@ -19,8 +23,10 @@ export type PhoneLayoutProps = {
   children: ReactNode;
 };
 
-/** The store's phone frame: OUT084 · Waypoint Fresh, Kandy. */
+/** The store's phone frame: OUT084 · Waypoint Fresh, Kandy unless told otherwise. */
 export function PhoneLayout({
+  outlet = "OUT084 · Waypoint Fresh",
+  place = "Kandy",
   sync = "synced",
   waiting,
   bell,
@@ -32,8 +38,8 @@ export function PhoneLayout({
   return (
     <div className={styles.shell}>
       <TopBar
-        outlet="OUT084 · Waypoint Fresh"
-        place="Kandy"
+        outlet={outlet}
+        place={place}
         sync={sync}
         {...(waiting === undefined ? {} : { waiting })}
         {...(bell ? { bell } : {})}
