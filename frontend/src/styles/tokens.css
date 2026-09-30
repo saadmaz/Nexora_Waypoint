@@ -45,7 +45,7 @@
   --focus: #0b5c63;
 
   /* Archivo for sentences and labels. IBM Plex Mono only for IDs, times and figures. */
-  --font-sans: "Archivo Variable", "Archivo", system-ui, sans-serif;
+  --font-sans: "Archivo Variable", "Archivo", "Noto Sans Sinhala", "Noto Sans Tamil", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 
   --radius-sm: 4px;
@@ -177,4 +177,8 @@
   --brand-tech: #2c3080;
   --brand-tech-soft: #e6e7f7;
   --focus: #000000;
+
+  /* "High contrast, no shadows" (R1.9 copy): Field · sunlight draws no shadows at all. */
+  --shadow-1: none;
+  --shadow-2: none;
 }
