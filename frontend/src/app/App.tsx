@@ -1,5 +1,6 @@
 import { BrowserRouter } from "react-router-dom";
 import { Gallery } from "../screens/store/gallery/Gallery";
+import DispatcherApp from "../screens/dispatcher/DispatcherApp";
 import { PresenterControl } from "./PresenterControl";
 import { StoreProvider } from "./StoreProvider";
 import { StoreRoot } from "./StoreRoot";
@@ -14,6 +15,8 @@ const GALLERY_PATH = "/store/_states";
  * frames runs its own router and clock.
  */
 export default function App() {
+  // The dispatcher is its own role app with its own provider and clock (PRD v3 section 15).
+  if (window.location.pathname.startsWith("/dispatcher")) return <DispatcherApp />;
   if (window.location.pathname === GALLERY_PATH) return <Gallery />;
 
   return (
