@@ -17,6 +17,7 @@ import { deliveryDayFor, toIsoDate } from "../../domain/schedule";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { useNow } from "../../hooks/useNow";
 import { useOnline } from "../../hooks/useOnline";
+import { useStore } from "../../app/StoreContext";
 import { DeferralView } from "./DeferralView";
 import { DeliveriesSkeleton } from "./DeliveriesSkeleton";
 import { DeliveryCard } from "./DeliveryCard";
@@ -49,6 +50,7 @@ const realNow = () => new Date();
  */
 export function DeliveriesPage({ api, now = realNow, outletId = OUTLET.id, date, preview }: DeliveriesPageProps) {
   const navigate = useNavigate();
+  const { unread, refreshUnread } = useStore();
   const desktop = useMediaQuery("(min-width: 1024px)");
   const currentTime = useNow(now);
   const browserOnline = useOnline();
@@ -97,6 +99,7 @@ export function DeliveriesPage({ api, now = realNow, outletId = OUTLET.id, date,
     setBusy(true);
     try {
       await api.acknowledgeDeferral({ outletId, date: target.date });
+      refreshUnread();
       reload();
     } finally {
       setBusy(false);
@@ -223,7 +226,7 @@ export function DeliveriesPage({ api, now = realNow, outletId = OUTLET.id, date,
     return (
       <PhoneLayout
         sync={syncState}
-        bell={{}}
+        bell={{ unread }}
         {...(outlet && delivery ? { outlet, place: delivery.district } : {})}
         {...(offlineNote ? { connectivity: offlineNote } : {})}
         {...(actions ? { actions } : {})}
@@ -238,7 +241,7 @@ export function DeliveriesPage({ api, now = realNow, outletId = OUTLET.id, date,
   return (
     <div className={styles.desktop}>
       <AppBar
-        bell={{}}
+        bell={{ unread }}
         right={
           <>
             <span className={styles.today}>

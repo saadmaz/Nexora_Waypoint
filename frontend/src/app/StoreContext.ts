@@ -2,10 +2,14 @@ import { createContext, useContext } from "react";
 import type { StoreApi } from "../api/StoreApi";
 
 export type StoreContextValue = {
-  /** The one StoreApi every screen talks to, so an order placed on S1 shows on S2. */
+  /** The one StoreApi every screen talks to, so an order placed on S1 is the one S2 lists. */
   api: StoreApi;
   /** The one clock. Nothing else reads the wall clock. */
   now: () => Date;
+  /** Unread updates, for the bell on every screen (S4). Refreshed each minute of the clock. */
+  unread: number;
+  /** Re-reads the unread count now, after the store has read something. */
+  refreshUnread: () => void;
 };
 
 export const StoreContext = createContext<StoreContextValue | null>(null);
