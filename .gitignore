@@ -5,6 +5,7 @@ node_modules/
 .env
 .env.*
 !.env.example
+*.local
 
 # Build output
 dist/
@@ -23,3 +24,9 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 .idea/
+
+# Local data
+data/
+
+# Claude/AI project docs and specs: kept locally, not committed.
+claude/
