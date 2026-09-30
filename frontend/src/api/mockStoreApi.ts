@@ -1,3 +1,5 @@
+import type { Delivery } from "../domain/delivery";
+import { toIsoDate } from "../domain/schedule";
 import type {
   EditOrderInput,
   NewOrderInput,
@@ -7,6 +9,7 @@ import type {
   UnitFactors,
 } from "../domain/order";
 import { isAfterCutoff, isPastCutoff, operatingDayFor } from "../domain/schedule";
+import { EMPTY_RECORD, deriveDelivery, type DeliveryRecord, type OutletFixture } from "./mockDeliveries";
 import {
   CutoffError,
   NotFoundError,
@@ -21,6 +24,44 @@ import {
  * Tue 29 Sep 2026, both received Mon 28 Sep 15:40, window 05:30 to 08:00.
  */
 const HERO_OUTLET = { id: "OUT084", name: "Waypoint Fresh", district: "Kandy" };
+const HERO_WINDOW = { start: "05:30", end: "08:00" };
+
+/**
+ * OUT009 (Colombo) has one order on the run, ORD1002, so S2.9 can show a store that Dispatch
+ * deferred by policy at 03:00. Anusha's own outlet is the only one that can place orders.
+ */
+const OUT009_OUTLET: OutletFixture = {
+  id: "OUT009",
+  name: "Waypoint Fresh",
+  district: "Colombo",
+  window: { start: "04:00", end: "07:45" },
+  dock: "Rear dock",
+};
+const HERO_OUTLET_FIXTURE: OutletFixture = {
+  id: HERO_OUTLET.id,
+  name: HERO_OUTLET.name,
+  district: HERO_OUTLET.district,
+  window: HERO_WINDOW,
+  dock: "Rear dock",
+};
+function out009Orders(): Order[] {
+  return [
+    {
+      id: "ORD1002",
+      outletId: "OUT009",
+      outletName: "Waypoint Fresh",
+      district: "Colombo",
+      deliveryDate: HERO_DELIVERY_DATE,
+      dock: "rear_dock",
+      window: OUT009_OUTLET.window,
+      line: { id: "ORD1002-L1", kind: "chilled", units: 35, estimatedKg: 210, estimatedM3: 1.4 },
+      status: "Ordered",
+      receivedAt: "2026-09-28T14:02:00",
+      afterCutoff: false,
+    },
+  ];
+}
+
 const HERO_DELIVERY_DATE = "2026-09-29";
 const HERO_RECEIVED_AT = "2026-09-28T15:40:00";
 
@@ -56,18 +97,27 @@ function heroFixture(): Order[] {
 }
 
 /**
- * Recent delivery days for OUT084, as S1.6 lists them (Sunday 27 Sep is skipped: Waypoint
- * operates Monday to Saturday). Follows PRD v3 A35 and DP-05: Fri 25 Sep was deferred by
- * policy and Thu 24 Sep delivered. The Figma S1.6 frame draws these two the other way
- * round; the spec wins. Order counts are the frame's, moved with their rows.
+ * Recent delivery days for OUT084, as S1.6 and S2.10 list them (Sunday 27 Sep is skipped:
+ * Waypoint operates Monday to Saturday). Follows PRD v3 A35 and DP-05: Fri 25 Sep was deferred
+ * by policy and served next day, Thu 24 Sep delivered at 05:38. The Figma S1.6 and S2.10
+ * frames draw these two the other way round; the spec wins. Order counts move with their
+ * rows, so Fri 25 shows 1 order and Thu 24 shows 2.
  */
 function recentFixture(): RecentOrderDay[] {
   return [
-    { date: "2026-09-26", orderCount: 2, status: "Delivered" },
-    { date: "2026-09-25", orderCount: 1, status: "Deferred", deferral: { type: "policy" } },
-    { date: "2026-09-24", orderCount: 2, status: "Delivered" },
-    { date: "2026-09-23", orderCount: 2, status: "Delivered" },
-    { date: "2026-09-22", orderCount: 2, status: "Delivered" },
+    { date: "2026-09-28", orderCount: 2, status: "Delivered", deliveredAt: "05:40" },
+    { date: "2026-09-26", orderCount: 2, status: "Delivered", deliveredAt: "05:51" },
+    {
+      date: "2026-09-25",
+      orderCount: 1,
+      status: "Deferred",
+      deferral: { type: "policy" },
+      servedNextDay: true,
+    },
+    { date: "2026-09-24", orderCount: 2, status: "Delivered", deliveredAt: "05:38" },
+    { date: "2026-09-23", orderCount: 2, status: "Delivered", deliveredAt: "05:44" },
+    { date: "2026-09-22", orderCount: 2, status: "Delivered", deliveredAt: "05:36" },
+    { date: "2026-09-21", orderCount: 2, status: "Partial", shortUnits: 1 },
   ];
 }
 
@@ -109,6 +159,12 @@ export function createMockStoreApi(
 ): StoreApi {
   const orders = new Map((seed === "placed" ? heroFixture() : []).map((order) => [order.id, order]));
   const issues = new Map<string, Issue>();
+  // What the store has done on each delivery day, keyed "outlet|date": Got it, the review answer, the receipt.
+  const records = new Map<string, DeliveryRecord>();
+  const recordOf = (outletId: string, date: string) => records.get(`${outletId}|${date}`) ?? EMPTY_RECORD;
+  const updateRecord = (outletId: string, date: string, patch: Partial<DeliveryRecord>) => {
+    records.set(`${outletId}|${date}`, { ...recordOf(outletId, date), ...patch });
+  };
 
   function placeOne(input: NewOrderInput): Order {
     const heroId = HERO_IDS[input.line.kind];
@@ -203,10 +259,36 @@ export function createMockStoreApi(
       });
     },
 
-    async listRecent(outletId, limit = 5) {
+    async listDeliveries(outletId, date) {
+      const fixture =
+        outletId === HERO_OUTLET.id ? HERO_OUTLET_FIXTURE : outletId === OUT009_OUTLET.id ? OUT009_OUTLET : null;
+      if (!fixture) return [];
+      const outletOrders =
+        outletId === OUT009_OUTLET.id
+          ? out009Orders()
+          : [...orders.values()].filter((order) => order.outletId === outletId);
+      const today = toIsoDate(now());
+      const dates = [...new Set(outletOrders.map((order) => order.deliveryDate))]
+        .filter((d) => (date ? d === date : d >= today))
+        .sort();
+      return dates.map((d): Delivery =>
+        deriveDelivery(fixture, d, outletOrders.filter((order) => order.deliveryDate === d), now(), recordOf(outletId, d)),
+      );
+    },
+
+    async acknowledgeDeferral({ outletId, date }) {
+      updateRecord(outletId, date, { deferralAcknowledged: true });
+    },
+
+    async answerReceivedQuestion({ outletId, date, answer }) {
+      updateRecord(outletId, date, { reviewAnswer: answer });
+    },
+
+    async listRecent(outletId, { limit = 5, before } = {}) {
       if (outletId !== HERO_OUTLET.id) return [];
       return recentFixture()
         .filter((day) => new Date(`${day.date}T00:00:00`).getDay() !== 0)
+        .filter((day) => (before ? day.date < before : true))
         .slice(0, limit);
     },
   };

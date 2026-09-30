@@ -123,7 +123,7 @@ export function OrdersPage({ api, now = realNow, preview }: OrdersPageProps) {
   // Load the day's form, and reload it when the clock rolls the target day over at 16:00.
   useEffect(() => {
     let alive = true;
-    void Promise.all([api.getOrderDraft(OUTLET.id, target), api.listRecent(OUTLET.id)]).then(([d, r]) => {
+    void Promise.all([api.getOrderDraft(OUTLET.id, target), api.listRecent(OUTLET.id, { limit: 5, before: toIsoDate(now()) })]).then(([d, r]) => {
       if (!alive) return;
       setDay(d);
       setRecent(r);
