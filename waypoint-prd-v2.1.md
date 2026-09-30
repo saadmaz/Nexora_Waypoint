@@ -589,6 +589,15 @@ Proposed F17 line: *"Illustrative data: some times, order IDs, outlet tags and q
 | A34 | Driver history rows: Mon 28 Sep run 05:09 to 06:31, 19.5 km, 1 h 22 min, 2 of 2; Sat 26 Sep 05:12 to 06:30, 19.6 km, 1 h 18 min; Fri 25 Sep 05:05 to 06:52, 22.3 km, 3 of 3, 1 h 47 min; Thu 24 Sep 05:08 to 06:28, 19.2 km, 1 h 20 min; Sun 27 Sep no run. Today Tue 29 Sep 05:10 to 06:45, 19.4 km | R7.1 |
 | A35 | Store recent-orders lists (Mon to Sat): Mon 28 Sep delivered 05:40, Sat 26 05:51, Fri 25 deferred (policy) served next day, Thu 24 05:38, Wed 23 05:44, Tue 22 05:36, Mon 21 partial (1 unit short). Times moved with their rows when Sunday was removed | S2.10, S1.6 |
 
+### A36 to A37 (added 30 Sep by the store-manager frontend build, please confirm)
+
+| # | Assumption | Used in |
+|---|---|---|
+| A36 | Store order estimates scale linearly with units: chilled 70 kg and 0.7 m³ per 12 units, dry 45 kg and 0.6 m³ per 8 units (the ORD2001 and ORD2002 figures), kg rounded to a whole number, m³ to one decimal. This is what S1.3 B shows (10 chilled units, about 58 kg, 0.6 m³). Extends A14 (orders are captured in units, kg and m³ estimated) | S1 |
+| A37 | Copy and behaviour S1 needs but Figma does not draw: "Orders closed at 16:00" with "This order can no longer be edited or cancelled." when an edit is refused at the cutoff; "Place 1 order" for a single line and a disabled "Place orders" for none; a line lowered to 0 is cancelled on Save changes; Cancel order has no confirm step (as drawn). Also: the S1.4 after-cutoff order shows the hero quantities (12 and 8) read-only, as drawn | S1 |
+
+**A35 correction (30 Sep):** the S1.6 frame shows Recent orders as Sat 26 Sep 2 Delivered, Fri 25 Sep 2 Delivered, Thu 24 Sep 1 Deferred · policy, Wed 23 Sep 2 Delivered, Tue 22 Sep 2 Delivered (date, order count and status only, no times). A35 above puts the policy deferral on Fri 25 and lists delivery times and a Mon 21 partial. The frame is what is judged, so the store build follows it; A35 should be reconciled with the frame or the frame redrawn.
+
 ### Corrections to app.html (v1, status not re-checked)
 
 C1 to C11 from v1 still apply to whoever maintains app.html: re-sequenced trips so every window holds; second trips after the return leg; three modelled policy deferrals; the VEH003 → VEH036 swap with ORD1002 deferred; VEH036 released at 02:45; store deferral at 05:20 / 05:21; R3 outcomes map to Delivered / Issue + tag; loader at phone width with the Kandy load by Ruwan; continuity-guard wording; D9 ISO weeks labelled by Monday; units, S2 Departed state and ORD2003 delivered 05:58. v2 added: C12 R6 to R10 screens; C13 store edit before cutoff; C14 Under review label for stores; C15 GPS distance (**v2.1: no odometer fallback, planned distance fills a GPS gap**). v2.1 adds: C16 no delivery on Sundays; C17 five driver outcomes with a units stepper; C18 D5.3 A and D7.4 B states.
