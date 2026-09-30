@@ -18,8 +18,10 @@
 
 .top {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--space-1);
+  gap: 0 var(--space-1);
+  white-space: nowrap;
   font: var(--text-data);
   font-size: 15px;
 }
