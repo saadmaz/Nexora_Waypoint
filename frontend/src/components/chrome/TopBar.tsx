@@ -50,6 +50,8 @@ export type TopBarProps = {
   outlet: string;
   /** "Kandy" */
   place: string;
+  /** Set the second line in Plex Mono, for the receipt's "OUT084 · Waypoint Fresh · Kandy". */
+  placeMono?: boolean;
   sync: SyncState;
   waiting?: number;
   /** The Updates bell (entry point to S4). Omit to leave it out. */
@@ -57,12 +59,12 @@ export type TopBarProps = {
 };
 
 /** The phone top bar, 56 px, on the chrome surface. */
-export function TopBar({ outlet, place, sync, waiting, bell }: TopBarProps) {
+export function TopBar({ outlet, place, placeMono, sync, waiting, bell }: TopBarProps) {
   return (
     <header className={styles.topbar}>
       <div className={styles.title}>
         <div className={styles.outlet}>{outlet}</div>
-        <div className={styles.place}>{place}</div>
+        <div className={[styles.place, placeMono && styles.placeMono].filter(Boolean).join(" ")}>{place}</div>
       </div>
       {bell && <BellButton {...bell} />}
       <SyncChip state={sync} {...(waiting === undefined ? {} : { waiting })} />

@@ -9,10 +9,7 @@ export type UnitStepperProps = {
   max?: number;
   /** What the units are counted in, for the screen reader label. */
   label: string;
-  /**
-   * On the receipt, the count expected. When value is below it the stepper shows
-   * the shortfall style and reads "10 of 12".
-   */
+  /** On the receipt, the count expected: "/ 12" beside the stepper. Lowering the count below it is a shortfall. */
   expected?: number;
   disabled?: boolean;
 };
@@ -36,7 +33,7 @@ export function UnitStepper({
 
   return (
     <span className={styles.wrap}>
-      <span className={[styles.stepper, isShortfall && styles.shortfall].filter(Boolean).join(" ")}>
+      <span className={styles.stepper}>
         <button
           type="button"
           className={styles.step}
@@ -61,7 +58,7 @@ export function UnitStepper({
       </span>
       {expected !== undefined && (
         <span className={styles.expected}>
-          of {expected}
+          / {expected}
           <span style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>
             {isShortfall ? ` ${label} expected, a shortfall` : ` ${label} expected`}
           </span>

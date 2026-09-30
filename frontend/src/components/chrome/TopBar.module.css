@@ -26,6 +26,13 @@
   color: var(--on-chrome-muted);
 }
 
+.placeMono {
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .chip {
   display: inline-flex;
   align-items: center;

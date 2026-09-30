@@ -10,6 +10,8 @@ export type PhoneLayoutProps = {
   outlet?: string;
   /** "Kandy" */
   place?: string;
+  /** The second line in Plex Mono (S3). */
+  placeMono?: boolean;
   sync?: SyncState;
   waiting?: number;
   /** The Updates bell in the top bar. Omit to leave it out. */
@@ -27,6 +29,7 @@ export type PhoneLayoutProps = {
 export function PhoneLayout({
   outlet = "OUT084 · Waypoint Fresh",
   place = "Kandy",
+  placeMono,
   sync = "synced",
   waiting,
   bell,
@@ -40,6 +43,7 @@ export function PhoneLayout({
       <TopBar
         outlet={outlet}
         place={place}
+        {...(placeMono ? { placeMono } : {})}
         sync={sync}
         {...(waiting === undefined ? {} : { waiting })}
         {...(bell ? { bell } : {})}

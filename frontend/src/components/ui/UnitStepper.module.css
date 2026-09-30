@@ -40,19 +40,13 @@
   border-right: 1px solid var(--line);
 }
 
-/* Shortfall: the delivered count is below what was expected. Amber, plus the
-   "of N" text beside it, so it never relies on colour alone. */
-.shortfall .value {
-  background: var(--signal-soft);
-  color: var(--warning);
-}
-
 .expected {
   font: var(--text-body-sm);
   font-family: var(--font-mono);
   color: var(--ink-muted);
   margin-left: 8px;
   align-self: center;
+  white-space: nowrap;
 }
 
 .wrap {
