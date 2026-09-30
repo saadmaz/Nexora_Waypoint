@@ -1,21 +1,26 @@
 import type { Delivery } from "../domain/delivery";
+import type { Issue, IssueType } from "../domain/issue";
 import type { EditOrderInput, NewOrderInput, Order, OrderDraft, RecentOrderDay } from "../domain/order";
 
-export type Issue = {
-  id: string;
-  orderId: string;
-  /** One of the fixed problem reasons from R6: road, breakdown, damaged goods, other. */
-  reason: "road_blocked" | "breakdown" | "goods_damaged" | "other";
-  note: string;
-  reportedAt: string;
-  resolved: boolean;
+export type ConfirmReceiptInput = {
+  outletId: string;
+  /** ISO date of the delivery day. */
+  date: string;
+  /** Units the store counted per order. Fewer than ordered records a shortfall (Partial). */
+  lines: { orderId: string; received: number }[];
+  /** Why it was short, asked for when any count is below what was expected. */
+  reason?: string;
 };
 
-export type ConfirmReceiptInput = {
-  orderId: string;
-  /** True if the delivery matched in full; false records a shortfall. */
-  received: boolean;
-  shortfallUnits?: number;
+export type ReportIssueInput = {
+  outletId: string;
+  /** ISO date of the delivery day. */
+  date: string;
+  type: IssueType;
+  /** The affected orders and how many units of each. */
+  lines: { orderId: string; units: number }[];
+  note?: string;
+  photo: boolean;
 };
 
 /**
@@ -35,8 +40,11 @@ export interface StoreApi {
   editOrder(orderId: string, input: EditOrderInput): Promise<Order>;
   /** Cancels an order. Rejects once the order is past cutoff. */
   cancelOrder(orderId: string): Promise<void>;
-  confirmReceipt(input: ConfirmReceiptInput): Promise<Order>;
-  reportIssue(issue: Omit<Issue, "id" | "reportedAt" | "resolved">): Promise<Issue>;
+  /** Confirms what arrived (S3.1), or records a shortfall (S3.1 B). Rejects when nothing has been delivered. */
+  confirmReceipt(input: ConfirmReceiptInput): Promise<Delivery>;
+  /** Reports a problem tied to the proof of delivery (S3.3). Dispatch is told at once. */
+  reportIssue(input: ReportIssueInput): Promise<Issue>;
+  /** The problems the store has reported, open first, newest first (S3.7). */
   listIssues(outletId: string): Promise<Issue[]>;
   /**
    * The outlet's delivery days (S2). With `date`, that day only (an empty list when the
