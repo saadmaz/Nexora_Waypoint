@@ -1,9 +1,40 @@
-# Claude / Claude Code
+# Dependencies
+node_modules/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# Build output
+dist/
+build/
+.next/
+out/
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Local data
+data/
+
+# Claude/AI project docs and specs: kept locally, not committed.
+claude/
+
+# Claude Code local files (CLAUDE.md itself is tracked: it points at Contributing.md)
 .claude/
 .claude.json
 .claude.json.backup
-CLAUDE.md
 CLAUDE.local.md
-**/CLAUDE.md
 **/CLAUDE.local.md
 .mcp.json
