@@ -1,4 +1,4 @@
-import type { EditOrderInput, NewOrderInput, Order, RecentOrderDay } from "../domain/order";
+import type { EditOrderInput, NewOrderInput, Order, OrderDraft, RecentOrderDay } from "../domain/order";
 
 export type Issue = {
   id: string;
@@ -23,9 +23,11 @@ export type ConfirmReceiptInput = {
  * screens never talk to fetch or the mock's fixture directly.
  */
 export interface StoreApi {
-  listOrders(outletId: string): Promise<Order[]>;
-  getOrder(orderId: string): Promise<Order | undefined>;
-  placeOrder(input: NewOrderInput): Promise<Order>;
+  /**
+   * The order form for one day: window, dock, unit factors, starting quantities and the
+   * orders already placed. `date` defaults to the day an order placed now counts for.
+   */
+  getOrderDraft(outletId: string, date?: string): Promise<OrderDraft>;
   /** Places several orders together (chilled and dry): all are received or none is. */
   placeOrders(inputs: NewOrderInput[]): Promise<Order[]>;
   /** Edits quantities on an order. Rejects once the order is past cutoff. */
@@ -39,7 +41,7 @@ export interface StoreApi {
    * Past delivery days for the outlet, newest first, Sundays skipped. Feeds S1.6's
    * "Recent orders" table and, later, S4's History tab.
    */
-  listRecentOrders(outletId: string, limit?: number): Promise<RecentOrderDay[]>;
+  listRecent(outletId: string, limit?: number): Promise<RecentOrderDay[]>;
 }
 
 export class CutoffError extends Error {

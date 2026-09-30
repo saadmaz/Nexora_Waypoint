@@ -14,9 +14,9 @@ import { useToast } from "../../components/ui/useToast";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { useNow } from "../../hooks/useNow";
 import { useOnline } from "../../hooks/useOnline";
-import { DEFAULT_UNITS, estimateFor } from "../../domain/estimate";
+import { estimateFor } from "../../domain/estimate";
 import { clockTime, dayLabel, weekdayShort } from "../../domain/format";
-import type { NewOrderInput, Order, OrderKind, RecentOrderDay } from "../../domain/order";
+import type { NewOrderInput, OrderDraft, OrderKind, RecentOrderDay, UnitFactors } from "../../domain/order";
 import { OUTLET } from "../../domain/outlet";
 import {
   addDays,
@@ -57,12 +57,15 @@ type Quantities = Record<OrderKind, number>;
 
 const realNow = () => new Date();
 
+/** Stand-in while the form loads; never shown, because loading renders a skeleton. */
+const NO_FACTORS: UnitFactors = { chilled: { kg: 0, m3: 0 }, dry: { kg: 0, m3: 0 } };
+
 function linesOf(quantities: Quantities): Line[] {
   return KINDS.filter((kind) => quantities[kind] > 0).map((kind) => ({ kind, units: quantities[kind] }));
 }
 
-function toInput(line: Line, deliveryDate: string): NewOrderInput {
-  const { kg, m3 } = estimateFor(line.kind, line.units);
+function toInput(line: Line, deliveryDate: string, factors: UnitFactors): NewOrderInput {
+  const { kg, m3 } = estimateFor(factors, line.kind, line.units);
   return {
     outletId: OUTLET.id,
     deliveryDate,
@@ -83,17 +86,18 @@ export function OrdersPage({ api, now = realNow, preview }: OrdersPageProps) {
   const browserOnline = useOnline();
   const online = browserOnline && preview !== "offline" && preview !== "queued";
 
-  const [allOrders, setAllOrders] = useState<Order[] | null>(null);
+  // The API's order form for the target day: window, unit factors, starting quantities, placed orders.
+  const [day, setDay] = useState<OrderDraft | null>(null);
   const [recent, setRecent] = useState<RecentOrderDay[]>([]);
   const [mode, setMode] = useState<Mode>("view");
-  const [quantities, setQuantities] = useState<Quantities>({ ...DEFAULT_UNITS });
+  // What the store has typed into the steppers; until then the API's starting quantities.
+  const [edited, setEdited] = useState<Quantities | null>(null);
   const [submit, setSubmit] = useState<Submit>(
     preview === "sending" ? "sending" : preview === "error" ? "error" : preview === "queued" ? "queued" : "idle",
   );
-  const initialQueued = preview === "queued" ? { at: clockTime(now()), lines: linesOf(DEFAULT_UNITS) } : null;
-  const [queued, setQueuedState] = useState<{ at: string; lines: Line[] } | null>(initialQueued);
+  const [queued, setQueuedState] = useState<{ at: string; lines: Line[] } | null>(null);
   // The ref is what the online handler reads, so a second event finds the queue already taken.
-  const queuedRef = useRef(initialQueued);
+  const queuedRef = useRef<{ at: string; lines: Line[] } | null>(null);
   const setQueued = useCallback((value: { at: string; lines: Line[] } | null) => {
     queuedRef.current = value;
     setQueuedState(value);
@@ -107,25 +111,30 @@ export function OrdersPage({ api, now = realNow, preview }: OrdersPageProps) {
   /** The day whose 16:00 cutoff has just passed, for "Orders for Tue 29 Sep closed at 16:00". */
   const closedDate = toIsoDate(addDays(currentTime, 1));
   const minutesLeft = minutesUntilCutoff(target, currentTime);
-  const orders = (allOrders ?? [])
-    .filter((order) => order.deliveryDate === target)
-    .sort((a, b) => KINDS.indexOf(a.line.kind) - KINDS.indexOf(b.line.kind));
+  const current = day && day.deliveryDate === target ? day : null;
+  const orders = current?.orders ?? [];
+  const factors = current?.unitFactors ?? NO_FACTORS;
+  const quantities: Quantities = edited ?? current?.defaultUnits ?? { chilled: 0, dry: 0 };
 
   const reload = useCallback(async () => {
-    setAllOrders(await api.listOrders(OUTLET.id));
-  }, [api]);
+    setDay(await api.getOrderDraft(OUTLET.id, target));
+  }, [api, target]);
 
+  // Load the day's form, and reload it when the clock rolls the target day over at 16:00.
   useEffect(() => {
     let alive = true;
-    void Promise.all([api.listOrders(OUTLET.id), api.listRecentOrders(OUTLET.id)]).then(([o, r]) => {
+    void Promise.all([api.getOrderDraft(OUTLET.id, target), api.listRecent(OUTLET.id)]).then(([d, r]) => {
       if (!alive) return;
-      setAllOrders(o);
+      setDay(d);
       setRecent(r);
+      if (preview === "queued" && !queuedRef.current) {
+        setQueued({ at: clockTime(now()), lines: linesOf(d.defaultUnits) });
+      }
     });
     return () => {
       alive = false;
     };
-  }, [api]);
+  }, [api, target, preview, now, setQueued]);
 
   // Two `online` events, or a double tap, must not place the same order twice.
   const inFlight = useRef(false);
@@ -136,8 +145,9 @@ export function OrdersPage({ api, now = realNow, preview }: OrdersPageProps) {
       inFlight.current = true;
       setSubmit("sending");
       try {
-        const placed = await api.placeOrders(lines.map((line) => toInput(line, target)));
-        setAllOrders((prev) => [...(prev ?? []), ...placed]);
+        if (!current) throw new Error("The order form has not loaded.");
+        const placed = await api.placeOrders(lines.map((line) => toInput(line, target, factors)));
+        await reload();
         setQueued(null);
         setSubmit("idle");
         setMode("view");
@@ -148,7 +158,7 @@ export function OrdersPage({ api, now = realNow, preview }: OrdersPageProps) {
         inFlight.current = false;
       }
     },
-    [api, target, afterCutoff, toast, setQueued],
+    [api, target, current, factors, reload, afterCutoff, toast, setQueued],
   );
 
   /** Sends the queued order, once: the queue is taken before the request starts. */
@@ -167,19 +177,19 @@ export function OrdersPage({ api, now = realNow, preview }: OrdersPageProps) {
   }, [submit, flushQueue]);
 
   function changeUnits(kind: OrderKind, units: number) {
-    setQuantities((prev) => ({ ...prev, [kind]: units }));
+    setEdited({ ...quantities, [kind]: units });
     if (submit === "error") setSubmit("idle");
   }
 
   function startOrder() {
-    setQuantities({ ...DEFAULT_UNITS });
+    setEdited(null);
     setMode("view");
   }
 
   function startEdit() {
     const next: Quantities = { chilled: 0, dry: 0 };
     for (const order of orders) next[order.line.kind] = order.line.units;
-    setQuantities(next);
+    setEdited(next);
     setClosedNotice(false);
     setMode("edit");
   }
@@ -207,6 +217,7 @@ export function OrdersPage({ api, now = realNow, preview }: OrdersPageProps) {
   }
 
   async function saveChanges() {
+    if (!current) return;
     setSubmit("sending");
     try {
       const existing = new Map(orders.map((order) => [order.line.kind, order]));
@@ -219,11 +230,11 @@ export function OrdersPage({ api, now = realNow, preview }: OrdersPageProps) {
         } else if (units === 0) {
           await api.cancelOrder(order.id);
         } else if (units !== order.line.units) {
-          const { kg, m3 } = estimateFor(kind, units);
+          const { kg, m3 } = estimateFor(factors, kind, units);
           await api.editOrder(order.id, { units, estimatedKg: kg, estimatedM3: m3 });
         }
       }
-      if (fresh.length > 0) await api.placeOrders(fresh.map((line) => toInput(line, target)));
+      if (fresh.length > 0) await api.placeOrders(fresh.map((line) => toInput(line, target, factors)));
       await reload();
       setSubmit("idle");
       setMode("view");
@@ -238,7 +249,7 @@ export function OrdersPage({ api, now = realNow, preview }: OrdersPageProps) {
     try {
       await Promise.all(orders.map((order) => api.cancelOrder(order.id)));
       await reload();
-      setQuantities({ ...DEFAULT_UNITS });
+      setEdited(null);
       setSubmit("idle");
       setMode("cancelled");
     } catch (error) {
@@ -251,7 +262,7 @@ export function OrdersPage({ api, now = realNow, preview }: OrdersPageProps) {
   const seeDeliveries = () => navigate("/store/deliveries");
 
   // Which frame we are on.
-  const loading = allOrders === null;
+  const loading = current === null;
   const showEmpty = !loading && orders.length === 0 && (mode === "cancelled" || preview === "empty");
   const showPlaced = !loading && orders.length > 0 && mode !== "edit";
   const showEdit = !loading && orders.length > 0 && mode === "edit";
@@ -380,6 +391,7 @@ export function OrdersPage({ api, now = realNow, preview }: OrdersPageProps) {
       dateLabel={targetLabel}
       notice={editNotice}
       quantities={quantities}
+      factors={factors}
       onChange={changeUnits}
       footer={cancelButton}
     />
@@ -401,7 +413,7 @@ export function OrdersPage({ api, now = realNow, preview }: OrdersPageProps) {
     <AfterCutoffView
       closedDate={closedDate}
       runDate={target}
-      lines={draft.length > 0 ? draft : linesOf(DEFAULT_UNITS)}
+      lines={draft}
     />
   ) : (
     <PhoneForm
@@ -410,6 +422,7 @@ export function OrdersPage({ api, now = realNow, preview }: OrdersPageProps) {
       notice={notice}
       {...(queued ? { queuedAt: queued.at, pendingSync: true } : {})}
       quantities={quantities}
+      factors={factors}
       onChange={changeUnits}
       disabled={submit === "sending" || submit === "queued"}
     />
@@ -478,6 +491,7 @@ export function OrdersPage({ api, now = realNow, preview }: OrdersPageProps) {
           dateLabel={targetLabel}
           notice={showEdit ? editNotice : notice}
           quantities={quantities}
+          factors={factors}
           onChange={changeUnits}
           {...(queued ? { pendingSync: true } : {})}
           disabled={submit === "sending" || submit === "queued"}

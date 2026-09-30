@@ -1,5 +1,12 @@
-import type { EditOrderInput, NewOrderInput, Order, RecentOrderDay } from "../domain/order";
-import { isAfterCutoff, isPastCutoff } from "../domain/schedule";
+import type {
+  EditOrderInput,
+  NewOrderInput,
+  Order,
+  OrderDraft,
+  RecentOrderDay,
+  UnitFactors,
+} from "../domain/order";
+import { isAfterCutoff, isPastCutoff, operatingDayFor } from "../domain/schedule";
 import {
   CutoffError,
   NotFoundError,
@@ -49,20 +56,33 @@ function heroFixture(): Order[] {
 }
 
 /**
- * Recent delivery days for OUT084, as drawn on S1.6 (Sunday 27 Sep is skipped:
- * Waypoint operates Monday to Saturday). The frame shows date, order count and
- * status only. PRD 4d A35 lists different times and outcomes for these days;
- * the Figma frame is what is judged, so it wins (see the store README).
+ * Recent delivery days for OUT084, as S1.6 lists them (Sunday 27 Sep is skipped: Waypoint
+ * operates Monday to Saturday). Follows PRD v3 A35 and DP-05: Fri 25 Sep was deferred by
+ * policy and Thu 24 Sep delivered. The Figma S1.6 frame draws these two the other way
+ * round; the spec wins. Order counts are the frame's, moved with their rows.
  */
 function recentFixture(): RecentOrderDay[] {
   return [
     { date: "2026-09-26", orderCount: 2, status: "Delivered" },
-    { date: "2026-09-25", orderCount: 2, status: "Delivered" },
-    { date: "2026-09-24", orderCount: 1, status: "Deferred", deferral: { type: "policy" } },
+    { date: "2026-09-25", orderCount: 1, status: "Deferred", deferral: { type: "policy" } },
+    { date: "2026-09-24", orderCount: 2, status: "Delivered" },
     { date: "2026-09-23", orderCount: 2, status: "Delivered" },
     { date: "2026-09-22", orderCount: 2, status: "Delivered" },
   ];
 }
+
+/**
+ * Estimated kg and m3 per unit for OUT084 (PRD v3 A14, A42): the ORD2001 and ORD2002
+ * figures spread evenly over their units, chilled 70 kg / 0.7 m3 per 12 units and dry
+ * 45 kg / 0.6 m3 per 8. This reproduces S1.3 B (10 chilled units, about 58 kg / 0.6 m3).
+ */
+const UNIT_FACTORS: UnitFactors = {
+  chilled: { kg: 70 / 12, m3: 0.7 / 12 },
+  dry: { kg: 45 / 8, m3: 0.6 / 8 },
+};
+
+/** The quantities S1.1 opens with: the hero orders. */
+const DEFAULT_UNITS = { chilled: 12, dry: 8 } as const;
 
 /** The hero orders keep their fixture IDs when they are placed fresh (H1: ORD2001 chilled, ORD2002 dry). */
 const HERO_IDS = { chilled: "ORD2001", dry: "ORD2002" } as const;
@@ -118,18 +138,21 @@ export function createMockStoreApi(
   }
 
   return {
-    async listOrders(outletId) {
-      return [...orders.values()]
-        .filter((order) => order.outletId === outletId)
-        .sort((a, b) => a.receivedAt.localeCompare(b.receivedAt));
-    },
-
-    async getOrder(orderId) {
-      return orders.get(orderId);
-    },
-
-    async placeOrder(input: NewOrderInput) {
-      return placeOne(input);
+    async getOrderDraft(outletId, date) {
+      const deliveryDate = date ?? operatingDayFor(now());
+      const draft: OrderDraft = {
+        outletId,
+        deliveryDate,
+        afterCutoff: isAfterCutoff(now()),
+        window: { start: "05:30", end: "08:00" },
+        dock: "Rear dock",
+        unitFactors: UNIT_FACTORS,
+        defaultUnits: { ...DEFAULT_UNITS },
+        orders: [...orders.values()]
+          .filter((order) => order.outletId === outletId && order.deliveryDate === deliveryDate)
+          .sort((a, b) => (a.line.kind === b.line.kind ? 0 : a.line.kind === "chilled" ? -1 : 1)),
+      };
+      return draft;
     },
 
     async placeOrders(inputs) {
@@ -180,7 +203,7 @@ export function createMockStoreApi(
       });
     },
 
-    async listRecentOrders(outletId, limit = 5) {
+    async listRecent(outletId, limit = 5) {
       if (outletId !== HERO_OUTLET.id) return [];
       return recentFixture()
         .filter((day) => new Date(`${day.date}T00:00:00`).getDay() !== 0)
