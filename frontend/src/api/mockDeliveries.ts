@@ -42,8 +42,8 @@ export type OutletFixture = {
  * mock only has to make every screen agree with the clock, so each time here is a "HH:MM"
  * on the delivery date itself (or on the evening before, for the cutoff and the release).
  */
-const HERO_DATE = "2026-09-29";
-const HERO = {
+export const HERO_DATE = "2026-09-29";
+export const HERO = {
   vehicle: "VEH039",
   driver: "Nimal",
   loadedAt: "04:50",
@@ -64,7 +64,7 @@ const HERO = {
 const OUT009_DATE = "2026-09-29";
 const OUT009 = { deferredAt: "03:00", deferredBy: "Kumari", predictedArrival: "05:04" };
 
-function instant(date: string, hhmm: string): number {
+export function instant(date: string, hhmm: string): number {
   return new Date(`${date}T${hhmm}:00`).getTime();
 }
 

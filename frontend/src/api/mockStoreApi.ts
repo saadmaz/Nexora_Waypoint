@@ -12,6 +12,7 @@ import { clockTime } from "../domain/format";
 import type { Issue } from "../domain/issue";
 import { isAfterCutoff, isPastCutoff, operatingDayFor } from "../domain/schedule";
 import { EMPTY_RECORD, deriveDelivery, type DeliveryRecord, type OutletFixture } from "./mockDeliveries";
+import { INITIAL_READ_THROUGH, buildUpdates, type ReadState } from "./mockUpdates";
 import {
   CutoffError,
   NotFoundError,
@@ -159,6 +160,8 @@ export function createMockStoreApi(
 ): StoreApi {
   const orders = new Map((seed === "placed" ? heroFixture() : []).map((order) => [order.id, order]));
   const issues = new Map<string, Issue>();
+  // What the store has read of its updates feed (S4).
+  const read: ReadState = { through: INITIAL_READ_THROUGH, ids: new Set() };
   // What the store has done on each delivery day, keyed "outlet|date": Got it, the review answer, the receipt.
   const records = new Map<string, DeliveryRecord>();
   const recordOf = (outletId: string, date: string) => records.get(`${outletId}|${date}`) ?? EMPTY_RECORD;
@@ -305,6 +308,19 @@ export function createMockStoreApi(
 
     async acknowledgeDeferral({ outletId, date }) {
       updateRecord(outletId, date, { deferralAcknowledged: true });
+      // Tapping Got it is reading the deferral notice.
+      read.ids.add(`${date}|deferral`);
+    },
+
+    async getUpdates(outletId) {
+      if (outletId !== HERO_OUTLET.id) return { updates: [], unread: 0 };
+      const mine = [...orders.values()].filter((order) => order.outletId === outletId);
+      const updates = buildUpdates(mine, now(), read);
+      return { updates, unread: updates.filter((update) => update.unread).length };
+    },
+
+    async markAllRead() {
+      read.through = now();
     },
 
     async answerReceivedQuestion({ outletId, date, answer }) {
@@ -313,7 +329,24 @@ export function createMockStoreApi(
 
     async listRecent(outletId, { limit = 5, before } = {}) {
       if (outletId !== HERO_OUTLET.id) return [];
-      return recentFixture()
+      // The current day joins the list once it has been delivered (S4.2 07:31: Tue 29 Sep 05:42).
+      const current: RecentOrderDay[] = (await listDeliveries(outletId))
+        .filter((d) => d.proof && !d.review && d.status === "Delivered")
+        .map((d) => {
+          const short = d.orders.reduce((sum, o) => sum + (o.received !== undefined ? o.units - o.received : 0), 0);
+          return {
+            date: d.date,
+            orderCount: d.orders.length,
+            status: short > 0 ? "Partial" : "Delivered",
+            deliveredAt: d.proof?.at ?? "",
+            orderIds: d.orders.map((o) => o.id),
+            ...(short > 0 ? { shortUnits: short } : {}),
+            ...(d.tags.includes("Deferral withdrawn") ? { deferralWithdrawn: true } : {}),
+            ...(d.receiptConfirmedAt ? { receiptConfirmedAt: d.receiptConfirmedAt } : {}),
+            current: true,
+          };
+        });
+      return [...current, ...recentFixture()]
         .filter((day) => new Date(`${day.date}T00:00:00`).getDay() !== 0)
         .filter((day) => (before ? day.date < before : true))
         .slice(0, limit);

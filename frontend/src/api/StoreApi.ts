@@ -1,5 +1,6 @@
 import type { Delivery } from "../domain/delivery";
 import type { Issue, IssueType } from "../domain/issue";
+import type { UpdatesFeed } from "../domain/update";
 import type { EditOrderInput, NewOrderInput, Order, OrderDraft, RecentOrderDay } from "../domain/order";
 
 export type ConfirmReceiptInput = {
@@ -63,9 +64,18 @@ export interface StoreApi {
    */
   answerReceivedQuestion(input: { outletId: string; date: string; answer: "received" }): Promise<void>;
   /**
+   * The store's updates feed (S4, `GET /store/updates`): every change on the order record that
+   * concerns the store, newest first, with its read state, and the unread count for the bell.
+   * Derived from the same record and clock as S2 and S3 (handoff 14).
+   */
+  getUpdates(outletId: string): Promise<UpdatesFeed>;
+  /** Marks everything sent so far as read (`POST /store/updates/read-all`): "Mark all read". */
+  markAllRead(outletId: string): Promise<void>;
+  /**
    * Past delivery days for the outlet, newest first, Sundays skipped. Feeds S1.6's
    * "Recent orders" table, S2.10's Recent list and S4's History tab. `before` keeps only
-   * days earlier than that date; `limit` caps the count (default 5).
+   * days earlier than that date; `limit` caps the count (default 5). The current delivery day
+   * is listed too, once it has been delivered.
    */
   listRecent(outletId: string, options?: { limit?: number; before?: string }): Promise<RecentOrderDay[]>;
 }

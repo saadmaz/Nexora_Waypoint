@@ -86,6 +86,14 @@ export type RecentOrderDay = {
   shortUnits?: number;
   /** True when a deferred day was served the next day (S2.10: "served next day"). */
   servedNextDay?: boolean;
+  /** The day's order IDs, for S4's History row on the current day. */
+  orderIds?: string[];
+  /** The delivery was kept after a store-request deferral (S4 History tag). */
+  deferralWithdrawn?: boolean;
+  /** "07:30", when the store confirmed receipt. */
+  receiptConfirmedAt?: string;
+  /** The day is the current one, whose delivery can still be opened (S4: older rows are display only). */
+  current?: boolean;
 };
 
 /** Estimated kg and m3 per unit, per order kind: how the store's unit counts become estimates (PRD v3 A14, A42). */
