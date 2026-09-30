@@ -93,7 +93,7 @@ What each branch owns is defined by the PRD (`waypoint-prd-v3.md`). The section 
 
 | Branch | Responsibility | Owns (code) | PRD |
 | --- | --- | --- | --- |
-| `feature/team-conventions` | 📜 This guide, `CLAUDE.md`, syncing `develop` with `main` | `Contributing.md`, `CLAUDE.md` | |
+| `feature/team-conventions` | 📜 This guide (including the rules for AI coding tools), syncing `develop` with `main` | `Contributing.md` | |
 | `feature/field-foundation` | 🧱 Frontend base: Vite app, shared UI, tokens, store screens, PRD docs | `frontend/` base, `frontend/src/shared`, `frontend/src/styles` | §6, §15 |
 | `feature/backend-foundation` | 🗄️ Schema, migrations, app core, rules package, seed, Docker, CI | `backend/app` core, `backend/app/models`, `backend/alembic`, `backend/waypoint_rules`, `backend/seed`, `docker-compose.yml`, `.github/` | §9, §10, §11, §13, §14 |
 | `feature/auth` | 🔐 Sign-in (G1), role picker (G2), per-role sessions, loader PIN sheet | `frontend/src/screens/auth`, `backend/app/routers/auth.py` extensions | §9 Auth, §15 |
@@ -306,7 +306,7 @@ We use [Conventional Commits](https://www.conventionalcommits.org). A scope is o
 | `style` | Visual only | `style(driver): field theme contrast` |
 | `chore` | Config, deps, Docker, CI | `chore: add postgres healthcheck` |
 
-**No AI attribution lines** in commits or PR descriptions: no `Co-Authored-By: Claude…`, no `Generated with…`. We disclose AI use once, in `docs/ai-disclosure.md`. If you use Claude Code, `CLAUDE.md` already tells it this. Check the message before you push anyway.
+**No AI attribution lines** in commits or PR descriptions: no `Co-Authored-By: Claude…`, no `Generated with…`. We disclose AI use once, in `docs/ai-disclosure.md`. If you use an AI coding tool, make it read this file first (section 29). Check the message before you push anyway.
 
 Commit as yourself (your own GitHub name and email), not as a bot identity.
 
@@ -694,6 +694,17 @@ npx openapi-typescript http://localhost:8000/api/openapi.json -o frontend/src/ap
 
 Business code never calls `datetime.now()` or `new Date()` for "now". Backend code uses `app.clock.now()`, and frontend code uses `useNow()`. The scenario clock starts on **Mon 28 Sep 2026, 15:30, Asia/Colombo**.
 
+### State changes
+
+* Every state change writes an `audit_events` row in the same transaction.
+* Order transitions go through `waypoint_rules.transition`.
+* Device writes are idempotent by `clientId`.
+
+### Screens
+
+* A Figma frame is a state of a route, not a route.
+* Every screen has loading, empty, offline and error states.
+
 ### Database migrations
 
 Several backend branches will add migrations at the same time. To avoid broken heads:
@@ -838,7 +849,6 @@ Nexora_Waypoint/
 ├── docs/                      architecture.md, data-model.md, api.md, ai-disclosure.md, build/
 ├── docker-compose.yml
 ├── .env.example
-├── CLAUDE.md                  rules for AI coding tools
 ├── Contributing.md
 └── README.md
 ```
@@ -1011,14 +1021,19 @@ git push -u origin feature/new-feature
 
 # 🤖 29. AI Tools, Figma and Data
 
-* **`CLAUDE.md`** at the repo root holds the rules AI coding tools must follow. Claude Code reads it automatically. Keep it short and correct; if a rule changes here, change it there too.
-* **Figma is read-only** now that the Designathon is judged. Never create, move, rename or edit anything in the file, whether by hand or through a plugin or the Figma MCP. Reading frames to compare against is fine.
+* **AI coding tools** (Claude Code, Copilot, Cursor and the like) must read this file, especially sections 2, 18, 19, 24 and 29, and `waypoint-prd-v3.md` before changing code. This is the only rules file; there is no separate `CLAUDE.md`. Point your tool at this file at the start of each session.
+  * The PRD is the spec. When a Figma frame and the PRD disagree, follow the PRD and add a row to the departures register (PRD §18).
+  * Stay inside the paths your branch owns (section 2). Touching a shared contract (section 18) needs a note in the PR description.
+  * Stage files by path and never run `git add .` without reading `git status` (section 8). Never commit to `main` or `develop` directly and never force push.
+  * Before saying it is done, run the checks in section 17, then state what you verified and what you guessed.
+* **Figma is read-only** now that the Designathon is judged. The file is `0qCle1zCrSImSou4lVlvmL`. Never create, move, rename or edit anything in it, whether by hand or through a plugin or the Figma MCP. Reading frames to compare against is fine.
 * **Competition CSVs** are never committed, never pasted into ChatGPT, Claude or any other AI tool, and never uploaded anywhere public. The seed reads them from `data/` at runtime. If an AI tool needs to know a column name, type the header yourself; don't let it open the file.
 * **Screen copy** follows the design rules:
   * No em dashes (—).
   * Never the word "Mock" in the UI.
   * No bracketed placeholders like `[name]`.
   * No invented phone numbers.
+  * Stores see "Under review", never "Conflict".
 * **AI disclosure.** Add a line to `docs/ai-disclosure.md` when AI tools do a meaningful part of your PR.
 
 ---
