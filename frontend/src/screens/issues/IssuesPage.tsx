@@ -19,6 +19,7 @@ import { toIsoDate } from "../../domain/schedule";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { useNow } from "../../hooks/useNow";
 import { useOnline } from "../../hooks/useOnline";
+import { useStore } from "../../app/StoreContext";
 import { DeliveriesSkeleton } from "../deliveries/DeliveriesSkeleton";
 import styles from "./IssuesPage.module.css";
 
@@ -37,6 +38,7 @@ const realNow = () => new Date();
 /** The Issues tab (S3.7): the problems the store has reported, or "No open issues". */
 export function IssuesPage({ api, now = realNow, outletId = OUTLET.id, preview }: IssuesPageProps) {
   const navigate = useNavigate();
+  const { unread } = useStore();
   const desktop = useMediaQuery("(min-width: 1024px)");
   const currentTime = useNow(now);
   const browserOnline = useOnline();
@@ -131,7 +133,7 @@ export function IssuesPage({ api, now = realNow, outletId = OUTLET.id, preview }
 
   if (!desktop) {
     return (
-      <PhoneLayout sync={syncState} bell={{}} {...(offlineNote ? { connectivity: offlineNote } : {})}>
+      <PhoneLayout sync={syncState} bell={{ unread }} {...(offlineNote ? { connectivity: offlineNote } : {})}>
         {content}
       </PhoneLayout>
     );
@@ -140,7 +142,7 @@ export function IssuesPage({ api, now = realNow, outletId = OUTLET.id, preview }
   return (
     <div className={styles.desktop}>
       <AppBar
-        bell={{}}
+        bell={{ unread }}
         right={
           <>
             <span className={styles.today}>

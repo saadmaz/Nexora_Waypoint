@@ -26,6 +26,7 @@ import {
   operatingDayFor,
   toIsoDate,
 } from "../../domain/schedule";
+import { useStore } from "../../app/StoreContext";
 import { AfterCutoffView } from "./AfterCutoffView";
 import { CutoffAlert } from "./CutoffAlert";
 import { DesktopOrders } from "./DesktopOrders";
@@ -80,6 +81,7 @@ function toInput(line: Line, deliveryDate: string, factors: UnitFactors): NewOrd
  */
 export function OrdersPage({ api, now = realNow, preview }: OrdersPageProps) {
   const navigate = useNavigate();
+  const { unread } = useStore();
   const toast = useToast();
   const desktop = useMediaQuery("(min-width: 1024px)");
   const currentTime = useNow(now);
@@ -436,7 +438,7 @@ export function OrdersPage({ api, now = realNow, preview }: OrdersPageProps) {
       <>
         <PhoneLayout
           sync={syncState}
-          bell={{}}
+          bell={{ unread }}
           {...(offlineBar ? { connectivity: offlineBar } : {})}
           {...(primary ? { actions: primary } : {})}
         >
@@ -475,7 +477,7 @@ export function OrdersPage({ api, now = realNow, preview }: OrdersPageProps) {
   return (
     <div className={styles.desktop}>
       <AppBar
-        bell={{}}
+        bell={{ unread }}
         right={
           <>
             <span className={styles.today}>

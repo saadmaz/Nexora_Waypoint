@@ -19,6 +19,7 @@ import { toIsoDate } from "../../domain/schedule";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { useNow } from "../../hooks/useNow";
 import { useOnline } from "../../hooks/useOnline";
+import { useStore } from "../../app/StoreContext";
 import { OrderRows } from "../deliveries/OrderRows";
 import { ReceiptQuestion, ReviewNotice } from "../deliveries/ReviewNotice";
 import { IssueSheet, type IssueReport } from "./IssueSheet";
@@ -59,6 +60,7 @@ const realNow = () => new Date();
  */
 export function ReceiptPage({ api, now = realNow, outletId = OUTLET.id, date, preview, openReport }: ReceiptPageProps) {
   const navigate = useNavigate();
+  const { unread } = useStore();
   const desktop = useMediaQuery("(min-width: 1024px)");
   const currentTime = useNow(now);
   const browserOnline = useOnline();
@@ -314,7 +316,7 @@ export function ReceiptPage({ api, now = realNow, outletId = OUTLET.id, date, pr
       <>
         <PhoneLayout
           sync={syncState}
-          bell={{}}
+          bell={{ unread }}
           {...(outletTitle ? { outlet: outletTitle, place: `${OUTLET.id} · ${OUTLET.brand} · ${OUTLET.district}`, placeMono: true } : {})}
           {...(offlineBar ? { connectivity: offlineBar } : {})}
           {...(actions ? { actions } : {})}
@@ -329,7 +331,7 @@ export function ReceiptPage({ api, now = realNow, outletId = OUTLET.id, date, pr
   return (
     <div className={styles.desktop}>
       <AppBar
-        bell={{}}
+        bell={{ unread }}
         right={
           <>
             <span className={styles.today}>
