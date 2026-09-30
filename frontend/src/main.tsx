@@ -5,6 +5,12 @@ import "@fontsource-variable/archivo";
 import "@fontsource/ibm-plex-mono/400.css";
 import "@fontsource/ibm-plex-mono/500.css";
 import "@fontsource/ibm-plex-mono/600.css";
+import "@fontsource/noto-sans-sinhala/400.css";
+import "@fontsource/noto-sans-sinhala/600.css";
+import "@fontsource/noto-sans-sinhala/700.css";
+import "@fontsource/noto-sans-tamil/400.css";
+import "@fontsource/noto-sans-tamil/600.css";
+import "@fontsource/noto-sans-tamil/700.css";
 
 import "./styles/tokens.css";
 import "./styles/base.css";
