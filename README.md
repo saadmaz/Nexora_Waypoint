@@ -212,10 +212,12 @@ Examples: `?at=15:38&state=form` (S1.1), `?at=15:48&state=form` (S1.1 B),
 `?at=16:07&state=form` (S1.4), `?at=15:40` (S1.3). S1.6 is the same URL in a
 window 1024 px or wider.
 
-This branch tracks **PRD v2.1** (`waypoint-prd-v2.1.md` at the repo root,
-which supersedes `claude/waypoint-prd-v2.md`) and its companion
-`waypoint-central-context-v2.1.md`. See "Departures" below for the one gap
-(S4) found while reconciling this branch against v2.1.
+This branch tracks **PRD v3** (`waypoint-prd-v3.md` at the repo root, which
+supersedes v2.1) and its companion `waypoint-central-context-v3.md`. Where
+the Figma frames and the spec differ, v3's source ranking applies (Figma wins
+on UI and copy, the spec on behaviour and data), and every visible difference
+is listed under "Departures" below with its v3 register number where there
+is one.
 
 ### Phase list
 
@@ -236,23 +238,23 @@ which supersedes `claude/waypoint-prd-v2.md`) and its companion
 S1 (phase 4) is built; S2 to S4 are not. Every visual or copy difference
 between a built S1 frame and its Figma frame, with its reason:
 
-- **The Updates bell is on every S1 screen, not just the three that have it.**
-  Figma draws "Bell · Updates · plain" on S1.1, S1.1 B and S1.3 only (the other
-  12 phone frames and the desktop app bar on S1.6 have none). That looks like
-  a partial patch when S4 was added, not a decision, and a bell that vanishes
-  on the error and offline screens would strand the entry point to S4, so it
-  is in the shared top bar and app bar everywhere. It is drawn plain (no
+- **The Updates bell is on every S1 screen (v3 DP-06, gap G-12).** Figma
+  draws "Bell · Updates · plain" on S1.1, S1.1 B and S1.3 only (the other 12
+  phone frames and the desktop app bar on S1.6 have none). v3 settles this:
+  the bell is on every store screen, phone and desktop. It is drawn plain (no
   unread dot), as in Figma, until S4 (phase 6b) supplies a count. It links to
-  `/store/updates`, which is not routed until phase 7. The earlier note below
-  that said the bell is on every S1 frame was wrong. Needs a spec-owner call.
-- **The cutoff countdown is live, so it differs from two static frames.**
-  S1.3 B (15:42) and S1.3 D (15:45) both read "20 min left" in Figma; 16:00
-  minus those times is 18 and 15. Built as computed from the clock.
-- **Recent orders follows the frame, not PRD A35.** S1.6 shows Thu 24 Sep as
-  "Deferred · policy" (1 order) and Fri 25 Sep as Delivered. PRD 4d A35 says
-  Fri 25 was the deferred day and lists delivery times and a Mon 21 partial;
-  the frame shows only date, order count and status. Figma is judged, so the
-  frame wins; A35 needs correcting (noted in the PRD register).
+  `/store/updates`, which is not routed until phase 7.
+- **The cutoff countdown is live, so it differs from two static frames
+  (v3 Q14).** S1.3 B (15:42) and S1.3 D (15:45) both read "20 min left" in
+  Figma; 16:00 minus those times is 18 and 15. Built as computed from the
+  clock. Not yet in the v3 departures register; suggest DP-16.
+- **Recent orders follows A35, not the frame (v3 DP-05, V25).** S1.6 draws Thu
+  24 Sep as "Deferred · policy" (1 order) and Fri 25 Sep as Delivered. A35
+  says Fri 25 was the deferred day and Thu 24 was delivered, and v3 says A35
+  wins, so the mock lists Fri 25 as Deferred · policy and Thu 24 as
+  Delivered. Order counts are the frame's, moved with their rows (Fri 25 shows
+  1, Thu 24 shows 2). The frame shows only date, order count and status, so
+  A35's delivery times are not used here.
 - **Desktop has frames for the form and the review modal only.** After
   placing, editing, cancelling or after the cutoff on desktop, the phone
   content is shown in a centred 480 px column under the app bar, since no
@@ -271,7 +273,7 @@ between a built S1 frame and its Figma frame, with its reason:
   wording.
 
 Copy and behaviour Figma does not draw, added because the flow needs it (also
-in PRD 4d, A37): "Orders closed at 16:00 / This order can no longer be edited
+in PRD v3 4d, A43): "Orders closed at 16:00 / This order can no longer be edited
 or cancelled." when an edit or cancel is refused as the cutoff passes; "Place 1
 order" and a disabled "Place orders" when fewer than two, or no, orders are
 filled in; a line lowered to 0 is cancelled on Save changes, and Save is
@@ -295,9 +297,8 @@ findings that change scope:
 - **S1.6 (desktop) shows a "Recent orders" table** (Sat 26 Sep down to
   Tue 22 Sep, Sunday skipped, one row per day with order count and status)
   that duplicates data S4's History tab will also need. `StoreApi`
-  (phase 3) has no method for this yet — phase 4 needs to add one (e.g.
-  `listRecentOrders`) rather than inventing a second, separate data path
-  for phase 6b later.
+  (phase 3) had no method for this; phase 4 added `listRecent` (the v3 name),
+  so phase 6b reads the same data instead of a second data path.
 
 Exact copy worth preserving verbatim in the build (not paraphrasing). Figma
 layer names are cut at about 40 characters, so a long string read from the
@@ -327,10 +328,13 @@ just carried as static fixture values.
   a scenario clock. Phase 4 needed the clock to check the frames, so
   `frontend/src/app/scenarioClock.ts` reads `?at=HH:MM` (Mon 28 Sep 2026,
   ticking) on `/store/orders` only; phase 7 owns the real one and replaces it.
-- **Estimates scale from the hero orders.** kg and m³ are computed from the
-  unit count at 70 kg / 0.7 m³ per 12 chilled units and 45 kg / 0.6 m³ per 8
-  dry units, kg rounded to a whole number and m³ to 0.1. This reproduces S1.3
-  B (10 units is about 58 kg / 0.6 m³). Recorded as A36 in the PRD register.
+- **Estimates scale from per-unit factors the API supplies.** `getOrderDraft`
+  returns kg and m³ per unit for each kind; the screen multiplies by the
+  stepper's count, kg rounded to a whole number and m³ to 0.1. The mock's
+  factors spread the hero orders evenly (70 kg / 0.7 m³ per 12 chilled units,
+  45 kg / 0.6 m³ per 8 dry), which reproduces S1.3 B (10 units is about
+  58 kg / 0.6 m³). Recorded as A42 in PRD v3 4d; the real backend supplies
+  per-outlet factors (A14).
 - **`createMockStoreApi(now, { seed })`.** `seed: "placed"` (default) holds the
   hero orders already received at 15:40; `seed: "empty"` holds nothing, so S1.1
   can be walked through, and the first chilled and dry orders placed for the
@@ -354,8 +358,13 @@ just carried as static fixture values.
 - `frontend/src/domain/schedule.ts`: exported `addDays` and `toIsoDate`; added
   `isAfterCutoff` and `nextOperatingDayAfter`. Existing rules unchanged.
 - `frontend/src/domain/order.ts`, `api/StoreApi.ts`, `api/mockStoreApi.ts`:
-  `listRecentOrders` (for S1.6 now, S4 History later), `placeOrders` (chilled
-  and dry go in together or not at all), `Order.updatedAt`, and the mock's
+  StoreApi now uses the PRD v3 operation names where v3 fixes them:
+  `getOrderDraft` (window, dock, unit factors, starting quantities and the
+  day's placed orders, in place of `listOrders` and `getOrder`), `placeOrders`
+  (chilled and dry go in together or not at all; replaces `placeOrder`) and
+  `listRecent` (for S1.6 now, S4 History later). `editOrder`, `cancelOrder`,
+  `confirmReceipt`, `reportIssue` and `listIssues` are unchanged; the rest of
+  v3's StoreApi arrives with its phase. Also `Order.updatedAt` and the mock's
   `seed` option. The `afterCutoff` field now means "placed after the cutoff
   for its day, so it rolled to the following run"; the mock previously set it
   from the wrong date.
