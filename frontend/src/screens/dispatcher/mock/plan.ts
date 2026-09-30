@@ -126,6 +126,7 @@ function stopsOf(trip: FxTrip, protectedIds: Set<string>): PlanStop[] {
     const load = orderKg(s.orderIds);
     const stop: PlanStop = {
       orderId: s.orderIds.join(" + "),
+      orderIds: s.orderIds,
       outletId: s.outletId,
       seq: i + 1,
       arrival: s.arrival,

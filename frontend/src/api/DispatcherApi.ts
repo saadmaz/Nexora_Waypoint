@@ -175,7 +175,9 @@ export type PlanVersionInfo = {
 };
 
 export type PlanStop = {
+  /** "ORD2001 + ORD2002" for a stop with several order records. */
   orderId: string;
+  orderIds: string[];
   outletId: string;
   seq: number;
   /** Planned arrival, "03:54". */
