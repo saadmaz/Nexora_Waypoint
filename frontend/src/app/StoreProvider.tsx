@@ -5,7 +5,7 @@ import { createMockStoreApi } from "../api/mockStoreApi";
 import { clockTime } from "../domain/format";
 import { OUTLET } from "../domain/outlet";
 import { applyPreset, isPreset } from "./presets";
-import { scenarioNow } from "./scenarioClock";
+import { createScenarioClock } from "./scenarioClock";
 import { StoreContext } from "./StoreContext";
 
 /** The presets already running or done for an API, so a second mount does not write them again. */
@@ -27,12 +27,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [base] = useState(() => {
     const params = new URLSearchParams(location.search);
     const state = params.get("state");
-    const now = scenarioNow(params.get("at"), params.get("date"));
+    const clock = createScenarioClock(params.get("at"), params.get("date"));
+    const now = clock.now;
     const seed = state && EMPTY_SEED_STATES.includes(state) ? "empty" : "placed";
     const presets = (params.get("preset") ?? "").split(",").filter(isPreset);
-    return { api: createMockStoreApi(now, { seed }), now, presets };
+    const presenter = params.get("presenter") === "1";
+    return { api: createMockStoreApi(now, { seed }), now, advanceTo: clock.advanceTo, presets, presenter };
   });
-  const { api, now, presets } = base;
+  const { api, now, advanceTo, presets, presenter } = base;
+  const [clockVersion, setClockVersion] = useState(0);
+  const jump = useMemo(
+    () =>
+      advanceTo
+        ? (to: Date) => {
+            advanceTo(to);
+            setClockVersion((v) => v + 1);
+          }
+        : undefined,
+    [advanceTo],
+  );
 
   // Presets run before the first screen draws, once per API even if React mounts the provider twice.
   const [ready, setReady] = useState(presets.length === 0);
@@ -68,8 +81,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (ready) refreshUnread();
-  }, [ready, refreshUnread, minute]);
+  }, [ready, refreshUnread, minute, clockVersion]);
 
-  const value = useMemo(() => ({ api, now, unread, refreshUnread }), [api, now, unread, refreshUnread]);
+  const value = useMemo(
+    () => ({ api, now, unread, refreshUnread, presenter, clockVersion, ...(jump ? { advanceTo: jump } : {}) }),
+    [api, now, unread, refreshUnread, presenter, clockVersion, jump],
+  );
   return <StoreContext.Provider value={value}>{ready ? children : null}</StoreContext.Provider>;
 }
