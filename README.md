@@ -193,9 +193,14 @@ npm run dev
 ```
 
 The store role is not yet routed (phase 7). Once routed, it will live at
-`/store/orders`, `/store/deliveries`, `/store/deliveries/:date/receipt` and
-`/store/issues`, with a dev-only state gallery at `/store/_states` and a
-`?at=HH:MM` scenario clock.
+`/store/orders`, `/store/deliveries`, `/store/deliveries/:date/receipt`,
+`/store/issues` and `/store/updates` (S4, phase 6b), with a dev-only state
+gallery at `/store/_states` and a `?at=HH:MM` scenario clock.
+
+This branch tracks **PRD v2.1** (`waypoint-prd-v2.1.md` at the repo root,
+which supersedes `claude/waypoint-prd-v2.md`) and its companion
+`waypoint-central-context-v2.1.md`. See "Departures" below for the one gap
+(S4) found while reconciling this branch against v2.1.
 
 ### Phase list
 
@@ -207,15 +212,31 @@ The store role is not yet routed (phase 7). Once routed, it will live at
 | 4 | S1 Place order: all states, edit and cancel until 16:00, after cutoff, offline, error, sending, empty, desktop form and review modal | Not started |
 | 5 | S2 Deliveries: every state, Under review card, deferral notices, OUT009, recent orders, desktop | Not started |
 | 6 | S3 Receipt and the Issues tab: confirm, shortfall, issue sheet, Dispatch asks, the open-review branch, states | Not started |
+| 6b | S4 Updates and history: unread feed grouped by day (Order/Plan/Delivery/Deferral/Review tags, each row opens its source S1/S2 frame), History tab with All/Deferred/Partial filters, bell-icon entry point with unread count, states. Added to the phase plan 30 Sep after finding it built in Figma but missing from the PRD text (gap G-10) | Not started |
 | 7 | Routes, the state gallery, the scenario clock | Not started |
 | 8 | README update and a final lint, type and build pass | Not started |
 
 ### Departures from the Figma design
 
-None yet. No store screens are built (phases 4 to 6 are not started), so
-there is nothing to compare against the Day 5 Figma frames. This section
-will list every visual or copy difference from the store Figma page as each
-screen lands, with its reason, per the booklet's fidelity requirement.
+None yet in the sense of a built screen rendering differently from its
+frame — no store screens are built (phases 4 to 6b are not started). One
+spec-vs-prototype gap was found and corrected in the docs, not the design:
+
+- **S4 "Updates and history" was missing from the PRD text.** The screen
+  is fully built in Figma (section node `589:32`: frames S4.1, S4.1 B,
+  S4.2, S4.S, with its own rationale card) but PRD v2.1's screen inventory,
+  section 5 handoffs and the store tab-bar description never mentioned it.
+  This is logged as gap G-10 in `waypoint-prd-v2.1.md` section 7, with a
+  30 Sep addendum reconciling it from the Figma frames directly (two tabs:
+  Updates, an unread-first feed grouped by day; History, past delivery
+  days Mon-Sat with All/Deferred/Partial filters; entered from a bell
+  icon, not the tab bar). That reconciliation has **not** had spec-owner
+  sign-off — flag it alongside the other section-7 gaps. Added to this
+  branch's phase list as phase 6b.
+
+This section will otherwise list every visual or copy difference between a
+built screen and its Figma frame as each screen lands, with its reason,
+per the booklet's fidelity requirement.
 
 ### Assumptions and data notes
 
