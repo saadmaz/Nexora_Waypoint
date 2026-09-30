@@ -1,3 +1,4 @@
+import type { Delivery } from "../domain/delivery";
 import type { EditOrderInput, NewOrderInput, Order, OrderDraft, RecentOrderDay } from "../domain/order";
 
 export type Issue = {
@@ -38,10 +39,25 @@ export interface StoreApi {
   reportIssue(issue: Omit<Issue, "id" | "reportedAt" | "resolved">): Promise<Issue>;
   listIssues(outletId: string): Promise<Issue[]>;
   /**
-   * Past delivery days for the outlet, newest first, Sundays skipped. Feeds S1.6's
-   * "Recent orders" table and, later, S4's History tab.
+   * The outlet's delivery days (S2). With `date`, that day only (an empty list when the
+   * outlet has no orders for it). Without it, every day from today on, earliest first.
+   * Each day's status, arrival range and journey come from the order record and the clock,
+   * never from a separate source (handoff 14).
    */
-  listRecent(outletId: string, limit?: number): Promise<RecentOrderDay[]>;
+  listDeliveries(outletId: string, date?: string): Promise<Delivery[]>;
+  /** The store tapped Got it on a deferral notice (S2.6, S2.9). Dispatch then sees it was read. */
+  acknowledgeDeferral(input: { outletId: string; date: string }): Promise<void>;
+  /**
+   * The store's answer to "Did you receive this delivery?" while Dispatch is reviewing
+   * (S2.7, S3.5). "received" settles the delivery for the store: Delivered, deferral withdrawn.
+   */
+  answerReceivedQuestion(input: { outletId: string; date: string; answer: "received" }): Promise<void>;
+  /**
+   * Past delivery days for the outlet, newest first, Sundays skipped. Feeds S1.6's
+   * "Recent orders" table, S2.10's Recent list and S4's History tab. `before` keeps only
+   * days earlier than that date; `limit` caps the count (default 5).
+   */
+  listRecent(outletId: string, options?: { limit?: number; before?: string }): Promise<RecentOrderDay[]>;
 }
 
 export class CutoffError extends Error {

@@ -70,7 +70,7 @@ export type EditOrderInput = {
 
 /**
  * One past delivery day for the outlet: how many orders it had and how it ended.
- * Read by S1.6's "Recent orders" table now, and by S4's History tab later.
+ * Read by S1.6's "Recent orders" table, S2.10's Recent list and S4's History tab.
  * Sundays never appear (Waypoint operates Monday to Saturday).
  */
 export type RecentOrderDay = {
@@ -80,6 +80,12 @@ export type RecentOrderDay = {
   status: OrderStatus;
   /** Present when status is Deferred. */
   deferral?: { type: DeferralType; nextRunShort?: string };
+  /** "05:40", when the day's delivery was recorded. Present for Delivered days (S2.10). */
+  deliveredAt?: string;
+  /** Present when status is Partial: how many units were short (S2.10: "1 unit short, reported"). */
+  shortUnits?: number;
+  /** True when a deferred day was served the next day (S2.10: "served next day"). */
+  servedNextDay?: boolean;
 };
 
 /** Estimated kg and m3 per unit, per order kind: how the store's unit counts become estimates (PRD v3 A14, A42). */
