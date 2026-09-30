@@ -182,7 +182,7 @@ See the deployed application and `/docs` for the full walkthrough.
 
 The store manager role, built in `frontend/`. Branch: `feature/store-manager-frontend`.
 
-**Status:** in progress. Phases 1 to 6 are done; phases 6b, 7 and 8 are not started.
+**Status:** in progress. Phases 1 to 6b are done; phases 7 and 8 are not started.
 
 ### How to run
 
@@ -193,10 +193,10 @@ npm run dev
 ```
 
 `/store/orders` (S1, phase 4), `/store/deliveries` and
-`/store/deliveries/:date` (S2, phase 5), and `/store/deliveries/:date/receipt`
-and `/store/issues` (S3, phase 6) are routed so far. The rest of the route set
-lands in phase 6b (`/store/updates`, `/store/history`, S4) and phase 7, with a
-dev-only state gallery at `/store/_states` and the scenario clock.
+`/store/deliveries/:date` (S2, phase 5), `/store/deliveries/:date/receipt` and
+`/store/issues` (S3, phase 6), and `/store/updates` and `/store/history` (S4,
+phase 6b) are routed. Phase 7 adds the dev-only state gallery at
+`/store/_states` and the final scenario clock.
 
 Until then the screens take interim query params, read once when the app opens
 (`frontend/src/app/StoreProvider.tsx`; phase 7 replaces them):
@@ -211,8 +211,8 @@ Until then the screens take interim query params, read once when the app opens
   (S1.3). `form` starts with nothing placed (S1.1). `offline`, `queued`,
   `error`, `sending` and `empty` force S1.5 A, B, C and D; `empty` also leaves
   S2 with no orders (S2.S A).
-- S2, S3 and the Issues tab: `?preview=loading|error|offline` forces S2.S B, D
-  and C and S3.S B, D and C. S2 also takes `?outlet=OUT009` (S2.9). The receipt
+- S2, S3, the Issues tab and S4: `?preview=loading|error|offline` forces S2.S B,
+  D and C, S3.S B, D and C and S4.S B, D and C. S2 also takes `?outlet=OUT009` (S2.9). The receipt
   takes `?preview=asked` (S3.5) and `?report=1` (opens the report sheet).
 
 S1 examples: `?at=15:38&state=form` (S1.1), `?at=15:48&state=form` (S1.1 B),
@@ -250,6 +250,16 @@ S3 examples (R = `/store/deliveries/D/receipt`; the flows are taps, not URLs):
 | S3.S A empty | `R?at=16:01` (nothing delivered yet) |
 | S3.S B, D, C | `R?at=07:28&date=D&preview=loading`, `error`, `offline` |
 
+S4 examples (the bell on any screen opens `/store/updates`):
+
+| Frame | URL and taps |
+|---|---|
+| S4.1 updates, 2 unread | `/store/updates?at=06:45&date=D` after Got it on S2.6 (a direct load shows 3, see A53) |
+| S4.1 B all read | the same, then Mark all read |
+| S4.2 History | `/store/history?at=07:31&date=D` |
+| S4.S A empty | `/store/updates?at=16:01&state=empty` |
+| S4.S B, D, C | `/store/updates?preview=loading`, `error`, or `?at=06:44&date=D&preview=offline` |
+
 This branch tracks **PRD v3** (`waypoint-prd-v3.md` at the repo root, which
 supersedes v2.1) and its companion `waypoint-central-context-v3.md`. Where
 the Figma frames and the spec differ, v3's source ranking applies (Figma wins
@@ -267,13 +277,13 @@ is one.
 | 4 | S1 Place order: all 15 frames (S1.1, S1.1 B, S1.2, S1.3, S1.3 B-D, S1.4, S1.4 B, S1.5 A-D, S1.6, S1.6 B), edit and cancel until 16:00, after cutoff, offline, error, sending, empty, desktop form, review modal and desktop recent-orders table. Pulled from Figma section `442:22594` on 30 Sep before starting; see the note below | Done |
 | 5 | S2 Deliveries: all 15 frames (S2.1 to S2.11, S2.S A to D), each derived from the scenario clock along the hero timeline; Under review card, deferral notices, OUT009's view, Recent, desktop with proof of delivery. Pulled from Figma section `442:24402` on 30 Sep | Done |
 | 6 | S3 Receipt and the Issues tab: all 12 frames (S3.1, S3.1 B, S3.2 to S3.7, S3.S A to D) at `/store/deliveries/:date/receipt` and `/store/issues`: confirm, shortfall with a reason, report-an-issue sheet, Dispatch asks, confirmed while the review is open, offline confirmation saved on the phone. The `Issue` type now uses the store's issue types. Pulled from Figma section `442:26109` on 30 Sep | Done |
-| 6b | S4 Updates and history: unread feed grouped by day (Order/Plan/Delivery/Deferral/Review tags, each row opens its source S1/S2 frame), History tab with All/Deferred/Partial filters, bell-icon entry point with unread count, states. Added to the phase plan 30 Sep after finding it built in Figma but missing from the PRD text (gap G-10) | Not started |
+| 6b | S4 Updates and history: all 7 frames (S4.1, S4.1 B, S4.2, S4.S A to D) at `/store/updates` and `/store/history`: feed grouped by day (Order/Plan/Delivery/Deferral/Review tags, each View opens its source S1/S2 state), Mark all read and All caught up, a settled review marked Resolved 06:44, History with All/Deferred/Partial filters, and the bell's unread dot on every screen. Added to the phase plan 30 Sep after finding it built in Figma but missing from the PRD text (gap G-10). Pulled from Figma section `585:40956` on 30 Sep | Done |
 | 7 | Routes, the state gallery, the scenario clock | Not started |
 | 8 | README update and a final lint, type and build pass | Not started |
 
 ### Departures from the Figma design
 
-S1 to S3 (phases 4 to 6) are built; S4 is not. Every visual or copy
+S1 to S4 (phases 4 to 6b) are built. Every visual or copy
 difference between a built frame and its Figma frame, with its reason:
 
 - **The Updates bell is on every S1 screen (v3 DP-06, gap G-12).** Figma
@@ -345,6 +355,21 @@ difference between a built frame and its Figma frame, with its reason:
   store first", which this build does not have, so S3.5 is shown with
   `?preview=asked` and in the gallery. S2.7's own "Yes, we received it" and
   "Report issue" do the same job on the phone.
+- **S4 History is drawn in light colours.** Figma's S4.2 draws the Delivered and
+  Partial pills and the tab bar in the dark theme's colours; the store is
+  Light (PRD v3 section 6), so the build uses the light pills and the light tab
+  bar. Everything else on S4.2 is as drawn.
+- **S4.S C shows the saved feed.** The frame is the offline bar and the "Updates"
+  title with nothing under it, and its chip still reads Synced. The build shows
+  the feed it last loaded under the bar, "You are offline. Showing updates saved
+  on this phone. Last updated HH:MM." (the frame's words; PRD v3 leaves out
+  "You are offline."), with the chip Offline and "Mark all read" disabled.
+- **S4 has a back arrow instead of the bell.** As drawn: the bell opens S4, so
+  S4's own bar carries a back arrow (back to where the bell was tapped, or to
+  the orders when opened by address). The desktop bar keeps the bell.
+- **The bell's unread dot has no number** (Figma's "Unread dot", a 10 px amber
+  dot); the count is in its accessible label, "Updates, 2 unread". Phase 4
+  drew a number.
 - **S2.9's headline is kept as drawn.** "Tomorrow's chilled order moved to
   Wednesday" is shown at 03:01 on the run day, where "today's" would read
   more naturally; Figma wins on copy.
@@ -458,6 +483,25 @@ just carried as static fixture values.
   time (S3.S C) and sent when the connection returns; reporting an issue needs a
   connection. The Issues tab rows (S3.7 draws only empty) are described under
   Departures.
+- **S4 is the same record, read another way (PRD v3 handoff 14).** `getUpdates`
+  builds the feed from the orders and the clock: the rows are the PRD v3
+  section 3 S4 table, appearing as their times pass (Order received at the
+  order's own time, Confirmed 16:00, Arrival time set 23:40, then the hero
+  Delivery, Deferral and Review rows and the 06:44 resolution). `markAllRead`
+  reads everything sent so far. The copy is Figma's, including the typographic
+  apostrophe in "tomorrow’s queue".
+- **A53 (30 Sep, store build, phase 6b).** What the store has read: everything
+  sent by 05:20 on the hero morning (when Anusha rang Dispatch, H10), and the
+  deferral once Got it is tapped. So S2.6 at 05:22 has one unread (the bell
+  dot the frame draws), and 06:45 has two, the 06:40 review and the 06:44
+  resolution (A37), *when Got it was tapped*; a direct load of 06:45 without it
+  shows three. Mark all read reads everything up to now.
+- **A54.** For a day other than the hero's, the feed has only Order received,
+  Confirmed and Arrival time set ("Arrival from 05:30. Have receivers ready by
+  05:30.", with no "may arrive" clause). History lists the current day once it is
+  delivered (or Partial), with its order IDs, "Deferral withdrawn" and "Receipt
+  confirmed HH:MM"; a day that is still under review or deferred is not there
+  yet.
 - **A44 (30 Sep, store build, phase 5).** The delivery day the Deliveries tab
   looks at is today until 08:00 (the run is over) and otherwise the next
   operating day (`deliveryDayFor`); S2.S A's "No deliveries scheduled for Tue
@@ -488,6 +532,21 @@ just carried as static fixture values.
   outlet take the hero IDs ORD2001 and ORD2002.
 
 ### Shared files this role has changed
+
+Phase 6b:
+
+- `components/chrome/BellButton.tsx` and `.module.css`: a plain 10 px unread dot,
+  the count in the label. `TopBar.tsx`, `PhoneLayout.tsx`: optional `onBack`
+  (S4's back arrow).
+- New `components/ui/Segmented.tsx`, `FilterChip.tsx`, `MonoText.tsx` (IDs and
+  times inside a sentence in Plex Mono); `Tag.tsx`: `info` and `review` kinds.
+- `domain/update.ts` (new), `domain/order.ts` (`RecentOrderDay` gains
+  `orderIds`, `deferralWithdrawn`, `receiptConfirmedAt`, `current`),
+  `api/StoreApi.ts`, `mockStoreApi.ts`, new `mockUpdates.ts`: `getUpdates` and
+  `markAllRead`; `listRecent` includes the current day once delivered.
+- `app/StoreContext.ts`, `StoreProvider.tsx`: the unread count for every bell
+  (`unread`, `refreshUnread`); `OrdersPage`, `DeliveriesPage`, `ReceiptPage` and
+  `IssuesPage` pass it to their bell.
 
 Phase 6:
 
