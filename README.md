@@ -182,7 +182,7 @@ See the deployed application and `/docs` for the full walkthrough.
 
 The store manager role, built in `frontend/`. Branch: `feature/store-manager-frontend`.
 
-**Status:** in progress. Phases 1 to 6b are done; phases 7 and 8 are not started.
+**Status:** in progress. Phases 1 to 7 are done; phase 8 (final pass) is not started.
 
 ### How to run
 
@@ -192,73 +192,77 @@ npm install
 npm run dev
 ```
 
-`/store/orders` (S1, phase 4), `/store/deliveries` and
-`/store/deliveries/:date` (S2, phase 5), `/store/deliveries/:date/receipt` and
-`/store/issues` (S3, phase 6), and `/store/updates` and `/store/history` (S4,
-phase 6b) are routed. Phase 7 adds the dev-only state gallery at
-`/store/_states` and the final scenario clock.
+Routes (PRD v3 section 15), everything else goes to `/store/orders`:
 
-Until then the screens take interim query params, read once when the app opens
-(`frontend/src/app/StoreProvider.tsx`; phase 7 replaces them):
+| Route | Screen |
+|---|---|
+| `/store/orders` | S1 Place order |
+| `/store/deliveries`, `/store/deliveries/:date` | S2 Deliveries (the list, S2.10; one day) |
+| `/store/deliveries/:date/receipt` | S3 Receipt |
+| `/store/issues` | S3.7 Issues tab |
+| `/store/updates`, `/store/history` | S4 Updates and history, entered from the bell |
+| `/store/_states` | The state gallery (dev only; nothing links to it) |
 
-- `?at=HH:MM` starts the clock at that time and lets it tick, so the cutoff
-  countdown moves, 16:00 flips S1 to the after-cutoff frames and every S2
-  status follows the hero timeline. Without it the clock is real time.
-- `?date=YYYY-MM-DD` is the day the clock starts on. Default Mon 28 Sep 2026,
-  so `?at=16:01` is the hero evening; the early-morning frames need
-  `&date=2026-09-29`.
-- `?state=` picks an S1 frame. Absent: the hero orders are already received
-  (S1.3). `form` starts with nothing placed (S1.1). `offline`, `queued`,
-  `error`, `sending` and `empty` force S1.5 A, B, C and D; `empty` also leaves
-  S2 with no orders (S2.S A).
-- S2, S3, the Issues tab and S4: `?preview=loading|error|offline` forces S2.S B,
-  D and C, S3.S B, D and C and S4.S B, D and C. S2 also takes `?outlet=OUT009` (S2.9). The receipt
-  takes `?preview=asked` (S3.5) and `?report=1` (opens the report sheet).
+**The state gallery.** `/store/_states` shows every frame of S1 to S4 at its Figma
+size, labelled with its frame name, each in its own iframe so its media queries
+and clock are its own. `/store/_states?frame=s2.3` renders one frame full screen
+(ids are lower case: `s1.3b`, `s2.sc`, `s3.1b`, `s4.1`). A frame is a state of its
+screen, not a page: each is a route, a scenario time, and where a tap cannot be
+avoided a preview or preset, listed in
+`frontend/src/screens/gallery/frames.ts`.
 
-S1 examples: `?at=15:38&state=form` (S1.1), `?at=15:48&state=form` (S1.1 B),
-`?at=16:07&state=form` (S1.4), `?at=15:40` (S1.3). S1.6 is the same URL in a
-window 1024 px or wider.
+**The scenario clock.** One clock for the whole app
+(`frontend/src/app/scenarioClock.ts`), read through one `useNow()`; nothing else
+reads the wall clock. Mock mode reads two query parameters when the app opens,
+and the clock then ticks from there:
 
-S2 examples (each frame is a clock time, not a page; D = `2026-09-29`):
+- `?at=HH:MM` starts the clock at that time. The hero timeline runs Mon 15:30
+  to Tue 07:35, so a bare time belongs to one day: **before 08:00 is Tue 29 Sep,
+  08:00 and later is Mon 28 Sep**. `?at=16:01` is the evening the orders
+  close; `?at=05:22` is the morning the delivery is deferred.
+- `?date=YYYY-MM-DD` overrides the day.
+- Without `?at=` the clock is real time.
+
+Other parameters, all interim to the mock and read by
+`frontend/src/app/StoreProvider.tsx`:
+
+- `?state=` (S1 and the empty frames): absent, the hero orders are already
+  received (S1.3); `form` starts with nothing placed (S1.1); `review`, `edit`
+  (10 units), `cancelled`, `offline`, `queued`, `error`, `sending` and `empty`
+  force S1.2 and S1.6 B, S1.3 B, S1.3 D and S1.5 A to D. `empty` also leaves S2,
+  S3 and S4 with no orders.
+- `?preview=loading|error|offline` forces the loading, error and offline
+  states of S2, S3, the Issues tab and S4. S2 also takes `?outlet=OUT009`
+  (S2.9); the receipt takes `?preview=asked` (S3.5), `?preview=shortfall`
+  (S3.1 B) and `?report=1` (opens the report sheet).
+- `?preset=a,b` performs store writes before the first screen draws, so a frame
+  that needs a tap can be opened from an address: `order-edited`,
+  `order-cancelled`, `after-cutoff-placed`, `receipt-confirmed`,
+  `receipt-confirmed-review`, `issue-reported`, `deferral-seen`, `read-all`.
+
+Each of these has an equivalent in the real flow: the URLs below are shortcuts.
+D is `2026-09-29`.
 
 | Frame | URL |
 |---|---|
+| S1.1 before cutoff, S1.6 desktop | `/store/orders?at=15:38&state=form` |
+| S1.3 received | `/store/orders?at=15:40` |
+| S1.4 after cutoff | `/store/orders?at=16:07&state=form` |
 | S2.10 list | `/store/deliveries?at=23:41` |
-| S2.1 confirmed | `/store/deliveries/D?at=16:01` |
-| S2.2 planned + arrival | `/store/deliveries/D?at=23:41` |
-| S2.3 loaded | `/store/deliveries/D?at=04:51&date=D` |
-| S2.4 on the way | `/store/deliveries/D?at=05:11&date=D` |
-| S2.5 driver out of coverage | `/store/deliveries/D?at=05:19&date=D` |
-| S2.6 deferred at your request | `/store/deliveries/D?at=05:22&date=D` |
-| S2.7 under review | `/store/deliveries/D?at=06:41&date=D` |
-| S2.8 delivered + deferral withdrawn | `/store/deliveries/D?at=06:45&date=D` |
-| S2.9 OUT009 deferred by policy | `/store/deliveries/D?at=03:01&date=D&outlet=OUT009` |
-| S2.11 desktop | `/store/deliveries/D?at=07:28&date=D` in a window 1024 px or wider |
+| S2.1 confirmed, S2.2 planned, S2.3 loaded | `/store/deliveries/D?at=16:01`, `?at=23:41`, `?at=04:51` |
+| S2.4 on the way, S2.5 out of coverage | `/store/deliveries/D?at=05:11`, `?at=05:19` |
+| S2.6 deferred at your request | `/store/deliveries/D?at=05:22` |
+| S2.7 under review, S2.8 delivered | `/store/deliveries/D?at=06:41`, `?at=06:45` |
+| S2.9 OUT009 deferred by policy | `/store/deliveries/D?at=03:01&outlet=OUT009` |
+| S2.11 desktop | `/store/deliveries/D?at=07:28` in a window 1024 px or wider |
+| S3.1 to confirm, S3.1 B shortfall | `/store/deliveries/D/receipt?at=07:28`, `?preview=shortfall` |
+| S3.3 report sheet, S3.5 Dispatch asks | `.../receipt?at=07:31&report=1`, `?at=06:41&preview=asked` |
+| S3.7 Issues tab | `/store/issues?at=07:35` |
+| S4.1 updates, S4.2 History | `/store/updates?at=06:45&preset=deferral-seen`, `/store/history?at=07:31` |
 
-S3 examples (R = `/store/deliveries/D/receipt`; the flows are taps, not URLs):
-
-| Frame | URL and taps |
-|---|---|
-| S3.1 to confirm | `R?at=07:28&date=D` |
-| S3.1 B shortfall | the same, then tap minus twice on ORD2001 (10 of 12) |
-| S3.2 confirmed | the same, then Confirm receipt |
-| S3.3 report sheet | the same, then Report issue |
-| S3.4 issue reported | the sheet, then Send to Dispatch |
-| S3.5 Dispatch asks | `R?at=06:41&date=D&preview=asked` |
-| S3.6 confirmed, review open | `R?at=06:41&date=D`, then Confirm receipt |
-| S3.7 Issues tab | `/store/issues?at=07:35&date=D` (after an issue: the Issues tab) |
-| S3.S A empty | `R?at=16:01` (nothing delivered yet) |
-| S3.S B, D, C | `R?at=07:28&date=D&preview=loading`, `error`, `offline` |
-
-S4 examples (the bell on any screen opens `/store/updates`):
-
-| Frame | URL and taps |
-|---|---|
-| S4.1 updates, 2 unread | `/store/updates?at=06:45&date=D` after Got it on S2.6 (a direct load shows 3, see A53) |
-| S4.1 B all read | the same, then Mark all read |
-| S4.2 History | `/store/history?at=07:31&date=D` |
-| S4.S A empty | `/store/updates?at=16:01&state=empty` |
-| S4.S B, D, C | `/store/updates?preview=loading`, `error`, or `?at=06:44&date=D&preview=offline` |
+The states after a tap (S3.2 confirmed, S3.4 issue reported, S3.6, S4.1 B) are in
+the gallery, or reached by tapping Confirm receipt, Send to Dispatch and Mark
+all read.
 
 This branch tracks **PRD v3** (`waypoint-prd-v3.md` at the repo root, which
 supersedes v2.1) and its companion `waypoint-central-context-v3.md`. Where
@@ -278,7 +282,7 @@ is one.
 | 5 | S2 Deliveries: all 15 frames (S2.1 to S2.11, S2.S A to D), each derived from the scenario clock along the hero timeline; Under review card, deferral notices, OUT009's view, Recent, desktop with proof of delivery. Pulled from Figma section `442:24402` on 30 Sep | Done |
 | 6 | S3 Receipt and the Issues tab: all 12 frames (S3.1, S3.1 B, S3.2 to S3.7, S3.S A to D) at `/store/deliveries/:date/receipt` and `/store/issues`: confirm, shortfall with a reason, report-an-issue sheet, Dispatch asks, confirmed while the review is open, offline confirmation saved on the phone. The `Issue` type now uses the store's issue types. Pulled from Figma section `442:26109` on 30 Sep | Done |
 | 6b | S4 Updates and history: all 7 frames (S4.1, S4.1 B, S4.2, S4.S A to D) at `/store/updates` and `/store/history`: feed grouped by day (Order/Plan/Delivery/Deferral/Review tags, each View opens its source S1/S2 state), Mark all read and All caught up, a settled review marked Resolved 06:44, History with All/Deferred/Partial filters, and the bell's unread dot on every screen. Added to the phase plan 30 Sep after finding it built in Figma but missing from the PRD text (gap G-10). Pulled from Figma section `585:40956` on 30 Sep | Done |
-| 7 | Routes, the state gallery, the scenario clock | Not started |
+| 7 | Routes, the state gallery and the scenario clock: the full route set, `/store/_states` (48 frames, each openable full screen with `?frame=`), one clock (`?at=` infers the day, `?date=` overrides) read through one `useNow()`, `data-theme="light"` on the store root, no clipping at 320 px | Done |
 | 8 | README update and a final lint, type and build pass | Not started |
 
 ### Departures from the Figma design
@@ -289,13 +293,12 @@ difference between a built frame and its Figma frame, with its reason:
 - **The Updates bell is on every S1 screen (v3 DP-06, gap G-12).** Figma
   draws "Bell · Updates · plain" on S1.1, S1.1 B and S1.3 only (the other 12
   phone frames and the desktop app bar on S1.6 have none). v3 settles this:
-  the bell is on every store screen, phone and desktop. It is drawn plain (no
-  unread dot), as in Figma, until S4 (phase 6b) supplies a count. It links to
-  `/store/updates`, which is not routed until phase 7.
+  the bell is on every store screen, phone and desktop. It carries an unread dot
+  from the S4 feed (phase 6b) and links to `/store/updates`.
 - **The cutoff countdown is live, so it differs from two static frames
   (v3 Q14).** S1.3 B (15:42) and S1.3 D (15:45) both read "20 min left" in
   Figma; 16:00 minus those times is 18 and 15. Built as computed from the
-  clock. Not yet in the v3 departures register; suggest DP-16.
+  clock. Recorded as DP-16 in PRD v3 section 18 (30 Sep).
 - **Recent orders follows A35, not the frame (v3 DP-05, V25).** S1.6 draws Thu
   24 Sep as "Deferred · policy" (1 order) and Fri 25 Sep as Delivered. A35
   says Fri 25 was the deferred day and Thu 24 was delivered, and v3 says A35
@@ -526,12 +529,25 @@ just carried as static fixture values.
 - **OUT009 (S2.9).** The mock holds one order for OUT009, ORD1002 (chilled, 35
   units, window 04:00 to 07:45, PRD v3 4c), deferred by policy at 03:00 by
   Kumari. Only OUT084 can place orders.
+- **Phase 7 replaced the interim clock.** `?at=` alone now infers the day (before
+  08:00 is Tue 29 Sep, later is Mon 28 Sep), which is what lets every frame's
+  time stand by itself; `?date=` overrides. The answer to the question of how
+  v3's `?date=` default (Tue 29 Sep) squares with S1 needing Mon 28 Sep was
+  agreed on 30 Sep.
 - **`createMockStoreApi(now, { seed })`.** `seed: "placed"` (default) holds the
   hero orders already received at 15:40; `seed: "empty"` holds nothing, so S1.1
   can be walked through, and the first chilled and dry orders placed for the
   outlet take the hero IDs ORD2001 and ORD2002.
 
 ### Shared files this role has changed
+
+Phase 7:
+
+- `app/scenarioClock.ts` (day inferred from the time), `hooks/useNow.ts` (reads
+  the clock from the provider; no `now` prop on any screen), `app/StoreProvider.tsx`
+  (inside the router; `?preset=`), new `app/presets.ts`, `StoreRoutes.tsx`,
+  `StoreRoot.tsx` (`data-theme="light"`), `App.tsx`; `screens/gallery/`.
+  `createMockStoreApi` requires its clock.
 
 Phase 6b:
 
