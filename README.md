@@ -182,7 +182,7 @@ See the deployed application and `/docs` for the full walkthrough.
 
 The store manager role, built in `frontend/`. Branch: `feature/store-manager-frontend`.
 
-**Status:** in progress. Phases 1 and 2 are done; phases 3 to 8 are not started.
+**Status:** in progress. Phases 1 to 3 are done; phases 4 to 8 are not started.
 
 ### How to run
 
@@ -203,7 +203,7 @@ The store role is not yet routed (phase 7). Once routed, it will live at
 |---|---|---|
 | 1 | Vite, React and TypeScript scaffold; tokens.css; base.css; fonts; Radix and fontsource dependencies | Done |
 | 2 | Shared primitives: Button, StatusPill, Tag, Alert, Card, Sheet, Modal, Toast, TopBar, AppBar, TabBar, ConnectivityBar, StateScreen, JourneyTimeline, Facts, DataTable | Done |
-| 3 | Order types, the 11 statuses and `statusLabel`, the `StoreApi` interface and mock with the hero fixture, cutoff and arrival-range rules | Not started |
+| 3 | Order types, the 11 statuses and `statusLabel`, the `StoreApi` interface and mock with the hero fixture, cutoff and arrival-range rules | Done |
 | 4 | S1 Place order: all states, edit and cancel until 16:00, after cutoff, offline, error, sending, empty, desktop form and review modal | Not started |
 | 5 | S2 Deliveries: every state, Under review card, deferral notices, OUT009, recent orders, desktop | Not started |
 | 6 | S3 Receipt and the Issues tab: confirm, shortfall, issue sheet, Dispatch asks, the open-review branch, states | Not started |
@@ -227,6 +227,11 @@ screen lands, with its reason, per the booklet's fidelity requirement.
   that basis rather than a dataset lookup. See PRD v2 section 4d, A1, for
   the full note. This does not affect any screen or rule, since operating
   days follow the weekday rule, not a calendar row.
+- **Scenario clock deferred to phase 7.** `createMockStoreApi` (phase 3)
+  takes a `now: () => Date` function so its cutoff and arrival-release
+  checks can be driven by the `?at=HH:MM` scenario clock later, but nothing
+  reads that query param yet — the mock defaults to real time until routing
+  (phase 7) wires it up.
 
 ### Shared files this role has changed
 
