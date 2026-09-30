@@ -23,7 +23,15 @@ export function Sheet({ open, onOpenChange, title, children, trigger }: SheetPro
       {trigger && <Dialog.Trigger asChild>{trigger}</Dialog.Trigger>}
       <Dialog.Portal>
         <Dialog.Overlay className={styles.overlay} />
-        <Dialog.Content className={styles.content} aria-describedby={undefined}>
+        <Dialog.Content
+          className={styles.content}
+          aria-describedby={undefined}
+          onOpenAutoFocus={(event) => {
+            // Focus the sheet, not its close button, so no ring is drawn on open; Tab still reaches everything.
+            event.preventDefault();
+            (event.currentTarget as HTMLElement).focus();
+          }}
+        >
           <div className={styles.grip} aria-hidden />
           <div className={styles.header}>
             <Dialog.Title className={styles.title}>{title}</Dialog.Title>
