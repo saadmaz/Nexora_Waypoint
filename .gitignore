@@ -1,40 +1,32 @@
-# Competition data: never committed (team rule, PRD O-1)
-data/*
-!data/.gitkeep
-!data/README.md
-
-# Secrets
-.env
-*.pem
-
-# Python
-__pycache__/
-*.py[cod]
-*.egg-info/
-.venv/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.coverage
-htmlcov/
-
-# Node / frontend
+# Dependencies
 node_modules/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# Build output
 dist/
-dev-dist/
-frontend/.figma/
-frontend/.compare/
-*.tsbuildinfo
+build/
+.next/
+out/
+coverage/
 
-# Playwright
-e2e/test-results/
-e2e/playwright-report/
+# Logs
+*.log
+npm-debug.log*
 
-# Uploads (POD photos, O-3)
-uploads/
-
-# OS / editors
+# OS / editor
 .DS_Store
-.idea/
+Thumbs.db
 .vscode/*
 !.vscode/extensions.json
+.idea/
+
+# Local data
+data/
+
+# Claude/AI project docs and specs: kept locally, not committed.
+claude/

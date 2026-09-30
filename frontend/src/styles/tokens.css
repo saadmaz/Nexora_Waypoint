@@ -1,0 +1,184 @@
+/* Waypoint design tokens, exported from the Figma variable collection "Waypoint colour".
+   Light · office is the default, and it is the theme Waypoint Store uses: the store manager
+   works at a daylight counter. Dark · pre-dawn and Field · sunlight are kept for the loader
+   and driver apps that share this codebase. Theme follows the working environment, not the
+   role (PRD v2 section 6).
+
+   Figma names these variables with a --wp- prefix (--wp-route). This file drops the prefix
+   to match the dispatcher branch, so the two merge without a rename. Values are identical:
+   checked against get_variable_defs on frame 82:3. */
+:root,
+[data-theme="light"] {
+  --surface-0: #f5f4f0;
+  --surface-1: #ffffff;
+  --surface-2: #eceae4;
+  --line: #d8d5cd;
+  --line-strong: #858178;
+  --ink: #15191c;
+  --ink-muted: #50565c;
+  --chrome: #15191c;
+  --on-chrome: #f5f4f0;
+  --on-chrome-muted: #a9b0b5;
+  --route: #0b5c63;
+  --route-hover: #084a50;
+  --on-route: #ffffff;
+  --route-soft: #ddefef;
+  --signal: #f2a900;
+  --on-signal: #15191c;
+  --signal-soft: #fdf1d3;
+  --warning: #855000;
+  --success: #13684a;
+  --success-soft: #dff1e8;
+  --danger: #b42318;
+  --on-danger: #ffffff;
+  --danger-soft: #fbe4e1;
+  --offline: #4a5056;
+  --offline-soft: #e4e6e8;
+  --chilled: #0a6a90;
+  --chilled-soft: #ddf0f8;
+  --brand-fresh: #2f6a2a;
+  --brand-fresh-soft: #e3f0e0;
+  --brand-style: #982c64;
+  --brand-style-soft: #f7e2ec;
+  --brand-tech: #4146a8;
+  --brand-tech-soft: #e6e7f7;
+  --focus: #0b5c63;
+
+  /* Archivo for sentences and labels. IBM Plex Mono only for IDs, times and figures. */
+  --font-sans: "Archivo Variable", "Archivo", "Noto Sans Sinhala", "Noto Sans Tamil", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 999px;
+
+  --shadow-1: 0 1px 2px rgba(20, 26, 28, 0.06);
+  --shadow-2: 0 8px 24px rgba(20, 26, 28, 0.16);
+}
+
+/* Type, space and size scale. These do not change between themes, so they sit
+   outside the theme blocks. Nothing is below 12 px. */
+:root {
+  --text-h1: 700 28px / 34px var(--font-sans);
+  --text-h2: 600 22px / 28px var(--font-sans);
+  --text-h3: 600 17px / 24px var(--font-sans);
+  --text-body: 400 15px / 22px var(--font-sans);
+  --text-body-sm: 400 13px / 18px var(--font-sans);
+  --text-caption: 400 12px / 16px var(--font-sans);
+  --text-pill: 600 13px / 16px var(--font-sans);
+  --text-button-lg: 600 17px / 24px var(--font-sans);
+  --text-button-md: 600 15px / 20px var(--font-sans);
+  --text-data: 500 14px / 20px var(--font-mono);
+
+  /* Label is 12 / 600 uppercase, so it needs its own tracking alongside the font. */
+  --text-label: 600 12px / 16px var(--font-sans);
+  --tracking-label: 0.04em;
+
+  /* 4 px grid. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  --gutter-phone: 16px;
+  --gap-desktop-column: 24px;
+  --padding-desktop-page: 32px;
+
+  /* Every tap target is at least 44 px. */
+  --size-button-lg: 56px;
+  --size-button-md: 44px;
+  --size-tap-min: 44px;
+
+  --size-topbar: 56px;
+  --size-tabbar: 64px;
+  --size-appbar: 56px;
+  --size-side-panel: 340px;
+
+  /* The phone layout stays centred and at most 600 px wide between the breakpoints. */
+  --width-phone-max: 600px;
+
+  --duration-colour: 120ms;
+}
+
+[data-theme="dark"] {
+  --surface-0: #0e1113;
+  --surface-1: #161a1d;
+  --surface-2: #1e2327;
+  --line: #2c3338;
+  --line-strong: #6b737a;
+  --ink: #eceeec;
+  --ink-muted: #a2aab0;
+  --chrome: #07090a;
+  --on-chrome: #eceeec;
+  --on-chrome-muted: #8e979d;
+  --route: #5cc6c0;
+  --route-hover: #7ad4cf;
+  --on-route: #062224;
+  --route-soft: #133335;
+  --signal: #ffc53d;
+  --on-signal: #15191c;
+  --signal-soft: #3a2e10;
+  --warning: #ffc53d;
+  --success: #57c99a;
+  --success-soft: #12302a;
+  --danger: #ff8a70;
+  --on-danger: #1a0a07;
+  --danger-soft: #3d1c17;
+  --offline: #a9b1b7;
+  --offline-soft: #262c31;
+  --chilled: #6cc7ee;
+  --chilled-soft: #11303d;
+  --brand-fresh: #86c77b;
+  --brand-fresh-soft: #1c2e1a;
+  --brand-style: #ee8cbf;
+  --brand-style-soft: #3a1c2c;
+  --brand-tech: #a7abf5;
+  --brand-tech-soft: #23254a;
+  --focus: #ffc53d;
+}
+
+[data-theme="field"] {
+  --surface-0: #ffffff;
+  --surface-1: #ffffff;
+  --surface-2: #eeeeee;
+  --line: #1a1a1a;
+  --line-strong: #000000;
+  --ink: #000000;
+  --ink-muted: #2e3338;
+  --chrome: #000000;
+  --on-chrome: #ffffff;
+  --on-chrome-muted: #d0d4d7;
+  --route: #00474d;
+  --route-hover: #00363b;
+  --on-route: #ffffff;
+  --route-soft: #d6ecec;
+  --signal: #ffc400;
+  --on-signal: #000000;
+  --signal-soft: #fff0b8;
+  --warning: #5a3700;
+  --success: #0a4d33;
+  --success-soft: #d9f0e5;
+  --danger: #8f1a0e;
+  --on-danger: #ffffff;
+  --danger-soft: #fbe1dd;
+  --offline: #2e3338;
+  --offline-soft: #e3e5e7;
+  --chilled: #00506e;
+  --chilled-soft: #d8eef7;
+  --brand-fresh: #1f4f1b;
+  --brand-fresh-soft: #e3f0e0;
+  --brand-style: #6e1f48;
+  --brand-style-soft: #f7e2ec;
+  --brand-tech: #2c3080;
+  --brand-tech-soft: #e6e7f7;
+  --focus: #000000;
+
+  /* "High contrast, no shadows" (R1.9 copy): Field · sunlight draws no shadows at all. */
+  --shadow-1: none;
+  --shadow-2: none;
+}
