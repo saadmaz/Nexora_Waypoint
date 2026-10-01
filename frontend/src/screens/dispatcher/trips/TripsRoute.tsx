@@ -30,7 +30,8 @@ export function TripsRoute() {
   const toast = useToast();
   const [depot, setDepot] = useDepot();
   const [params] = useSearchParams();
-  const plan = useLoad(() => api.getPlan({ depot }), [depot]);
+  const versionParam = Number(params.get("version")) || undefined;
+  const plan = useLoad(() => api.getPlan({ depot, ...(versionParam ? { version: versionParam } : {}) }), [depot, versionParam]);
   const view = plan.data;
   const boxRef = useRef<HTMLDivElement>(null);
 
@@ -107,7 +108,7 @@ export function TripsRoute() {
   const seeded = useRef(false);
   useEffect(() => {
     const ui = params.get("ui");
-    if (!view || !ui || seeded.current) return;
+    if (!view || (!ui && !params.get("moveTo")) || seeded.current) return;
     seeded.current = true;
     const refuse = async (orderId: string, target: MoveTarget) => {
       const result = await api.validateMove({ orderId, to: target });
@@ -133,12 +134,18 @@ export function TripsRoute() {
       case "moveto":
         setInteraction({ kind: "moveTo", orderId: "ORD1017" });
         break;
+
       case "why":
         void showWhy("ORD1014");
         break;
       case "save-error":
         setSaveError("ORD1003");
         break;
+      default: {
+        // "Serve instead..." on a deferral card arrives here with the order to place.
+        const target = params.get("moveTo");
+        if (target) setInteraction({ kind: "moveTo", orderId: target });
+      }
     }
     // The gallery only opens a frame once.
     // eslint-disable-next-line react-hooks/exhaustive-deps

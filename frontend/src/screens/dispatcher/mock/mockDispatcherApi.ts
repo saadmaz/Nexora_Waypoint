@@ -135,6 +135,7 @@ export function createMockDispatcherApi(now: () => Date, options: MockOptions = 
             ...v,
             headline: "No deferrals",
             counts: { total: 0, capacity: 0, policy: 0, storeRequest: 0 },
+            served: v.orders,
             capacity: [],
             policy: [],
             policyMore: 0,

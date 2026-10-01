@@ -338,6 +338,9 @@ export type DeferralsView = {
   banner: { tone: "warning" | "info" | "success"; title: string; text: string };
   capacity: DeferralCard[];
   policy: DeferralCard[];
+  /** Confirmed orders at this depot and how many the plan serves. */
+  orders: number;
+  served: number;
   /** Policy deferrals beyond the listed ones ("+15 more"). */
   policyMore: number;
   storeRequest: DeferralCard[];

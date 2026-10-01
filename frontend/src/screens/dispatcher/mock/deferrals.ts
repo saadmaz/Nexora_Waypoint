@@ -1,5 +1,5 @@
 import type { DeferralCard, DeferralsView, DepotId, StoreNotice } from "../../../api/DispatcherApi";
-import { EXTRA_POLICY_IDS, NAMED_DEFERRALS, ORDERS, OUTLETS } from "./fixtures";
+import { EXTRA_POLICY_IDS, NAMED_DEFERRALS, ORDERS, OUTLETS, QUEUE_TOTAL } from "./fixtures";
 import { deferralSets } from "./plan";
 import { at, hm } from "./time";
 import { versionsAt, type Milestones, type World } from "./world";
@@ -221,6 +221,8 @@ export function deferralsView(w: World, m: Milestones, depot: DepotId): Deferral
     headline,
     counts: { total, capacity: sets.capacity.length, policy: policyCount, storeRequest: sets.storeRequest.length },
     banner,
+    orders: QUEUE_TOTAL[depot],
+    served: QUEUE_TOTAL[depot] - total,
     capacity: sets.capacity.map((id) => namedCard(m, id)),
     policy: policyCards,
     policyMore: depot === "kandy" ? 0 : EXTRA_POLICY_IDS.length,
