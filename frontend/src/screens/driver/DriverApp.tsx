@@ -1,25 +1,22 @@
+import type { ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { ClockProvider } from "../../field/clock/ClockContext";
 import { HERO_DATE } from "../../field/clock/clock";
 import { FieldRuntime } from "../../field/FieldRuntime";
 import { PlaceholderScreen } from "../../field/PlaceholderScreen";
-import { RoleRoot, type Theme } from "../../shared/RoleRoot";
+import { RoleRoot } from "../../shared/RoleRoot";
+import { DriverProvider } from "./context/DriverProvider";
+import { useDriverSettings } from "./context/DriverContext";
 import { DriverGallery } from "./gallery/DriverGallery";
-
-/**
- * The driver's colour mode. Prompt 3 replaces this with the theme rule from the R1.9 copy
- * (sunlight switch on is Field, otherwise Dark, or Light when the phone prefers light). Until
- * then the driver is Dark · pre-dawn, as in every frame.
- */
-const DRIVER_THEME: Theme = "dark";
+import { MeScreen } from "./me/MeScreen";
 
 /** Where the driver's clock starts without `?at=`: the first frame, R1.3 A at 04:45 on the hero day. */
 const DRIVER_START = { date: HERO_DATE, time: "04:45" };
 
 /**
  * The Driver role root: `/driver/*`. On a wide screen it is a centred column on surface-0
- * (field conventions section 12); the column itself comes with the shell in prompt 3. Every route
- * answers with a placeholder until the driver prompts build the screens.
+ * (field conventions section 12, built into DriverShell). The theme follows the R1.9 rule: the
+ * sunlight switch wins, otherwise the phone's own colour scheme preference (DriverProvider).
  */
 export function DriverApp() {
   return (
@@ -30,15 +27,22 @@ export function DriverApp() {
         element={
           <ClockProvider start={DRIVER_START}>
             <FieldRuntime>
-              <RoleRoot theme={DRIVER_THEME}>
-                <DriverRoutes />
-              </RoleRoot>
+              <DriverProvider>
+                <ThemedRoot>
+                  <DriverRoutes />
+                </ThemedRoot>
+              </DriverProvider>
             </FieldRuntime>
           </ClockProvider>
         }
       />
     </Routes>
   );
+}
+
+function ThemedRoot({ children }: { children: ReactNode }) {
+  const { theme } = useDriverSettings();
+  return <RoleRoot theme={theme}>{children}</RoleRoot>;
 }
 
 function DriverRoutes() {
@@ -79,10 +83,7 @@ function DriverRoutes() {
         path="finish"
         element={<PlaceholderScreen id="R9" title="Finish run" back="/driver/run" note="Close the run with a GPS distance. Built in driver prompt 5 (R9)." />}
       />
-      <Route
-        path="me"
-        element={<PlaceholderScreen id="R1.9" title="Me" note="Sunlight screen, text size and language. Built in driver prompt 3 (R1.9)." />}
-      />
+      <Route path="me" element={<MeScreen />} />
       <Route path="*" element={<Navigate to="run" replace />} />
     </Routes>
   );
