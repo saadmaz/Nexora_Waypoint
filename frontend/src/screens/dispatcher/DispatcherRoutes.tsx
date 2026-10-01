@@ -4,6 +4,7 @@ import { DeferralsRoute } from "./deferrals/DeferralsRoute";
 import { ReleaseRoute } from "./release/ReleaseRoute";
 import { LiveRoute } from "./live/LiveRoute";
 import { ConflictRoute } from "./conflict/ConflictRoute";
+import { ExceptionRoute } from "./exception/ExceptionRoute";
 import { QueueRoute } from "./queue/QueueRoute";
 import { TripsRoute } from "./trips/TripsRoute";
 
@@ -23,6 +24,7 @@ export function DispatcherRoutes() {
       <Route path="/dispatcher/release" element={<ReleaseRoute />} />
       <Route path="/dispatcher/live" element={<LiveRoute />} />
       <Route path="/dispatcher/conflicts/:id" element={<ConflictRoute />} />
+      <Route path="/dispatcher/exceptions/:id" element={<ExceptionRoute />} />
       <Route path="*" element={<Navigate to="/dispatcher/queue" replace />} />
     </Routes>
   );
