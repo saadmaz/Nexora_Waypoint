@@ -602,7 +602,7 @@ export interface DispatcherApi {
   /** D5: who has which version. `GET /dispatcher/acknowledgements?version=`. */
   listAcknowledgements(query: { version?: number }): Promise<AcknowledgementsView>;
   /** D6: the exception-first live board. `GET /dispatcher/live?depot=`. */
-  getLiveBoard(query: { depot: DepotId | "both" }): Promise<LiveBoardView>;
+  getLiveBoard(query: { depot: DepotId | "both"; all?: boolean }): Promise<LiveBoardView>;
   /** D6.3: defer a stop after release. `POST /dispatcher/stops/defer`. */
   deferStop(request: DeferStopRequest): Promise<DeferStopResult>;
   /** What needs a decision. `GET /dispatcher/inbox`. */

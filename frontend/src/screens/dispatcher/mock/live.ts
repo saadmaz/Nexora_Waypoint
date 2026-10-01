@@ -42,7 +42,7 @@ function stopsDone(trip: FxTrip, now: Date): number {
     const outlet = OUTLETS[s.outletId];
     const arrive = at(s.arrival, Number(s.arrival.slice(0, 2)) < 12);
     const open = outlet ? at(outlet.window[0], Number(outlet.window[0].slice(0, 2)) < 12) : arrive;
-    return now.getTime() >= Math.max(arrive.getTime(), open.getTime());
+    return now.getTime() > Math.max(arrive.getTime(), open.getTime());
   }).length;
 }
 

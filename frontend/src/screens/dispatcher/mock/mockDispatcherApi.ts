@@ -172,8 +172,8 @@ export function createMockDispatcherApi(now: () => Date, options: MockOptions = 
       return read(() => acknowledgements(m(), version));
     },
 
-    getLiveBoard({ depot }): Promise<LiveBoardView> {
-      return read(() => liveBoard(world, m(), { depot }));
+    getLiveBoard({ depot, all }): Promise<LiveBoardView> {
+      return read(() => liveBoard(world, m(), { depot, ...(all ? { all } : {}) }));
     },
 
     deferStop(request: DeferStopRequest): Promise<DeferStopResult> {
