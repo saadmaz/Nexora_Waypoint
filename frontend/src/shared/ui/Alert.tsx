@@ -2,7 +2,8 @@ import type { ReactNode } from "react";
 import { Icon, type IconName } from "./Icon";
 import styles from "./Alert.module.css";
 
-export type AlertTone = "info" | "success" | "warning" | "danger" | "offline";
+/** "issue" and "conflict" are the field tones (LIB8): issue reads like danger with the alert-circle, conflict is the amber-outlined Conflict style. */
+export type AlertTone = "info" | "success" | "warning" | "danger" | "offline" | "issue" | "conflict";
 
 export type AlertProps = {
   tone?: AlertTone;
@@ -20,6 +21,8 @@ const TONE_CLASS: Record<AlertTone, string> = {
   warning: styles.warning,
   danger: styles.danger,
   offline: styles.offline,
+  issue: styles.danger,
+  conflict: styles.conflict,
 };
 
 const TONE_ICON: Record<AlertTone, IconName> = {
@@ -28,13 +31,15 @@ const TONE_ICON: Record<AlertTone, IconName> = {
   warning: "clock",
   danger: "alert-triangle",
   offline: "wifi-off",
+  issue: "alert-circle",
+  conflict: "alert-triangle",
 };
 
 export function Alert({ tone = "info", icon, title, children, live }: AlertProps) {
   return (
     <div
       className={[styles.alert, TONE_CLASS[tone]].join(" ")}
-      role={tone === "danger" ? "alert" : undefined}
+      role={tone === "danger" || tone === "issue" ? "alert" : undefined}
       aria-live={live ? "polite" : undefined}
     >
       <span className={styles.iconSlot}>

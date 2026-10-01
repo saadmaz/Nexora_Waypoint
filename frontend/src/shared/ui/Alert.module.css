@@ -64,3 +64,14 @@
   background: var(--offline-soft);
   color: var(--offline);
 }
+
+/* Conflict: signal-soft fill, signal stroke, warning icon, ink label (field conventions section 7). */
+.conflict {
+  background: var(--signal-soft);
+  border-color: var(--signal);
+  color: var(--ink);
+}
+
+.conflict .iconSlot {
+  color: var(--warning);
+}

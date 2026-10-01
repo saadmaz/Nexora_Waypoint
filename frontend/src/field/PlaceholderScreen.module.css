@@ -1,0 +1,22 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-6) var(--gutter-phone);
+}
+
+.heading {
+  font: var(--text-h2);
+  color: var(--ink);
+}
+
+.note {
+  font: var(--text-body);
+  color: var(--ink-muted);
+}

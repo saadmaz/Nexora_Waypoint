@@ -1,0 +1,35 @@
+.root {
+  position: relative;
+  flex: 0 0 56px;
+  width: 56px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  transition: background var(--duration-colour) ease, border-color var(--duration-colour) ease;
+}
+
+.root[data-state="checked"] {
+  background: var(--route);
+  border-color: var(--route);
+}
+
+.thumb {
+  display: block;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-pill);
+  background: var(--ink-muted);
+  transform: translateX(3px);
+  transition: transform var(--duration-colour) ease, background var(--duration-colour) ease;
+}
+
+.root[data-state="checked"] .thumb {
+  background: var(--on-route);
+  transform: translateX(27px);
+}
+
+.root:disabled {
+  opacity: 0.5;
+}
