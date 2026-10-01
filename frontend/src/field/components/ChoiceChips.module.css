@@ -1,0 +1,33 @@
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  color: var(--ink);
+  font: var(--text-button-md);
+  white-space: nowrap;
+  transition: background var(--duration-colour) ease, border-color var(--duration-colour) ease;
+}
+
+.fill {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* The chosen chip trades a 1 px border for 2 px, so its padding gives one back to keep the size. */
+.chosen {
+  padding: 0 13px;
+  border: 2px solid var(--route);
+  background: var(--route-soft);
+}
