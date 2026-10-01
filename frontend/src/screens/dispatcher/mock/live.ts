@@ -52,7 +52,7 @@ function riskFor(m: Milestones, vehicleId: string): LiveRow["risk"] {
   return "On time";
 }
 
-function liveStop(w: World, m: Milestones, outletId: string, orderIds: string[], eta: string): LiveStop {
+function liveStop(outletId: string, orderIds: string[], eta: string): LiveStop {
   const outlet = OUTLETS[outletId];
   const window = { start: outlet?.window[0] ?? "", end: outlet?.window[1] ?? "" };
   const stop: LiveStop = {
@@ -65,14 +65,12 @@ function liveStop(w: World, m: Milestones, outletId: string, orderIds: string[],
     status: "Departed",
     canDefer: true,
   };
-  void w;
-  void m;
   return stop;
 }
 
 function kandyStops(w: World, m: Milestones): LiveStop[] {
-  const a = liveStop(w, m, "OUT084", ["ORD2001", "ORD2002"], "05:26");
-  const b = liveStop(w, m, "OUT087", ["ORD2003"], "06:06");
+  const a = liveStop("OUT084", ["ORD2001", "ORD2002"], "05:26");
+  const b = liveStop("OUT087", ["ORD2003"], "06:06");
   const departed = m.now.getTime() >= SCRIPT.kandyDepart.getTime();
   a.status = departed ? "Departed" : "Loaded";
   b.status = departed ? "Departed" : "Loaded";
@@ -137,7 +135,7 @@ function vehicle039(w: World, m: Milestones): LiveRow {
   return base;
 }
 
-function tripRow(w: World, m: Milestones, vehicleId: string): LiveRow {
+function tripRow(m: Milestones, vehicleId: string): LiveRow {
   const now = m.now;
   const driver = VEHICLES[vehicleId]?.driver ?? "";
   const t1 = tripOf(vehicleId, 1)!;
@@ -177,7 +175,6 @@ function tripRow(w: World, m: Milestones, vehicleId: string): LiveRow {
     heard = { time: "02:50" };
   }
   const status: LiveRow["status"] = hasDeparted ? "Departed" : "Planned";
-  void w;
   return {
     vehicleId,
     trip: tripNo,
@@ -213,7 +210,7 @@ function heldRow(m: Milestones): LiveRow {
   };
 }
 
-function decisions(w: World, m: Milestones): Decision[] {
+function decisions(m: Milestones): Decision[] {
   const out: Decision[] = [];
   if (m.held && !m.swapAt) {
     const minutes = Math.max(0, minutesBetween(m.now, SCRIPT.depart));
@@ -255,7 +252,6 @@ function decisions(w: World, m: Milestones): Decision[] {
       action: { label: "Resolve", to: "/dispatcher/conflicts/c1?depot=kandy" },
     });
   }
-  void w;
   return out;
 }
 
@@ -276,9 +272,9 @@ export function liveBoard(w: World, m: Milestones, query: { depot: DepotId | "bo
 
   let rows: LiveRow[];
   if (preDeparture && !calm) {
-    rows = [heldRowOrTrip(w, m), vehicle039(w, m), tripRow(w, m, "VEH035"), tripRow(w, m, "VEH011")];
+    rows = [heldRowOrTrip(m), vehicle039(w, m), tripRow(m, "VEH035"), tripRow(m, "VEH011")];
   } else {
-    rows = [vehicle039(w, mm), tripRow(w, mm, "VEH036"), tripRow(w, mm, "VEH035"), tripRow(w, mm, "VEH011")];
+    rows = [vehicle039(w, mm), tripRow(mm, "VEH036"), tripRow(mm, "VEH035"), tripRow(mm, "VEH011")];
   }
   if (query.all) {
     for (const e of EXTRA) {
@@ -302,7 +298,7 @@ export function liveBoard(w: World, m: Milestones, query: { depot: DepotId | "bo
   if (query.depot === "kandy") rows = rows.filter((r) => r.vehicleId === "VEH039");
   if (query.depot === "peliyagoda") rows = rows.filter((r) => r.vehicleId !== "VEH039");
 
-  const decisionList = calm ? [] : decisions(w, m);
+  const decisionList = calm ? [] : decisions(m);
   const d = delivered(mm);
   const departed = mm.now.getTime() < SCRIPT.depart.getTime() ? 0 : mm.now.getTime() < SCRIPT.kandyDepart.getTime() ? 13 : 14;
   const loading = mm.now.getTime() < SCRIPT.depart.getTime() ? 6 : 3;
@@ -333,6 +329,6 @@ export function liveBoard(w: World, m: Milestones, query: { depot: DepotId | "bo
   return view;
 }
 
-function heldRowOrTrip(w: World, m: Milestones): LiveRow {
-  return m.held && !m.swapAt ? heldRow(m) : tripRow(w, m, "VEH036");
+function heldRowOrTrip(m: Milestones): LiveRow {
+  return m.held && !m.swapAt ? heldRow(m) : tripRow(m, "VEH036");
 }

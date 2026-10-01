@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowRight, Box, Check, ChevronRight, CircleAlert, Flag, Info, LoaderCircle, Lock, Redo2, RefreshCw, Route, Snowflake, TriangleAlert } from "lucide-react";
 import type { ExceptionView } from "../../../api/DispatcherApi";
@@ -34,20 +34,12 @@ export function ExceptionRoute() {
   const load = useLoad(() => api.getExceptionForReview(id), [id], 5_000);
   const view = load.data;
 
-  const [manual, setManual] = useState(false);
-  const [picked, setPicked] = useState<Set<string>>(new Set());
+  // The gallery opens the manual frames (D8.3) from the address, without clicks.
+  const ui = params.get("ui");
+  const [manual, setManual] = useState(ui === "manual" || ui === "refuse");
+  const [picked, setPicked] = useState<Set<string>>(() => new Set(ui === "refuse" ? ["ORD1001"] : []));
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
-
-  // The gallery opens the manual frames (D8.3) without clicks.
-  const seeded = useRef(false);
-  useEffect(() => {
-    const ui = params.get("ui");
-    if (!view || seeded.current || !ui) return;
-    seeded.current = true;
-    if (ui === "manual" || ui === "refuse") setManual(true);
-    if (ui === "refuse") setPicked(new Set(["ORD1001"]));
-  }, [view, params]);
 
   const decide = async (deferOrderIds: string[]) => {
     setBusy(true);

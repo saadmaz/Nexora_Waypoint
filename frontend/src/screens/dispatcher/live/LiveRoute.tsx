@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRight, Check, ChevronDown, CircleAlert, Clock3, Flag, Info, Lock, Redo2, RefreshCw, Route, Truck, TriangleAlert, WifiOff } from "lucide-react";
 import type { Decision, DeferralKind, DepotId, LiveBoardView, LiveRow, LiveStop } from "../../../api/DispatcherApi";
@@ -142,15 +142,15 @@ export function LiveRoute() {
   const [busy, setBusy] = useState(false);
   const [deferError, setDeferError] = useState<string | null>(null);
 
-  // The gallery opens the Defer stop dialog (D6.3) without a click.
-  const seeded = useRef(false);
-  useEffect(() => {
-    if (!view || seeded.current || params.get("ui") !== "defer") return;
-    const row = view.rows.find((r) => r.stopsDetail.length > 0);
-    const stop = row?.stopsDetail[0];
-    seeded.current = true;
-    if (row && stop) setDeferring({ row, stop });
-  }, [view, params]);
+  // The gallery opens the Defer stop dialog (D6.3) from the address, without a click.
+  const [seedClosed, setSeedClosed] = useState(false);
+  const seedRow = params.get("ui") === "defer" && !seedClosed ? view?.rows.find((r) => r.stopsDetail.length > 0) : undefined;
+  const seedStop = seedRow?.stopsDetail[0];
+  const active = deferring ?? (seedRow && seedStop ? { row: seedRow, stop: seedStop } : null);
+  const closeDefer = () => {
+    setDeferring(null);
+    setSeedClosed(true);
+  };
 
   const isOpen = (row: LiveRow) => open[row.vehicleId] ?? row.expanded;
   const nextVersion = (Number(/v(\d+)/.exec(view?.plan ?? "")?.[1]) || 3) + 1;
@@ -160,7 +160,7 @@ export function LiveRoute() {
     setDeferError(null);
     try {
       const result = await api.deferStop(request);
-      setDeferring(null);
+      closeDefer();
       invalidate();
       toast.show(`Plan v${result.plan} created. ${result.deferred.join(" and ")} deferred.`, { icon: "check" });
     } catch (error) {
@@ -254,16 +254,16 @@ export function LiveRoute() {
         {header}
         {body}
       </div>
-      {deferring && (
+      {active && (
         <DeferStopDialog
-          key={deferring.stop.outletId}
+          key={active.stop.outletId}
           open
           onOpenChange={(o) => {
-            if (!o) setDeferring(null);
+            if (!o) closeDefer();
           }}
-          stop={deferring.stop}
-          vehicleId={deferring.row.vehicleId}
-          offlineSince={deferring.row.risk === "Unknown · offline" ? deferring.row.lastHeard.time : undefined}
+          stop={active.stop}
+          vehicleId={active.row.vehicleId}
+          offlineSince={active.row.risk === "Unknown · offline" ? active.row.lastHeard.time : undefined}
           nextVersion={nextVersion}
           busy={busy}
           error={deferError}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRight, Check, CircleAlert, Clock3, Info, Lock, Phone, RefreshCw, Route, WifiOff, X } from "lucide-react";
 import type { AcknowledgementRow, AcknowledgementsView, PlanVersionInfo, PlanView } from "../../../api/DispatcherApi";
 import { Modal } from "../../../shared/ui/Modal";
@@ -39,7 +39,9 @@ export function ReleaseRoute() {
   // Who has the version is only asked once there is a released one to ask about.
   const acks = useLoad(() => (released ? api.listAcknowledgements({}) : Promise.resolve(null)), [released, depot, dataVersion], released ? 15_000 : 0);
 
-  const [confirming, setConfirming] = useState(false);
+  const [params] = useSearchParams();
+  // The gallery opens the confirmation (D5.2) without a click.
+  const [confirming, setConfirming] = useState(params.get("ui") === "confirm");
   const [sendNotices, setSendNotices] = useState(true);
   const [busy, setBusy] = useState(false);
   const [releaseError, setReleaseError] = useState<string | null>(null);

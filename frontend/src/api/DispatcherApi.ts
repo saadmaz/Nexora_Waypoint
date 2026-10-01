@@ -567,6 +567,8 @@ export type ForecastWeek = {
   lever: string;
   gap?: { minutes: number };
   days?: { day: string; flag?: string }[];
+  /** Notes only: nothing on this screen changes the plan. */
+  levers?: string[];
 };
 
 export type ForecastView = {

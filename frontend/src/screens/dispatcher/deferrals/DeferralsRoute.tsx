@@ -177,7 +177,7 @@ export function DeferralsRoute() {
   }
 
   return (
-    <Screen bar={<AppBar current="plan" depot={depot} onDepot={setDepot} />} offlineNote="Offline. Store notices will send when you reconnect.">
+    <Screen bar={<AppBar current={released ? "deferrals" : "plan"} depot={depot} onDepot={setDepot} />} offlineNote="Offline. Store notices will send when you reconnect.">
       <div className={styles.page}>
         {header}
         {body}

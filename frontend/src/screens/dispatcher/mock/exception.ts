@@ -1,6 +1,6 @@
 import type { ExceptionCandidate, ExceptionView } from "../../../api/DispatcherApi";
 import { minutesBetween } from "./time";
-import { SCRIPT, type Milestones, type World } from "./world";
+import { SCRIPT, type Milestones } from "./world";
 
 /**
  * D8: the loading exception. Priya flags VEH003 at 02:55 ("reefer not holding temperature"); VEH036 is
@@ -15,7 +15,7 @@ const CANDIDATES: ExceptionCandidate[] = [
   { outletId: "OUT012", orderId: "ORD1001", impact: "Deferred yesterday", kg: 220, m3: 1.5, protected: true, leastSurplus: false },
 ];
 
-export function exceptionView(w: World, m: Milestones, id: string): ExceptionView {
+export function exceptionView(m: Milestones, id: string): ExceptionView {
   const toDeparture = Math.max(0, minutesBetween(m.now, SCRIPT.depart));
   const decided = Boolean(m.swapAt);
   // Until 03:00 the options are being worked out; after that the recommendation stands until decided.
@@ -91,6 +91,5 @@ export function exceptionView(w: World, m: Milestones, id: string): ExceptionVie
       toast: "Plan v4 released. Loader asked to acknowledge.",
     };
   }
-  void w;
   return view;
 }

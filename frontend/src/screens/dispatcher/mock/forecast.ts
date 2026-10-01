@@ -19,6 +19,7 @@ export function forecastView(depot: DepotId): ForecastView {
         flags: ["Festival ramp", "Payday"],
         lever: "Move workshop slots · pre-warn stores",
         gap: { minutes: 560 },
+        levers: ["Move 2 workshop slots out of this week", "Pre-warn Fresh stores of likely deferrals"],
         days: [
           { day: "Mon" },
           { day: "Tue" },

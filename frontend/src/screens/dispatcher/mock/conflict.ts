@@ -1,5 +1,5 @@
 import type { ConflictView } from "../../../api/DispatcherApi";
-import { agoLabel, hm } from "./time";
+import { hm } from "./time";
 import { SCRIPT, type Milestones, type World } from "./world";
 
 /**
@@ -108,6 +108,5 @@ export function conflictView(w: World, m: Milestones, id: string): ConflictView 
       toast: "Conflict resolved. Driver and store told.",
     };
   }
-  void agoLabel;
   return view;
 }
