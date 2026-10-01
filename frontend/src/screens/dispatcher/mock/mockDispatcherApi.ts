@@ -7,7 +7,6 @@ import {
   type DeferStopRequest,
   type DeferStopResult,
   type DeferralsView,
-  type DepotId,
   type DispatcherApi,
   type ExceptionView,
   type ForecastView,
@@ -17,7 +16,6 @@ import {
   type MoveResult,
   type OrderHistory,
   type PlanView,
-  type QueueFilters,
   type QueueView,
 } from "../../../api/DispatcherApi";
 import { capacityView } from "./capacity";
@@ -25,7 +23,6 @@ import { conflictView } from "./conflict";
 import { deferralsView } from "./deferrals";
 import { exceptionView } from "./exception";
 import { forecastView } from "./forecast";
-import { ORDERS } from "./fixtures";
 import { liveBoard } from "./live";
 import { planView, validate, deferralSets } from "./plan";
 import { orderHistory, queueView } from "./queue";
@@ -231,7 +228,7 @@ export function createMockDispatcherApi(now: () => Date, options: MockOptions = 
       return read(
         () => {
           if (!m().held) throw new ApiError("not_found", `Exception ${id} was not found.`);
-          return exceptionView(world, m(), id);
+          return exceptionView(m(), id);
         },
         () => {
           throw new ApiError("not_found", `Exception ${id} was not found.`);
@@ -243,7 +240,7 @@ export function createMockDispatcherApi(now: () => Date, options: MockOptions = 
       return write(() => {
         const mm = m();
         if (mm.swapAt) throw new ApiError("already_decided", "This exception is already decided.");
-        const view = exceptionView(world, mm, id);
+        const view = exceptionView(mm, id);
         const picked = view.candidates.filter((c) => request.deferOrderIds.includes(c.orderId));
         if (picked.some((c) => c.protected)) throw new ApiError("protected", "OUT012 is protected: deferred yesterday. Pick another order.");
         const kg = picked.reduce((a, c) => a + c.kg, 0);
@@ -253,7 +250,7 @@ export function createMockDispatcherApi(now: () => Date, options: MockOptions = 
         }
         world.swapAt = now();
         world.swapDeferred = picked.map((c) => c.orderId);
-        return exceptionView(world, m(), id);
+        return exceptionView(m(), id);
       });
     },
 
@@ -300,9 +297,5 @@ export function createMockDispatcherApi(now: () => Date, options: MockOptions = 
     },
   };
 
-  // Keep the fixtures in sync with the types the gallery and screens read.
-  void ORDERS;
-  void (undefined as unknown as QueueFilters);
-  void (undefined as unknown as DepotId);
   return api;
 }

@@ -60,7 +60,9 @@ export function useLoad<T>(fetcher: () => Promise<T>, deps: readonly unknown[], 
   const [state, setState] = useState<{ data?: T; error?: Error; done: boolean }>({ done: false });
   const [tick, setTick] = useState(0);
   const fetchRef = useRef(fetcher);
-  fetchRef.current = fetcher;
+  useEffect(() => {
+    fetchRef.current = fetcher;
+  });
 
   // A change of inputs starts from loading again; a clock jump or a write keeps the last data.
   const depsKey = JSON.stringify(deps);

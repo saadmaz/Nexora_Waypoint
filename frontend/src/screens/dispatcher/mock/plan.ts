@@ -323,10 +323,6 @@ function ruleChecks(order: string, trip: FxTrip, options: { added: boolean; fail
   ];
 }
 
-const PASS = (checks: RuleCheck[]) => checks.filter((c) => c.ok).length;
-
-const SCRIPTED: Record<string, (w: World, m: Milestones, trips: FxTrip[]) => MoveResult | null> = {};
-
 function refuse(orderId: string, to: MoveTarget, violations: { rule: string; text: string }[], checks: RuleCheck[], summary: string): MoveResult {
   return { ok: false, orderId, to, violations, checks, summary };
 }
@@ -442,7 +438,6 @@ export function validate(w: World, m: Milestones, request: MoveRequest): MoveRes
       head,
     );
   }
-  void SCRIPTED;
 
   // The general rules, for any move the design does not draw.
   const fail = new Set<string>();
@@ -498,5 +493,3 @@ export function validate(w: World, m: Milestones, request: MoveRequest): MoveRes
     },
   };
 }
-
-export { PASS as passCount };
