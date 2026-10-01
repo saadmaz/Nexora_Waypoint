@@ -27,6 +27,8 @@ The Dispatcher and Store frontends are being built in parallel by teammates in t
 3. **PRD v3** (`claude/waypoint-prd-v3.md`, dated 30 Sep). Use it for behaviour and data the frames do not show: rules, status meanings, handoffs, the hero timeline, record types, the backend contract. Its Part A follows the Day 5 frames; Part B is the Hackathon build spec.
 4. **Central context v3** (`claude/waypoint-central-context-v3.md`): settled decisions and house rules.
 
+**Decision (HH, 1 Oct).** This overrides the "follow the PRD" line in `CLAUDE.md` for the field apps: **Figma wins** on anything a user sees. Where Figma is silent or unclear (a state, a string, a number, a behaviour), pick the sensible default, then add it to `waypoint-prd-v3.md` the same day (section 4d assumptions, or section 18 departures if it differs from a frame) and mention it in the README departures table.
+
 **Conflicts.** Where Figma and the PRD disagree on UI or copy, Figma wins. Where Figma breaks a booklet rule, the booklet wins. Record every such case in the README "Departures from the Designathon design" table with the reason. Do not use PRD v2 or v2.1 (`claude/waypoint-prd-v2.md`, `waypoint-prd-v2.1.md`), the persona-brief .docx, `app.html` or the old one-app rebuild prompt; they are superseded.
 
 **The Figma file now has only two pages:** "Nexora (main)" `0:1` and "Shared Library Framing" `158:2`. The old per-role pages (Dispatcher, Loader, Driver, Store Manager) have been deleted. Each role's screens are **sections** on "Nexora (main)". Node IDs for every section and frame are in the role prompts.
