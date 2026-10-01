@@ -46,7 +46,9 @@ button.chip {
   color: var(--signal);
 }
 
+/* A soft fill, so the text keeps its contrast on the always-dark chrome in all three themes. */
 .failed {
+  background: var(--danger-soft);
   border-color: var(--danger);
   color: var(--danger);
 }
