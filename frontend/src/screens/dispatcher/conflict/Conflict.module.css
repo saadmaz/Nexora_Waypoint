@@ -1,0 +1,345 @@
+.page {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.crumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-muted);
+}
+
+.crumb a {
+  color: inherit;
+}
+
+.crumb a:hover {
+  color: var(--route);
+}
+
+.badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card {
+  padding: 16px 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+}
+
+.overline {
+  color: var(--ink-muted);
+  font: 700 12px / 16px var(--font-sans);
+  text-transform: uppercase;
+}
+
+/* What happened */
+
+.timeline {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  margin-top: 12px;
+}
+
+.event {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.event::before {
+  content: "";
+  position: absolute;
+  top: 14px;
+  left: 28px;
+  right: 0;
+  height: 2px;
+  background: var(--line);
+}
+
+.event:last-child::before {
+  display: none;
+}
+
+.dot {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-bottom: 8px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.dot_deferred {
+  border: 1.5px dashed var(--ink-muted);
+}
+
+.dot_arrived,
+.dot_delivered {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.dot_synced {
+  border: 2px solid var(--ink);
+  background: var(--signal);
+}
+
+.time {
+  font: 600 14px / 20px var(--font-mono);
+}
+
+.eventTitle {
+  font: 600 13px / 18px var(--font-sans);
+}
+
+.eventDetail {
+  color: var(--ink-muted);
+  font: 400 12px / 16px var(--font-sans);
+}
+
+/* The records */
+
+.records {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.records3 {
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 24px;
+}
+
+.record {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+}
+
+.dispatch {
+  border-style: dashed;
+}
+
+.dim {
+  opacity: 0.55;
+}
+
+.storeRecord {
+  border-color: var(--danger);
+}
+
+.storeRecord .overline {
+  color: var(--danger);
+}
+
+.recordBody {
+  display: flex;
+  gap: 16px;
+}
+
+.photo {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 150px;
+  height: 110px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--ink-muted);
+  font: 400 12px / 16px var(--font-sans);
+  text-align: center;
+}
+
+.photoSmall {
+  width: 120px;
+  height: 64px;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 8px 24px;
+  font: 400 14px / 20px var(--font-sans);
+}
+
+.facts dt {
+  color: var(--ink-muted);
+  font: 700 12px / 16px var(--font-sans);
+  text-transform: uppercase;
+}
+
+.facts dd {
+  margin: 0;
+}
+
+.bad {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--danger);
+  font: 500 14px / 20px var(--font-sans);
+}
+
+.tags {
+  display: flex;
+  gap: 6px;
+}
+
+.reportLine {
+  font: 600 15px / 20px var(--font-sans);
+}
+
+/* Recommendation */
+
+.recommend {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 24px;
+  border-radius: var(--radius-lg);
+  background: var(--route-soft);
+}
+
+.recommendPaused {
+  background: var(--surface-2);
+}
+
+.recommendPaused .reasonNo,
+.recommendPaused .recommendTitle {
+  opacity: 0.55;
+}
+
+.recommendTitle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font: 600 22px / 28px var(--font-sans);
+}
+
+.reasons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: 400 14px / 20px var(--font-sans);
+}
+
+.reasons li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.reasonNo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--route);
+  color: var(--surface-1);
+  font: 700 12px / 1 var(--font-sans);
+}
+
+.outcome {
+  color: var(--ink-muted);
+  font: 400 12px / 16px var(--font-sans);
+}
+
+.paused {
+  color: var(--warning);
+  font: 600 12px / 16px var(--font-sans);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.actionNote {
+  color: var(--ink-muted);
+  font: 400 13px / 18px var(--font-sans);
+}
+
+/* Who knows */
+
+.knows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.knows h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font: 600 20px / 26px var(--font-sans);
+}
+
+.knowRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font: 400 13px / 18px var(--font-sans);
+}
+
+.knowRow svg {
+  color: var(--success);
+}
+
+.knowRow b {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.knowRow span {
+  color: var(--ink-muted);
+}
+
+.waiting {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--ink-muted);
+  font: 500 12px / 16px var(--font-sans);
+}
+
+.skelCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+}
