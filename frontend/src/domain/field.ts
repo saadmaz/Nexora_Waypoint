@@ -88,6 +88,10 @@ export type Stop = {
   window: { open: string; close: string };
   /** Planned arrival, "HH:MM". */
   plannedArrival: string;
+  /** "normal parking" (driver prompt 3, R1 and R2). */
+  parkingNote?: string;
+  /** Minutes to allow for unloading at this dock (driver prompt 3, R2 "Allow about 15 min to unload"). */
+  unloadMinutes?: number;
   orders: PlannedOrder[];
 };
 
