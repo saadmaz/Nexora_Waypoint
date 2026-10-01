@@ -31,6 +31,12 @@
   box-shadow: none;
 }
 
+/* In a gallery frame the sheet lives inside the frame's box, not the whole window. */
+.overlay.contained,
+.content.contained {
+  position: absolute;
+}
+
 .content:focus {
   outline: none;
 }

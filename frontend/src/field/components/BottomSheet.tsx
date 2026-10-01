@@ -1,6 +1,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import type { ReactNode } from "react";
 import { useTheme } from "../../shared/theme";
+import { useSheetEnvironment } from "./sheetEnvironment";
 import styles from "./BottomSheet.module.css";
 
 export type BottomSheetProps = {
@@ -20,12 +21,14 @@ export type BottomSheetProps = {
  */
 export function BottomSheet({ open, onOpenChange, title, description, children }: BottomSheetProps) {
   const theme = useTheme();
+  const { container, modal } = useSheetEnvironment();
+  const place = container ? styles.contained : undefined;
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Overlay className={styles.overlay} data-theme={theme} />
+    <Dialog.Root open={open} onOpenChange={onOpenChange} modal={modal}>
+      <Dialog.Portal container={container ?? undefined}>
+        <Dialog.Overlay className={[styles.overlay, place].filter(Boolean).join(" ")} data-theme={theme} />
         <Dialog.Content
-          className={styles.content}
+          className={[styles.content, place].filter(Boolean).join(" ")}
           data-theme={theme}
           {...(description ? {} : { "aria-describedby": undefined })}
         >
