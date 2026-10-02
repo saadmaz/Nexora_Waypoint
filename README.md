@@ -828,6 +828,100 @@ Import from `field/offline`. One IndexedDB, `waypoint-field`: `outbox`, `cache`,
 
 ---
 
+## 🚚 Driver (Waypoint Driver)
+
+Nimal's app: today's stops, offline-first, one decision at a time. Built in `frontend/`. Branch: `feature/driver`, cut from `develop` after `feature/field-foundation` merged. Driver prompt 3 (`claude/field-build/03-driver-core.md`) covers the shell and the hero delivery path (R1 Route, R2 Stop detail, R3 Record outcome, the Me tab); the outbox sheet, sync, conflicts and notifications (R4, R5, R8) are prompt 4, and problems, history, the GPS tracker, finish run and calendar days (R6, R7, R9, R10) are prompt 5.
+
+**Status:** R1 to R3 and the Me tab are built, checked and pushed. D0 to D5 (below) are done.
+
+### How to run
+
+```bash
+cd frontend
+npm install
+npm run dev              # http://localhost:5173
+npm run dev:https        # self-signed HTTPS on the LAN: the real camera needs a secure context on a phone
+npm run compare -- driver R1.1 R3.1   # frame screenshots beside Figma (needs the dev server and .figma/<id>.png)
+npm run test:hero        # the hero path end to end against a running dev server (see "Checks run")
+```
+
+| Route | Screen |
+|---|---|
+| `/driver`, `/driver/run` | R1 Route |
+| `/driver/stops/:stopId` | R2 Stop detail |
+| `/driver/stops/:stopId/outcome` | R3 Record outcome |
+| `/driver/me` | R1.9 Me tab |
+| `/driver/issues` | R6 Issues (placeholder; driver prompt 5) |
+| `/driver/history` | R7 History (placeholder; driver prompt 5) |
+| `/driver/notifications` | R8 Notifications (placeholder; driver prompt 4) |
+| `/driver/finish` | R9 Finish run (placeholder; driver prompt 5) |
+| `/driver/_states` | The state gallery (dev only; `?frame=ID` renders one frame full screen) |
+
+**The scenario clock.** `?at=HH:MM` starts the clock there and lets it tick in real time; `?date=YYYY-MM-DD` picks the day (default Tue 29 Sep 2026). Without `?at=` the driver starts at 04:45, the first frame's own time. There is no presenter control on this role (that is the Store's): to move through the hero timeline quickly, re-open a route with a later `?at=` rather than waiting in real time; the phone's local state (acknowledged, departed, each stop's arrival and outcome) is in IndexedDB and survives the navigation, so this is how the hero walkthrough script moves between H5 and H14.
+
+**The hero path** (PRD H5 to H14, driver prompt 3 section 2): 04:45 route known, not yet downloaded (R1.3 A) → tap Acknowledge v4, downloads (R1.2 A), ready offline (R1.2 B) → tap again, acknowledged, Ruwan's gate confirmation shows once past 04:50 (R1.3 B / R1.4) → 05:10 Start route (R1.5) → 05:17 the Kandy corridor drops coverage for real (R1.6) → 05:26 arrive OUT084 before its window, wait for 05:30 (R2.2 A) → window open, record Delivered for ORD2001 and ORD2002 with a photo and a receiver name (R3.1 → R3.7, which turned out to be the Run screen itself, see "Departures") → 05:48 arrive OUT087, already inside its window → 05:58 record Delivered for ORD2003 → 05:59 all stops recorded, five records waiting on the phone (R3.9 / R3.10).
+
+### The theme rule and text size
+
+The sunlight switch (R1.9) wins when it is on, forcing Field; otherwise the phone's own `prefers-color-scheme` decides Dark or Light, per the R1.9 copy ("Dark mode follows your phone's setting"). Verified in a real browser: toggling the switch flips the role root's `data-theme` at once and the choice survives a reload (`DriverProvider`, backed by the field database's `settings` table).
+
+Text size (Standard / Large) scales the body content, not the chrome: `DriverShell` applies CSS `zoom: 1.15` to the scrollable `<main>` when Large is chosen, so the top bar and tab bar stay their fixed size while everything else — type and the spacing around it together — grows. `zoom` is Chromium and WebKit only (not Firefox); the project's own tooling (Playwright, the compare script) and real phones (Chrome, Safari) are both covered, so this was the pragmatic choice over rewriting every driver stylesheet's fixed-px type scale into a parallel rem-based one.
+
+### Language
+
+The `t(key, params)` dictionary (`i18n.ts`) is complete in English and routes every driver string, as the brief asks. Sinhala and Tamil are still empty and fall back to English, exactly as driver prompt 3 scoped it ("filled in prompt 5"); when they are filled they will be a machine draft needing a native-speaker review (open decision O-8), not reviewed as of this PR. Language labels in the Me tab picker are always shown in their own script regardless of the chosen language.
+
+### Offline and the Kandy corridor
+
+`DriverProvider` runs a real connectivity gate (`field/offline`'s `connectivity.setGate`) that closes at Tue 29 Sep 05:17 and does not reopen in this prompt's scope (driver prompt 4 adds the 06:40 reconnect and the sync result screens). This is independent of a real network drop: the Playwright hero walkthrough exercises both, dropping the browser's own connection with `context.setOffline(true)` as well as letting the scripted gate do its job, and both agree once the clock passes 05:17.
+
+`getRun` reads the phone's own cache and never throws offline, since the route has to be usable with no signal by design; writes (`acknowledgePlan`, `startRoute`, `recordArrival`, `recordOutcome`) update that same cache at once, so the screen reflects them immediately, and queue an outbox record (`driver.ack`, `driver.startRoute`, `driver.arrival`, `driver.outcome`) that the shared sync engine sends once it can. The mock server simply accepts everything in this prompt; driver prompt 4 adds the conflict rule.
+
+### Camera, signature and receiver name
+
+`CameraCapture` opens a real `getUserMedia({ video: { facingMode: "environment" } })` viewfinder with a shutter; if the camera is unavailable or permission is refused it falls back to `<input type="file" accept="image/*" capture="environment">`, per field conventions and PRD A58. Headless Chromium has no camera, so every photo in the gallery, the hero walkthrough and this PR's own testing went through the file-input fallback; the live viewfinder path has not been tried on a physical phone in this PR (do that over `npm run dev:https` before the judge walkthrough). Captured photos are compressed with the shared `compressImage` (JPEG, longest edge 1600 px, quality 0.7, PRD A57) and stored with `saveBlob`. `SignaturePad` is a pointer-events canvas saved as a PNG blob. `ReceiverNameForm` offers per-outlet recent-name chips from the fixtures.
+
+### Phases
+
+- [x] D0 types, fixtures, `DriverApi` and mock, sync handlers
+- [x] D1 shell: top bar, banner, tab bar, theme rule, text size, the `t()` dictionary, Me tab
+- [x] D2 R1 Route, every state (R1.1 to R1.6, R1.10, R1.S)
+- [x] D3 R2 Stop detail, every state (R2.1 to R2.3, R2.S 1 to 4)
+- [x] D4 R3 Record outcome: all five outcomes, the per-order grid, camera, receiver name, signature, validation (R3.1 to R3.11)
+- [x] D5 state gallery, a compare pass against Figma, the hero-path Playwright walkthrough, this section
+
+### Departures from the Designathon design
+
+Figma wins on UI and copy (field conventions section 2); where it was silent or where building exactly what it drew was impractical, this is what was built instead, and why. Numbered departure rows now collide across parallel branches, so these are prose, not register rows; HH numbers them centrally.
+
+- **R1.3 B and R1.4 are one state, not two.** Both show the plan acknowledged and the loader confirmed, not yet departed; the only difference Figma draws (R1.4 additionally shows the Will-wait and Chilled tags and the Navigate button on the first stop card) reads as the same moment captured a little further along, so the build shows those consistently in both rather than toggling them off for a few minutes after acknowledging.
+- **The connectivity chip's wording is inferred, not drawn as a rule.** Every pre-departure frame's chip time equals that frame's own clock time exactly ("Synced 04:54" at 04:54, "Synced 05:08" at 05:08 and so on), so the build reads it as "Synced `now`" while not yet departed, and "Online" once departed (R1.5, R1.10) or on an error/empty screen (R2.S 3, R2.S 4) — never a stored last-sync timestamp pre-departure.
+- **R3.7, R3.9, R3.10 and R3.5 C are the Run screen, not separate screens.** Reading their frames side by side, all four are the same "Run 1 · VEH039" layout with a done stop shown as a compact row instead of its full card (`CompletedStopRow`), worded for the moment: "{outcome} HH:MM · saved on phone, syncs later" or "{outcome} · issue sent to Dispatch when you reconnect" mid-run (R3.5 C, R3.7), "{outcome} HH:MM · signed {name}" plus a "Saved on phone" tag once every stop is done (R3.9, R3.10). Saving an outcome in `OutcomeScreen` always just navigates to `/driver/run`, which renders the right one from the data.
+- **R2's "Arrived" and "Window opened" facts are two stat tiles,** not Figma's two-row list with an inline tag on each row. Same information, a different shared-component shape; not worth a new row-list component for two call sites.
+- **"All synced" and "Nothing to send" are a plain line,** not the pill Figma draws next to "N of 2 stops done". A stops-done progress bar was still added under that line once it was clear from a pixel comparison that Figma draws one.
+- **Call store has no action.** The dataset has no outlet phone numbers, and field conventions section 8 bars inventing one ("use Peliyagoda dispatch desk" is the pattern for a dispatch contact, not a store's). The button is drawn but does nothing yet.
+- **One shared Proof of delivery section, even in the per-order grid (R3.4).** Figma draws a single photo, receiver name and optional signature for the whole stop in every outcome layout, including when orders have different outcomes, so a Damaged order's "take a photo of the damage" instruction points at that same single capture rather than a second one.
+- **Other reuses the Refused pattern exactly** (reason chips, a name field, "Dispatch will decide"), as driver prompt 3 section 6 directs, since no frame draws it.
+- **R1.7 and R1.8 are gallery-only layouts.** Both are registered in `/driver/_states` with fixture data shaped the way driver prompt 4's sync result will supply it (`RunScreen`'s `reviewNotice` prop), but nothing in this prompt produces a real review or resolution notice, since that needs the conflict rule and a plan v5 the phone does not yet know about (by design: "the phone never learns about plan v5 in this prompt").
+- **ORD2003's weight and volume are not drawn anywhere** (only its 9-unit count is, on R1.2 and R2.3). Estimated from ORD2002's per-unit rate (45 kg / 0.6 m³ for 8 ambient units) as 51 kg / 0.68 m³ for 9 units.
+- **Camera and Receiver name drop the tab bar; Signature keeps it**, matching what each frame actually draws (R3.2, R3.3 omit it; R3.11 does not).
+
+### Shared files this role has changed
+
+- `frontend/src/domain/field.ts`: `Stop` gains optional `parkingNote` and `unloadMinutes` (additive; R1 and R2's "Rear dock, normal parking. Allow about 15 min to unload.").
+- `frontend/package.json`: one new script, `test:hero`. No dependency or version change.
+
+### Checks run (D5)
+
+- `npm run typecheck`, `npm run lint` and `npm run build` are clean on every commit.
+- Every registered gallery frame (1 × R1.1 to R1.S, 9 × R2, 13 × R3) was read by hand against the Figma file's own text (the read-only `use_figma` dump script, field conventions section 3) and matches, including the exact wording of every banner, stat tile and pinned-bar helper.
+- Eight frames across R1, R2 and R3 (R1.1, R1.5, R1.6, R2.1, R2.2 B, R3.1, R3.5 B, R3.9) were pixel-compared against real Figma screenshots with `npm run compare`. Three real mismatches turned up and were fixed: the connectivity chip and the bell were in the wrong order, "Departed" was a plain label instead of the shared status pill (and was stretching full width before `align-self: flex-start`), and the chosen outcome chip had no check mark. The remaining frames were not pixel-compared, only text-verified as above.
+- The hero path (PRD H5 to H14) was played twice: once by hand in a real browser, and once as `npm run test:hero` (`scripts/driver-hero-walkthrough.ts`), 18 checks, all green, including a genuine `context.setOffline(true)` disconnect at 05:17 on top of the scripted Kandy gate.
+- The sunlight switch, text size and language settings were checked for persistence across a reload.
+- Not done, and worth knowing before the judge walkthrough: the live camera viewfinder has only been exercised via the file-input fallback (no camera in headless Chromium or in this session's environment), not on a physical phone over `npm run dev:https`; and R1.7/R1.8 have no live trigger, only the gallery layout.
+
+---
+
 ## 🏆 Tech-Triathlon 2026
 
 Waypoint is built across the three stages of the challenge:
