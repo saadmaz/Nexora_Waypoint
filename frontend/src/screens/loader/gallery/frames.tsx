@@ -5,8 +5,10 @@ import { Dock, type DockAlertModel } from "../dock/Dock";
 import type { VehicleCardProps } from "../dock/VehicleCard";
 import { Mono } from "../../../shared/ui/Mono";
 import { FlagSheet, type FlagOrder, type FlagPrefill, type FlagSentModel } from "../flag/FlagSheet";
+import { PlanChanged, type PlanChangedPhase } from "../changes/PlanChanged";
 import { FlagStatus } from "../flag/FlagStatus";
 import { LoadPlan, type LoadPlanRow } from "../loadplan/LoadPlan";
+import type { PlanDiffView } from "../types";
 
 const noop = () => undefined;
 
@@ -303,6 +305,64 @@ function l3Status(kind: "queued" | "failed", chip: { status: "synced" | "syncing
       onKeepWaiting={noop}
     />
   );
+}
+
+// --- L4 · Plan changed ---------------------------------------------------------------------------
+const L4_DIFF: PlanDiffView = {
+  from: 3,
+  to: 4,
+  removed: [{ orderId: "ORD1002", outletId: "OUT009", deferralType: "policy", nextRunShort: "Wed" }],
+  changed: [{ fromVehicleId: "VEH003", toVehicleId: "VEH036", vehicleLabel: "VEH036 (reefer van)", trips: "Trips 1 and 2" }],
+  noChangeVehicleIds: ["VEH035", "VEH011"],
+  newTotals: { weightKg: 950, weightCapKg: 1040, volumeM3: 6.3, volumeCapM3: 7.0 },
+};
+
+function l4Frame(
+  id: string,
+  node: string,
+  title: string,
+  time: string,
+  props: {
+    phase: PlanChangedPhase;
+    dockName?: string;
+    from?: number;
+    to?: number;
+    chip?: { status: "synced" | "syncing" | "offline"; time: undefined; count: number };
+    diff?: PlanDiffView;
+    ack?: { by: string; at: string };
+    lastSyncedAt?: string;
+    noChangeVehicleId?: string;
+  },
+): GalleryFrame {
+  return {
+    frameId: id,
+    figmaNodeId: node,
+    name: title,
+    width: 390,
+    height: 844,
+    clock: { date: HERO_DATE, time },
+    render: () => (
+      // The gallery sizes a frame with min-height, so the screen fills it as a flex column.
+      <div style={{ display: "flex", flexDirection: "column", minHeight: 844 }}>
+      <PlanChanged
+        phase={props.phase}
+        dockName={props.dockName ?? "Peliyagoda"}
+        fromVersion={props.from ?? 3}
+        toVersion={props.to ?? 4}
+        nowLabel={time}
+        connectivity={props.chip ?? SYNCED}
+        diff={props.diff}
+        ack={props.ack}
+        lastSyncedAt={props.lastSyncedAt}
+        noChangeVehicleId={props.noChangeVehicleId}
+        onAcknowledge={noop}
+        onBeginLoading={noop}
+        onRetry={noop}
+        onBack={noop}
+      />
+      </div>
+    ),
+  };
 }
 
 export const LOADER_FRAMES: GalleryFrame[] = [
@@ -910,4 +970,24 @@ export const LOADER_FRAMES: GalleryFrame[] = [
     phase: "sending",
     prefill: { type: "Vehicle check failed" },
   }),
+  l4Frame("L4.1", "442:30711", "L4.1 · 03:04 · Plan changed: diff v3 → v4", "03:04", { phase: "ready", diff: L4_DIFF }),
+  l4Frame("L4.2", "442:30755", "L4.2 · 03:05 · Plan changed: acknowledged", "03:05", {
+    phase: "acknowledged",
+    diff: L4_DIFF,
+    ack: { by: "Priya", at: "03:05" },
+  }),
+  l4Frame("L4.3", "442:30812", "L4.3 · 04:14 · Plan changed: no change for this vehicle (Kandy)", "04:14", {
+    phase: "noChange",
+    dockName: "Kandy",
+    noChangeVehicleId: "VEH039",
+  }),
+  l4Frame("L4.S-1", "442:30834", "L4.S · 1 · Empty: no changes since v3", "03:00", { phase: "upToDate", to: 3 }),
+  l4Frame("L4.S-2", "442:30849", "L4.S · 2 · Loading changes", "03:05", { phase: "loading", chip: SYNCING_CHIP }),
+  l4Frame("L4.S-3", "442:30878", "L4.S · 3 · Offline: may be missing a newer version", "03:08", {
+    phase: "offline",
+    chip: OFFLINE_CHIP,
+    diff: L4_DIFF,
+    lastSyncedAt: "03:05",
+  }),
+  l4Frame("L4.S-4", "442:30932", "L4.S · 4 · Error: couldn't load the change", "03:05", { phase: "error" }),
 ];

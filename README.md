@@ -831,9 +831,9 @@ Import from `field/offline`. One IndexedDB, `waypoint-field`: `outbox`, `cache`,
 
 ## 🏭 Waypoint Load (Loader)
 
-L1 Dock and L2 Load plan, built in `frontend/`, branch `feature/loader` from `feature/field-foundation`. Binding rules: [`docs/build/field-conventions.md`](docs/build/field-conventions.md) and the loader prompt. L3 and L4 are not built yet; `/loader/vehicles/:vehicleId/trips/:trip/flag` and `/loader/changes` still answer with the foundation's placeholder.
+L1 Dock, L2 Load plan, L3 Flag exception and L4 Plan changed, built in `frontend/`, branch `feature/loader` from `feature/field-foundation`. Binding rules: [`docs/build/field-conventions.md`](docs/build/field-conventions.md) and the loader prompt. The tablet layout of the dock (L1.7) is the last screen still to come.
 
-**Status:** L0 (types, fixtures, `LoaderApi`, mock server), L1 (Dock: every state, PIN acknowledgement, countdowns, held vehicle, plan-changed banner, offline cache, empty, loading, error) and L2 (Load plan: checks, count confirm, short units, the gate, loaded, held, the VEH003 → VEH036 swap reload) built, checked and compared against Figma. L1.7 (tablet master-detail) is phase L5 and lands with L3 and L4.
+**Status:** L0 (types, fixtures, `LoaderApi`, mock server), L1 (Dock: every state, PIN acknowledgement, countdowns, held vehicle, plan-changed banner, offline cache, empty, loading, error) and L2 (Load plan: checks, count confirm, short units, the gate, loaded, held, the VEH003 → VEH036 swap reload), L3 (flag exception sheet, the outbox-driven sent, saved and failed states) and L4 (what changed between plan versions, acknowledge, begin loading) built, checked and compared against Figma. L1.7 (tablet master-detail) is phase L5.
 
 ### How to run
 
@@ -851,7 +851,7 @@ npm run compare -- loader L1.1 L1.3 L2.1-A L2.3-A L2.4 L2.5 L2.6-A L2.6-B --base
 
 ### The two stories
 
-- **Priya, Peliyagoda.** Open `/loader/dock?dock=peliyagoda`. Acknowledge plan v3 (PIN `1234`), open VEH003 or VEH035's load plan, check each order (the count stepper is prefilled, lower it for a shortfall), confirm the gate with a PIN. L3 (flag exception) is not built yet, so the "Vehicle check failed" flag that drives the VEH003 → VEH036 swap cannot be raised from the UI yet; `mockLoaderApi`'s `devResolveExceptionNow` and the 03:00 scenario-clock path exist for when L3 lands, and L2 already renders VEH036's swapped load plan (capacity bars, "Replaces VEH003") from literal state-gallery props.
+- **Priya, Peliyagoda.** Open `/loader/dock?dock=peliyagoda`. Acknowledge plan v3 (PIN `1234`), open VEH003 or VEH035's load plan, check each order (the count stepper is prefilled, lower it for a shortfall), confirm the gate with a PIN. To play the swap, open `/loader/dock?dock=peliyagoda&date=2026-09-29&at=02:55&dev=1`, acknowledge v3, open VEH003, **Flag issue**, **Vehicle check failed**, **Send to Dispatch** (PIN `1234`), then tap **Dispatch decides now** (the tab on the top edge) instead of waiting for 03:00. **Review change** opens L4: what changed (ORD1002 removed, VEH003 → VEH036), **Acknowledge and load VEH036** (PIN), then **Begin loading VEH036** opens VEH036's load plan.
 - **Ruwan, Kandy.** Open `/loader/dock?dock=kandy`. Acknowledge plan v3 (PIN `5678`) first (so there is a version to compare against), then once Peliyagoda's plan reaches v4 the Kandy dock shows "Plan v4: no change to your vehicles" and asks for a fresh acknowledgement (L1.6 A/B), then load VEH039 (L2.1 to L2.4) and confirm the gate.
 
 ### Demo PINs
@@ -861,7 +861,7 @@ Priya `1234`, Ruwan `5678` (PRD v3 assumption A36). Both are offered at both doc
 ### `LoaderApi` and the mock server (`src/screens/loader/`)
 
 - `fixtures.ts`: docks, people, PINs and the guest PIN, plan v3 and v4 trips for VEH003, VEH035, VEH036, VEH011 (Peliyagoda) and VEH039 (Kandy), copied from PRD v3 §4c's "Plan v3 trips" and "Pinned orders" tables.
-- `LoaderApi.ts` / `mockLoaderApi.ts`: one in-memory server per app session. `getDock`, `getLoadPlan`, `getPlanDiff`, `getException`, `getCurrentVersion` read it; `acknowledgePlan`, `recordCheck`, `confirmLoaded`, `flagException` write it. Every write applies to the mock server at once (so the screen never waits on the network to show a check as saved) and is also enqueued under `loader.ack`, `loader.check`, `loader.confirmLoaded` or `loader.exception`, so the outbox, the sync engine and the connectivity chip all see it the same way a real write would behave. The VEH003 "Vehicle check failed" exception (once L3 can raise one) resolves into plan v4 at the scenario's 03:00, or at once via `devResolveExceptionNow` (a dev control, not yet wired to a button — it lands with the L3 state gallery).
+- `LoaderApi.ts` / `mockLoaderApi.ts`: one in-memory server per app session. `getDock`, `getLoadPlan`, `getPlanDiff`, `getException`, `getCurrentVersion` read it; `acknowledgePlan`, `recordCheck`, `confirmLoaded`, `flagException` write it. Every write applies to the mock server at once (so the screen never waits on the network to show a check as saved) and is also enqueued under `loader.ack`, `loader.check`, `loader.confirmLoaded` or `loader.exception`, so the outbox, the sync engine and the connectivity chip all see it the same way a real write would behave. The VEH003 "Vehicle check failed" exception resolves into plan v4 at the scenario's 03:00, or at once via `devResolveExceptionNow`, which the **Dispatch decides now** tab (`?dev=1`) calls.
 - `LoaderProvider.tsx` / `LoaderContext.ts`: creates the one `LoaderApi` for the session, resolves the dock, and remembers the last person to enter a PIN this session (`currentPerson`) as the actor for a write the frames never re-prompt for, such as a per-order count confirm.
 - Reads go through `useFieldQuery` (`field/offline/query.ts`): cache-then-network, falling back to the last cached value on a `NetworkError` and marking it stale (L1.S-3, L2.S-3).
 
@@ -883,9 +883,13 @@ The flow runs at `/loader/vehicles/:vehicleId/trips/:trip/flag` (the load plan s
 
 An optional photo (Vehicle check failed, Damaged item, Wrong item, Other) uses the device camera where there is one and the file picker where there is not (A58), compressed to JPEG at 1600 px and quality 0.7 (A57), and uploads after its record.
 
+### L4 Plan changed (`src/screens/loader/changes/`)
+
+`PlanChanged.tsx` is presentational: the diff in the order the prompt asks for (Removed, loudest; Changed; Unchanged; the new trip 1 capacity; the vehicles with no change, collapsed), the pinned **Acknowledge and load** with its "You'll enter your PIN" helper, and the states around it: **acknowledged** (L4.2), **no change for this dock** (L4.3, still needs acknowledging), **up to date** (L4.S 1), **loading** (L4.S 2), **offline, may be missing a newer version** (L4.S 3) and **couldn't load, Retry** (L4.S 4). `ChangesContainer.tsx` wires it to `getDock` and `getPlanDiff` at `/loader/changes`. The diff runs from the version the dock last acknowledged to the current one; once this screen acknowledges, it keeps showing that same diff (L4.2) instead of reading the new version as the old one. **Begin loading** goes to the first changed vehicle's load plan.
+
 ### State gallery
 
-`/loader/_states` registers 13 of L1's 15 frames (L1.1 to L1.6 B, the four L1.S states; L1.7 tablet is L5) and all 13 of L2's frames (L2.1 A to L2.6 B, the four L2.S states). It also registers all 8 of L3's frames (L3.1, L3.2 A and B, L3.3 A and B, L3.4 A to C). `npm run compare -- loader <id>` matches each against its Figma screenshot; `PinSheet`'s `demoPhase`/`demoDigits` props and `LoadPlan`'s `demoExpanded` prop freeze a sheet or a row open for the frames that need it (L1.2 B/C, L2.1 B, L2.2, L2.3 B).
+`/loader/_states` registers 13 of L1's 15 frames (L1.1 to L1.6 B, the four L1.S states; L1.7 tablet is L5) and all 13 of L2's frames (L2.1 A to L2.6 B, the four L2.S states). It also registers all 8 of L3's frames (L3.1, L3.2 A and B, L3.3 A and B, L3.4 A to C) and all 7 of L4's (L4.1 to L4.3, L4.S 1 to 4). `npm run compare -- loader <id>` matches each against its Figma screenshot; `PinSheet`'s `demoPhase`/`demoDigits` props and `LoadPlan`'s `demoExpanded` prop freeze a sheet or a row open for the frames that need it (L1.2 B/C, L2.1 B, L2.2, L2.3 B).
 
 ### Departures from the Designathon design (loader)
 
@@ -900,6 +904,10 @@ An optional photo (Vehicle check failed, Damaged item, Wrong item, Other) uses t
 - **No phone number.** "Call Dispatch" (L3.4 A) has no number to dial and does nothing yet: the app holds no phone numbers (field conventions section 12), only "Peliyagoda dispatch desk" as drawn.
 - **L3.4 A and B have no back chevron**, as drawn; "Keep waiting" returns to the dock. Their top bar reads "Peliyagoda", without "dock", as the frames do.
 - **Esc or a scrim tap on the details step returns to the type list** rather than closing the sheet, so a wrong type is one step to undo; Cancel on the type list closes it.
+- **L4's deferral pill icon.** The Removed card's "Deferred · policy → Wed" pill is drawn with a curved arrow; the shared icon set has no matching glyph, so it uses `calendar-clock`, which says the same thing (moved to a later day).
+- **L4 titles are links to the dock.** The screens have no back chevron, as drawn, so the title ("Plan v3 → v4") is the way back.
+- **Wording the L4 frames do not give.** The v3-to-v4 case of "no change" for a dock other than Kandy reads "v4 did not change your vehicles."; the acknowledged-but-no-diff case returns to the dock instead of showing an empty diff; the expanded "no change" list reads "VEH035: same trips, same orders as v3".
+- **The dev control is a tab on the top edge.** It used to sit in a corner and covered the pinned action on L4 and the dock; no loader screen puts anything on the top edge, centre.
 
 ### Shared files this role has changed
 
@@ -920,7 +928,7 @@ An optional photo (Vehicle check failed, Damaged item, Wrong item, Other) uses t
 - [x] L1 Dock: every state, PIN acknowledgement, countdowns, offline cache
 - [x] L2 Load plan: checks, count confirm, short units, gate + PIN, loaded, held, swap reload
 - [x] L3 Flag exception sheet
-- [ ] L4 Plan changed
+- [x] L4 Plan changed
 - [ ] L5 L1.7 tablet master-detail
 - [ ] L6 Playwright run of both stories, final README pass
 

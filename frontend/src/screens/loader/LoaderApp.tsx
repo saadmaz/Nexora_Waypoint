@@ -2,8 +2,8 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { ClockProvider } from "../../field/clock/ClockContext";
 import { HERO_EVENING_DATE } from "../../field/clock/clock";
 import { FieldRuntime } from "../../field/FieldRuntime";
-import { PlaceholderScreen } from "../../field/PlaceholderScreen";
 import { RoleRoot } from "../../shared/RoleRoot";
+import { ChangesContainer } from "./changes/ChangesContainer";
 import { DockContainer } from "./dock/DockContainer";
 import { LoaderGallery } from "./gallery/LoaderGallery";
 import { LoadPlanContainer } from "./loadplan/LoadPlanContainer";
@@ -18,8 +18,7 @@ const LOADER_START = { date: HERO_EVENING_DATE, time: "23:45" };
 
 /**
  * The Loader role root: `/loader/*`. The state gallery sits outside the runtime and the clock,
- * because each of its frames fakes its own. L1 Dock is built; L2 to L4 still answer with a
- * placeholder.
+ * because each of its frames fakes its own. L1 to L4 are built.
  */
 export function LoaderApp() {
   return (
@@ -51,17 +50,7 @@ function LoaderRoutes() {
       <Route path="dock" element={<DockContainer />} />
       <Route path="vehicles/:vehicleId/trips/:trip" element={<LoadPlanContainer />} />
       <Route path="vehicles/:vehicleId/trips/:trip/flag" element={<LoadPlanContainer flagOpen />} />
-      <Route
-        path="changes"
-        element={
-          <PlaceholderScreen
-            id="L4"
-            title="Plan changed"
-            back="/loader/dock"
-            note="What changed since the last acknowledged version. Built in the loader prompt (L4)."
-          />
-        }
-      />
+      <Route path="changes" element={<ChangesContainer />} />
       <Route path="*" element={<Navigate to="dock" replace />} />
     </Routes>
   );

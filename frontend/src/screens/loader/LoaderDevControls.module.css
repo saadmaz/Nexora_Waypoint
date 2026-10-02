@@ -1,12 +1,27 @@
+/*
+ * A thin tab on the top edge, centred: no L1 to L4 screen puts an action there (the top bar's title is
+ * at the left and the connectivity chip at the right), so it never covers one the way a corner or the
+ * bottom would. A modal sheet makes everything outside it inert, so the pointer events are forced on.
+ */
 .panel {
   position: fixed;
-  left: var(--space-3);
-  bottom: var(--space-3);
+  top: 0;
+  left: 50%;
   z-index: 60;
-  /* A modal sheet makes everything outside it inert; the presenter needs this while a sheet is open. */
+  transform: translateX(-50%);
   pointer-events: auto;
-  padding: var(--space-2);
+}
+
+.button {
+  height: 20px;
+  padding: 0 var(--space-3);
   border: 1px solid var(--line-strong);
-  border-radius: var(--radius-lg);
+  border-top: 0;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
   background: var(--surface-1);
+  color: var(--ink);
+  font: var(--text-caption);
+  font-size: 11px;
+  line-height: 18px;
+  cursor: pointer;
 }
