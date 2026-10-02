@@ -1,0 +1,101 @@
+.banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 48px;
+  padding: var(--space-3) var(--gutter-phone);
+  font: var(--text-body);
+}
+
+.compact {
+  min-height: 40px;
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-2);
+  font: var(--text-h3);
+  font-weight: 400;
+}
+
+.icon,
+.spin {
+  display: inline-flex;
+  flex: 0 0 20px;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+.text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.detail {
+  flex: 0 0 auto;
+  font: var(--text-caption);
+  white-space: nowrap;
+}
+
+.action {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  border: 1px solid currentColor;
+  border-radius: var(--radius-sm);
+  font: var(--text-pill);
+}
+
+/* Offline sits on chrome in every theme, so the working surface below is the brightest thing. */
+.offline {
+  background: var(--chrome);
+  color: var(--on-chrome);
+}
+
+.offline .detail {
+  color: var(--on-chrome-muted);
+}
+
+.offline .icon {
+  color: var(--signal);
+}
+
+.online {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.syncing {
+  background: var(--signal-soft);
+  color: var(--warning);
+}
+
+.waiting {
+  background: var(--offline-soft);
+  color: var(--ink);
+}
+
+.waiting .icon {
+  color: var(--offline);
+}
+
+.conflict {
+  background: var(--chrome);
+  color: var(--on-chrome);
+}
+
+.conflict .icon,
+.conflict .action {
+  color: var(--signal);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation: none;
+  }
+}

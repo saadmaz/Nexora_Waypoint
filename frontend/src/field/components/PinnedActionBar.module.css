@@ -1,0 +1,22 @@
+.bar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--gutter-phone) calc(28px + env(safe-area-inset-bottom));
+  background: var(--surface-1);
+  border-top: 1px solid var(--line);
+}
+
+/* R3: the thumb zone is the screen colour, 12 px above and 16 px below. */
+.plain {
+  padding-top: var(--space-3);
+  padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom));
+  background: var(--surface-0);
+  border-top: 0;
+}
+
+.helper {
+  font: var(--text-caption);
+  color: var(--ink-muted);
+  text-align: center;
+}

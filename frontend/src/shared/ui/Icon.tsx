@@ -14,20 +14,33 @@ import {
   ClipboardList,
   Clock,
   Cloud,
+  Database,
+  Delete,
+  Flag,
+  Globe,
+  History,
   Image,
   Inbox,
   Info,
   Lock,
+  MapPin,
   Minus,
+  Navigation,
+  Package,
+  Pen,
   Pencil,
+  Phone,
   Plus,
   RefreshCw,
   Route,
   Snowflake,
   Store,
+  Sun,
   Trash2,
   Truck,
+  Type,
   User,
+  Wifi,
   WifiOff,
   X,
 } from "lucide-react";
@@ -70,20 +83,33 @@ const ICONS = {
   "clipboard-list": ClipboardList,
   clock: Clock,
   cloud: Cloud,
+  database: Database,
+  delete: Delete,
+  flag: Flag,
+  globe: Globe,
+  history: History,
   image: Image,
   inbox: Inbox,
   info: Info,
   lock: Lock,
+  "map-pin": MapPin,
   minus: Minus,
+  navigation: Navigation,
+  package: Package,
+  pen: Pen,
   pencil: Pencil,
+  phone: Phone,
   plus: Plus,
   "refresh-cw": RefreshCw,
   route: Route,
   snowflake: Snowflake,
   store: Store,
+  sun: Sun,
   trash: Trash2,
   truck: Truck,
+  type: Type,
   user: User,
+  wifi: Wifi,
   "wifi-off": WifiOff,
   x: X,
 } satisfies Record<string, ComponentType<{ size?: number; strokeWidth?: number; color?: string }>>;
@@ -92,8 +118,8 @@ export type IconName = keyof typeof ICONS;
 
 export type IconProps = {
   name: IconName;
-  /** Rendered size in px. The grid is 24; screens use 14, 16 and 20. */
-  size?: 14 | 16 | 20 | 24;
+  /** Rendered size in px. The grid is 24; screens use 14, 16 and 20, and the field frames also 22 and 28. */
+  size?: 14 | 16 | 20 | 22 | 24 | 28;
   /** A design token name, such as "route" or "ink-muted". Defaults to the inherited colour. */
   color?: string;
   className?: string;
