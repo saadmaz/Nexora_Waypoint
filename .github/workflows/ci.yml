@@ -1,0 +1,76 @@
+name: CI
+
+# Contributing §17: the same commands you run before opening a PR. A failure blocks the merge.
+on:
+  pull_request:
+    branches: [develop, main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: waypoint
+          POSTGRES_PASSWORD: waypoint
+          POSTGRES_DB: waypoint_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U waypoint -d waypoint_test"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      # The API tests truncate and reseed this database: it is disposable.
+      TEST_DATABASE_URL: postgresql+psycopg://waypoint:waypoint@localhost:5432/waypoint_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: mypy
+      - run: pytest
+      - name: alembic heads must print exactly one head
+        run: |
+          heads="$(alembic heads)"
+          echo "$heads"
+          test "$(echo "$heads" | grep -c '(head)')" -eq 1
+
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: docker-compose.yml is valid
+        run: docker compose config --quiet
+      - name: Images build
+        run: docker compose build

@@ -1,0 +1,43 @@
+.meter {
+  display: flex;
+  width: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  background: var(--route);
+}
+
+.near {
+  background: var(--signal);
+}
+
+.over {
+  flex: 1;
+  height: 100%;
+  background:
+    repeating-linear-gradient(45deg, transparent 0 11px, var(--danger) 11px 13px, transparent 13px 26px),
+    var(--danger-soft);
+  border-left: 2px solid var(--ink);
+}
+
+.fill.over {
+  flex: none;
+  background: var(--danger);
+  border-left: 0;
+}
+
+.muted {
+  background: var(--line-strong);
+}
+
+.success {
+  background: var(--success);
+}
+
+.route {
+  background: var(--route);
+}
