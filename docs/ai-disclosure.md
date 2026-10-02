@@ -2,7 +2,7 @@
 
 Waypoint was built with AI coding assistants. This file is the single place we say where and how, as the Challenge Booklet asks and as `Contributing.md` §19 and §24 require. There are no "Mock data" chips or AI badges on any screen; the disclosure lives here, in the Figma AI disclosure page (F17), in the README and in the submission video.
 
-Add a line to the table below when an AI tool does a meaningful part of your pull request. Keep it factual: what it wrote, what you checked.
+Add a line to the table below when an AI tool does a meaningful part of your pull request. One row per branch; add to it, do not replace another branch's row. Keep it factual: what it wrote, what you checked.
 
 ## What AI did, and what a person checked
 

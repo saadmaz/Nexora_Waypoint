@@ -1,6 +1,7 @@
 import {
   AlertCircle,
   AlertTriangle,
+  Archive,
   ArrowRight,
   Bell,
   Calendar,
@@ -42,6 +43,7 @@ import {
   User,
   Wifi,
   WifiOff,
+  Wrench,
   X,
 } from "lucide-react";
 import type { ComponentType } from "react";
@@ -70,6 +72,7 @@ import { tokenColor } from "./tokens";
 const ICONS = {
   "alert-circle": AlertCircle,
   "alert-triangle": AlertTriangle,
+  archive: Archive,
   "arrow-right": ArrowRight,
   bell: Bell,
   calendar: Calendar,
@@ -111,6 +114,7 @@ const ICONS = {
   user: User,
   wifi: Wifi,
   "wifi-off": WifiOff,
+  wrench: Wrench,
   x: X,
 } satisfies Record<string, ComponentType<{ size?: number; strokeWidth?: number; color?: string }>>;
 

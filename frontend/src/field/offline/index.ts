@@ -6,6 +6,7 @@ export * from "./blobs";
 export * from "./connectivity";
 export * from "./db";
 export * from "./outbox";
+export * from "./query";
 export * from "./sync";
 export * from "./time";
 export * from "./transport";

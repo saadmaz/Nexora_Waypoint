@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "dev:https": "vite --mode https",
     "test": "vitest run",
-    "compare": "node scripts/compare-frames.ts"
+    "compare": "node scripts/compare-frames.ts",
+    "test:loader-stories": "node scripts/loader-stories.ts"
   },
   "dependencies": {
     "@fontsource-variable/archivo": "^5.3.0",
