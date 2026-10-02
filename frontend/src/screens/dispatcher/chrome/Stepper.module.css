@@ -1,0 +1,87 @@
+.stepper {
+  display: flex;
+  height: 42px;
+  max-width: 100%;
+}
+
+.step {
+  display: flex;
+  gap: 8px;
+  width: var(--step-width, 164px);
+  flex-shrink: 0;
+}
+
+.last {
+  width: auto;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.label {
+  font: 500 13px / 16px var(--font-sans);
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--surface-1);
+}
+
+.track {
+  display: flex;
+  align-items: center;
+  width: 56px;
+  height: 14px;
+}
+
+.track::before {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line-strong);
+  opacity: 0.55;
+}
+
+.current .marker {
+  border: 2px solid var(--ink);
+  background: var(--signal);
+}
+
+.current .label,
+.done .label {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.next .marker {
+  border: 2px solid var(--route);
+  background: var(--surface-0);
+}
+
+.next .label {
+  color: var(--route);
+  font-weight: 600;
+}
+
+.done .track::before {
+  background: var(--success);
+  opacity: 1;
+}
+
+.done .marker {
+  border: 0;
+  background: var(--success);
+  color: #fff;
+}

@@ -1,0 +1,211 @@
+.appbar {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  height: 56px;
+  padding: 0 32px;
+  background: var(--chrome);
+  flex-shrink: 0;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 190px;
+  color: var(--on-chrome);
+  font: 400 17px / 24px var(--font-sans);
+  white-space: nowrap;
+}
+
+.brand b {
+  font-weight: 700;
+}
+
+.diamond {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+}
+
+.nav {
+  display: flex;
+  gap: 28px;
+  height: 100%;
+}
+
+.navItem {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  height: 56px;
+  padding-top: 18px;
+  color: var(--on-chrome-muted);
+  font: 500 14px / 20px var(--font-sans);
+}
+
+.navItem:hover {
+  color: var(--on-chrome);
+}
+
+.navLabel {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.navBar {
+  height: 3px;
+  width: 100%;
+  background: transparent;
+}
+
+.current {
+  color: var(--on-chrome);
+  font-weight: 600;
+}
+
+.current .navBar {
+  background: var(--signal);
+}
+
+.count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 18px;
+  min-width: 18px;
+  padding: 0 4px;
+  border-radius: var(--radius-pill);
+  background: var(--signal);
+  color: var(--on-signal);
+  font: 700 12px / 16px var(--font-mono);
+}
+
+.context {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  min-width: 0;
+}
+
+.meta {
+  font: 400 12px / 16px var(--font-mono);
+  color: var(--on-chrome-muted);
+  white-space: nowrap;
+}
+
+.depot {
+  display: flex;
+  gap: 2px;
+  height: 32px;
+  padding: 3px;
+  border-radius: var(--radius-md);
+  background: var(--ink-muted);
+}
+
+.depot button {
+  height: 100%;
+  padding: 0 12px;
+  border-radius: 6px;
+  color: var(--on-chrome-muted);
+  font: 400 12px / 16px var(--font-sans);
+}
+
+.depot .depotOn {
+  background: var(--route-soft);
+  color: var(--route);
+  font-weight: 600;
+}
+
+.planPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--on-chrome-muted);
+  border-radius: var(--radius-pill);
+  color: var(--on-chrome);
+  font: 600 12px / 16px var(--font-mono);
+  white-space: nowrap;
+}
+
+.sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 9px;
+  border: 1px solid var(--on-chrome-muted);
+  border-radius: var(--radius-pill);
+  color: var(--on-chrome);
+  font: 700 12px / 16px var(--font-sans);
+  white-space: nowrap;
+}
+
+.syncDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--success-soft);
+}
+
+.syncOffline {
+  background: var(--signal);
+  border-color: var(--signal);
+  color: var(--on-signal);
+}
+
+.avatarWrap {
+  position: relative;
+}
+
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--ink);
+  font: 700 14px / 20px var(--font-sans);
+}
+
+.menu {
+  position: absolute;
+  top: 40px;
+  right: 0;
+  z-index: 30;
+  min-width: 220px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  color: var(--ink);
+  box-shadow: var(--shadow-2);
+}
+
+.menuName {
+  padding: 6px 8px 8px;
+  font: 600 13px / 18px var(--font-sans);
+  color: var(--ink-muted);
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  font: 400 14px / 20px var(--font-sans);
+  cursor: pointer;
+}
+
+.menuItem:hover {
+  background: var(--surface-0);
+}
