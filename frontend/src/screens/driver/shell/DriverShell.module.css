@@ -8,8 +8,15 @@
   background: var(--surface-0);
 }
 
+/* The live app fills the screen, so a long body scrolls inside <main> and the pinned bar and tab
+   bar stay at the bottom. Gallery frames (fixed clock) keep min-height so a tall frame can grow. */
+.pageFill {
+  height: 100dvh;
+}
+
 .main {
   flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;

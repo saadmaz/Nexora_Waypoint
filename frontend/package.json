@@ -12,7 +12,8 @@
     "dev:https": "vite --mode https",
     "test": "vitest run",
     "compare": "node scripts/compare-frames.ts",
-    "test:hero": "node scripts/driver-hero-walkthrough.ts"
+    "test:hero": "node scripts/driver-hero-walkthrough.ts",
+    "test:offline": "node scripts/driver-offline-shell.ts"
   },
   "dependencies": {
     "@fontsource-variable/archivo": "^5.3.0",

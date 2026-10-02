@@ -464,13 +464,13 @@ export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadE
         {stop.arrivalAt ? (
           <Button onClick={() => navigate(`/driver/stops/${stop.outletId}/outcome`)}>{t("action.recordOutcome")}</Button>
         ) : (
-          <Button onClick={() => handleArrive(stop.outletId)}>{t("action.arrive")}</Button>
+          <Button icon="map-pin" onClick={() => handleArrive(stop.outletId)}>{t("action.arrive")}</Button>
         )}
         <div className={styles.actionRow}>
           <Button variant="secondary" size="medium" icon="navigation" onClick={() => openMapsFor(stop)}>
             {t("action.navigate")}
           </Button>
-          <Button variant="secondary" size="medium" icon="flag" onClick={() => navigate("/driver/issues")}>
+          <Button variant="secondary" size="medium" icon="alert-triangle" onClick={() => navigate("/driver/issues")}>
             {t("action.problem")}
           </Button>
         </div>

@@ -142,7 +142,7 @@ const OUTBOX_FRAMES: GalleryFrame[] = [
     "R4.3 · 1 · 06:41 · Outbox, conflict sent for review",
     "06:41",
     fakeConnectivity({ status: "online", lastSyncAt: Date.parse(`${HERO_DATE}T06:41:00+05:30`) }),
-    { rows: heroRows({ arrival084: "synced", ord2001: "review", ord2002: "review", arrival087: "synced", ord2003: "synced" }), showSimulate: false },
+    { rows: heroRows({ arrival084: "synced", ord2001: "review", ord2002: "review", arrival087: "synced", ord2003: "synced" }), showSimulate: false, chip: { status: "synced", time: "06:41" } },
   ),
   outboxFrame(
     "R4.3-2",
@@ -158,7 +158,7 @@ const OUTBOX_FRAMES: GalleryFrame[] = [
     "R4.3 · 3 · 06:45 · Outbox, all synced",
     "06:45",
     fakeConnectivity({ status: "online", lastSyncAt: Date.parse(`${HERO_DATE}T06:45:00+05:30`) }),
-    { rows: heroRows({ arrival084: "synced", ord2001: "synced", ord2002: "synced", arrival087: "synced", ord2003: "synced" }), showSimulate: false },
+    { rows: heroRows({ arrival084: "synced", ord2001: "synced", ord2002: "synced", arrival087: "synced", ord2003: "synced" }), showSimulate: false, chip: { status: "synced", time: "06:45" } },
   ),
 ];
 

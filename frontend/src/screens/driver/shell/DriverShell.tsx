@@ -56,7 +56,7 @@ export type DriverShellProps = {
   chip?: { status: ChipStatus; time?: string };
   /** The state gallery only: the Outbox rows and progress for a frame, in place of the phone's own
    * outbox, and whether the sheet starts open (R4 frames draw it open over the run). */
-  outboxPreview?: { rows: OutboxRow[]; progress?: OutboxProgress; showSimulate?: boolean; open?: boolean };
+  outboxPreview?: { rows: OutboxRow[]; progress?: OutboxProgress; showSimulate?: boolean; open?: boolean; chip?: { status: ChipStatus; time?: string } };
   children: ReactNode;
 };
 
@@ -126,9 +126,10 @@ export function DriverShell({
       }
     : undefined;
 
-  const status = chip?.status ?? chipStatus(connectivity, preDeparture);
+  const chipSetting = chip ?? outboxPreview?.chip;
+  const status = chipSetting?.status ?? chipStatus(connectivity, preDeparture);
   const chipTime =
-    chip?.time ?? (status === "synced" ? formatTime(now) : status === "failed" ? formatTime(connectivity.lastFailureAt ?? now) : undefined);
+    chipSetting?.time ?? (status === "synced" ? formatTime(now) : status === "failed" ? formatTime(connectivity.lastFailureAt ?? now) : undefined);
 
   const activeTab: DriverTabKey = location.pathname.startsWith("/driver/issues")
     ? "issues"
@@ -140,13 +141,13 @@ export function DriverShell({
 
   const tabs: FieldTab<DriverTabKey>[] = [
     { key: "run", label: t("tab.run"), icon: "route" },
-    { key: "issues", label: t("tab.issues"), icon: "flag" },
+    { key: "issues", label: t("tab.issues"), icon: "alert-circle" },
     { key: "history", label: t("tab.history"), icon: "history" },
     { key: "me", label: t("tab.me"), icon: "user" },
   ];
 
   return (
-    <div className={styles.page}>
+    <div className={[styles.page, !clock.fixed && styles.pageFill].filter(Boolean).join(" ")}>
       <FieldTopBar title={title} subtitle={subtitle} onBack={onBack}>
         {!bareTopBar && !hideBell && <NotificationBell count={unread} onClick={() => navigate("/driver/notifications")} />}
         {!bareTopBar && (

@@ -125,6 +125,25 @@ describe("resolution", () => {
     expect(stop?.resolution?.decision).toBe("keep_delivery");
   });
 
+  it("a partial resolution (10 of 12) keeps its units, clears the conflict and says Partial in the notice", async () => {
+    clock = at("05:42");
+    const api = createMockDriverApi(now);
+    await saveDelivered(api, "OUT084", "ORD2001", 12);
+    await runSync();
+
+    clock = at("07:05");
+    await resolveConflictNow(RUN_DATE, "OUT084", now, "keep_partial", 10);
+    const run = await api.getRun(RUN_DATE);
+    const stop = run.stops.find((s) => s.outletId === "OUT084");
+    expect(stop?.conflict).toBeUndefined();
+    expect(stop?.resolution).toMatchObject({ decision: "keep_partial", units: 10, at: "07:05" });
+
+    const notices = await api.getNotices(RUN_DATE);
+    const resolved = notices.find((n) => n.kind === "resolved");
+    expect(resolved?.body).toContain("as Partial");
+    expect(resolved?.at).toBe("07:05");
+  });
+
   it("getRun applies the default 06:44 resolution once it is due", async () => {
     clock = at("05:42");
     const api = createMockDriverApi(now);

@@ -5,7 +5,12 @@
  * OUT084 with a real photo (the file-input fallback, since headless Chromium has no camera) and a
  * receiver name, then OUT087, and land on "all stops recorded" with five records on the phone.
  *
- *   npm run test:hero -- [--base http://localhost:5173]
+ *   npm run test:hero -- [--base http://localhost:5173] [--partial]
+ *
+ * Two branches are played inside the one path: the WP-SYNC-409 photo failure (the presenter arms it
+ * before the 06:40 sync; R8.2, R8.3, then "Try again"), and Dispatch's decision at the end. By
+ * default that is the scripted 06:44 "keep delivery"; with `--partial` the presenter control
+ * "Keep as Partial (10 of 12)" is pressed at 06:42 instead.
  *
  * Start the dev server first (`npm run dev`). Exits non-zero if any check fails.
  */
@@ -17,6 +22,7 @@ const flag = (name: string): string | undefined => {
   return index >= 0 ? args[index + 1] : undefined;
 };
 const base = flag("--base") ?? "http://localhost:5173";
+const partial = args.includes("--partial");
 
 // The smallest possible valid JPEG, standing in for a captured photo via the file-input fallback.
 const TINY_JPEG = Buffer.from(
@@ -230,19 +236,37 @@ async function main() {
   check((await page.getByRole("dialog", { name: "Outbox" }).innerText()).includes("1 stop (2 orders) sent for review. Nothing for you to do."), "R4.3 1: View opens the Outbox on the conflict");
   await page.getByRole("button", { name: "Close" }).click();
 
-  // H16, 06:44: Dispatch keeps the delivery. The phone is polling, so the resolution arrives by itself.
-  await page.goto(`${base}/driver/run?at=06:45`, { waitUntil: "networkidle" });
-  await page.waitForURL(/sync-result\?view=resolved/, { timeout: 15_000 });
-  await page.waitForTimeout(500);
-  text = await body();
-  check(text.includes("Delivered at OUT084") && text.includes("Dispatch kept your delivery at OUT084 · 06:44."), "R5.3: Dispatch kept your delivery at OUT084 · 06:44");
-  await page.getByRole("button", { name: "Back to run" }).click();
-  await page.waitForURL(/\/driver\/run/, { timeout: 5_000 });
-  await page.waitForTimeout(800);
-  text = await body();
-  check(text.includes("OUT084 - resolved: delivered. Kumari kept your delivery at 06:44."), "R1.8: the run shows the resolved notice");
-  check(!text.includes("Sent for review"), "R1.8: no stop is still under review");
-  check(!text.includes("Delivery saved on this phone"), "R1.8: coming back to the run does not repeat the just-saved toast");
+  if (partial) {
+    // H16, partial branch: the presenter presses "Keep as Partial (10 of 12)" at 06:42.
+    await page.goto(`${base}/driver/run?at=06:42&presenter=1`, { waitUntil: "networkidle" });
+    await page.getByRole("button", { name: "View", exact: true }).click();
+    await page.getByRole("dialog", { name: "Outbox" }).waitFor({ timeout: 5_000 });
+    await page.getByRole("button", { name: /Keep as Partial \(10 of 12\)/ }).click();
+    await page.waitForURL(/sync-result\?view=resolved/, { timeout: 15_000 });
+    await page.waitForTimeout(500);
+    text = await body();
+    check(text.includes("Kept as Partial at OUT084") && text.includes("Dispatch kept your delivery at OUT084 as Partial · 06:42."), "R5.3 partial: Dispatch kept your delivery at OUT084 as Partial");
+    await page.getByRole("button", { name: "Back to run" }).click();
+    await page.waitForURL(/\/driver\/run/, { timeout: 5_000 });
+    await page.waitForTimeout(800);
+    text = await body();
+    check(text.includes("OUT084 - resolved: delivered as Partial. Kumari kept your delivery at 06:42."), "R1.8 partial: the run shows the Partial notice");
+    check(!text.includes("Sent for review"), "R1.8 partial: no stop is still under review");
+  } else {
+    // H16, 06:44: Dispatch keeps the delivery. The phone is polling, so the resolution arrives by itself.
+    await page.goto(`${base}/driver/run?at=06:45`, { waitUntil: "networkidle" });
+    await page.waitForURL(/sync-result\?view=resolved/, { timeout: 15_000 });
+    await page.waitForTimeout(500);
+    text = await body();
+    check(text.includes("Delivered at OUT084") && text.includes("Dispatch kept your delivery at OUT084 · 06:44."), "R5.3: Dispatch kept your delivery at OUT084 · 06:44");
+    await page.getByRole("button", { name: "Back to run" }).click();
+    await page.waitForURL(/\/driver\/run/, { timeout: 5_000 });
+    await page.waitForTimeout(800);
+    text = await body();
+    check(text.includes("OUT084 - resolved: delivered. Kumari kept your delivery at 06:44."), "R1.8: the run shows the resolved notice");
+    check(!text.includes("Sent for review"), "R1.8: no stop is still under review");
+    check(!text.includes("Delivery saved on this phone"), "R1.8: coming back to the run does not repeat the just-saved toast");
+  }
   await page.goto(`${base}/driver/run?at=06:46`, { waitUntil: "networkidle" });
   await page.waitForTimeout(1500);
   check(!page.url().includes("sync-result"), "R5.3 shows once: reopening the run does not show it again");
