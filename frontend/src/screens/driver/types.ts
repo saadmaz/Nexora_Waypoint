@@ -31,11 +31,53 @@ export type RecordedOutcome = {
   savedAt: string;
 };
 
+/** The stop's record disagrees with a plan change the phone never received (driver prompt 4, PRD
+ * §19). Grouped by stop: both ORD2001 and ORD2002 share one conflict on OUT084. */
+export type ConflictDetail = {
+  conflictId: string;
+  serverVersion: number;
+  /** "Deferred · store request, 05:21, by Kumari". */
+  change: string;
+  /** "HH:MM", device time the conflict was created (when the sync ran). */
+  at: string;
+};
+
+/** Dispatch's decision once a conflict is open. Clears the conflict and updates the orders. */
+export type Resolution = {
+  decision: "keep_delivery" | "keep_partial";
+  by: string;
+  /** "HH:MM". */
+  at: string;
+  /** Units kept, for `keep_partial` (DP-12: no driver frame, reuses R1.8 / R5.3 with "as Partial"). */
+  units?: number;
+};
+
+export type DriverNoticeKind = "resolved" | "sent_for_review" | "synced" | "photo_failed";
+
+/** One entry in R8.1 (field conventions section 15: server notices from `getNotices`, and
+ * device-made sync notices such as "3 records synced" that never come from the server). */
+export type DriverNotice = {
+  id: string;
+  kind: DriverNoticeKind;
+  title: string;
+  body?: string;
+  /** "HH:MM". */
+  at: string;
+  read: boolean;
+  outletId?: string;
+  /** "WP-SYNC-409", for a photo-upload failure (R8.3). */
+  reference?: string;
+};
+
 export type DriverStop = Stop & {
   /** Device time the arrival was saved, "HH:MM". Absent until "Record arrival". */
   arrivalAt?: string;
   /** By order id. Populated by "Save delivery record". */
   outcomes: Partial<Record<string, RecordedOutcome>>;
+  /** Set when a recorded outcome disagrees with a plan version the phone has not seen (R1.7). */
+  conflict?: ConflictDetail;
+  /** Set once Dispatch resolves the conflict (R1.8). */
+  resolution?: Resolution;
 };
 
 export type DriverRun = {

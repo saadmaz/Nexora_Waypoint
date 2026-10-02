@@ -36,6 +36,19 @@ export const PLAN_VERSIONS = [
 /** PRD H6: Ruwan confirms VEH039 loaded at the Kandy gate, 04:50, no shortfall. */
 export const LOADER_CONFIRMATION: LoaderConfirmation = { by: "Ruwan", at: "04:50", shortfalls: [] };
 
+/**
+ * Driver prompt 4 (PRD H9 to H16): at 05:21, while the phone is offline, Dispatch defers ORD2001
+ * and ORD2002 at the store's request, creating plan v5. The phone never learns about v5 until a
+ * sync reaches the server (field conventions handoff 7); until then its own `currentVersion` stays
+ * v4. The two orders conflict with whatever the driver recorded for them until Dispatch resolves
+ * the conflict, by default at 06:44 (Keep delivery) unless a dev control resolves it sooner.
+ */
+export const PLAN_V5 = { v: 5, releasedAt: "2026-09-29T05:21:00+05:30", note: "ORD2001 + ORD2002 deferred (store request)." } as const;
+export const V5_DEFERRED_ORDERS = ["ORD2001", "ORD2002"];
+export const V5_DEFERRAL = { type: "store request", nextRun: "Wed 30 Sep", by: "Kumari", at: "05:21" } as const;
+export const DEFAULT_RESOLUTION_AT = "06:44";
+export const DEFAULT_RESOLUTION_BY = "Kumari";
+
 /** A loader shortfall on OUT087, for the R2.3 B state-gallery frame only: never reached on the hero run. */
 export const GALLERY_SHORTFALL: LoaderConfirmation = {
   by: "Ruwan",

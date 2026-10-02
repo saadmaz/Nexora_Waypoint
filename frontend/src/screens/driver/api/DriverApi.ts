@@ -1,4 +1,4 @@
-import type { OutcomeInput, DriverRun } from "../types";
+import type { DriverNotice, OutcomeInput, DriverRun } from "../types";
 
 /**
  * The driver's typed API (field conventions section 10). A screen calls only this; the mock
@@ -19,4 +19,9 @@ export type DriverApi = {
   recordArrival(date: string, outletId: string): Promise<void>;
   /** One record per order, even when "same outcome" produced every row. */
   recordOutcome(date: string, outletId: string, perOrder: OutcomeInput[]): Promise<void>;
+  /** Server notices affecting this driver's own run (field conventions section 15, R8.1): a
+   * resolution, a review request. Device-made sync notices ("3 records synced") never come from
+   * here; they are generated locally when a sync run finishes. `sinceIso` is a hint only, like a
+   * real `getNotices(since)` would take; the mock just returns everything so far. */
+  getNotices(date: string, sinceIso?: string): Promise<DriverNotice[]>;
 };

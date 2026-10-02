@@ -2,20 +2,27 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import { useFieldClock } from "../../../field/clock/useClock";
 import { connectivity, getSetting, setSetting } from "../../../field/offline";
 import type { Theme } from "../../../shared/theme";
-import { createMockDriverApi, registerDriverHandlers, type MockDriverApiOptions } from "../api/mockDriverApi";
+import { createMockDriverApi, registerDeviceNoticeSync, registerDriverHandlers, type MockDriverApiOptions } from "../api/mockDriverApi";
 import { RUN_DATE } from "../fixtures";
 import type { DriverSettings, Language, TextSize } from "../types";
 import { DriverContext, type DriverContextValue } from "./DriverContext";
 
-/** Tue 29 Sep 05:17: the Kandy corridor loses coverage (PRD H9). A real gate, not a UI timer: it
- * never reopens within this prompt's scope (driver prompt 4 adds the reconnect at 06:40). */
+/**
+ * Tue 29 Sep 05:17 to 06:40: the Kandy corridor coverage gap (PRD H9, H16). Off by default, since
+ * real `navigator.onLine` already reflects a real device's coverage; "Kandy corridor coverage gap"
+ * is a dev/demo setting (driver prompt 4 section 4) for showing the degradation story on a desktop
+ * without airplane mode. The Simulate offline switch (R4, driver prompt 4) and a real disconnect
+ * still apply on top: `connectivity.isConnected()` requires every gate open and the browser online.
+ */
 const CORRIDOR_GATE = "kandy-corridor";
 const CORRIDOR_DROPS_AT = new Date(`${RUN_DATE}T05:17:00+05:30`).getTime();
+const CORRIDOR_RETURNS_AT = new Date(`${RUN_DATE}T06:40:00+05:30`).getTime();
 
 const SETTINGS_KEYS = {
   sunlight: "driver.sunlight",
   textSize: "driver.textSize",
   language: "driver.language",
+  coverageGap: "driver.coverageGapEnabled",
 } as const;
 
 const DEFAULT_SETTINGS: DriverSettings = { sunlight: false, textSize: "standard", language: "en" };
@@ -51,19 +58,38 @@ export function DriverProvider({ children, apiOptions, initialSettings }: Driver
   const preferredScheme = usePreferredScheme();
 
   const [settings, setSettings] = useState<DriverSettings>({ ...DEFAULT_SETTINGS, ...initialSettings });
+  const [coverageGapEnabled, setCoverageGapEnabledState] = useState(false);
 
   useEffect(() => {
-    registerDriverHandlers();
-  }, []);
+    registerDriverHandlers(clock.nowMs);
+    registerDeviceNoticeSync(RUN_DATE, clock.nowMs);
+  }, [clock]);
+
+  useEffect(() => {
+    if (initialSettings) return; // the gallery fixes its own state; never read or persist this either.
+    void getSetting(SETTINGS_KEYS.coverageGap, false).then(setCoverageGapEnabledState);
+  }, [initialSettings]);
 
   useEffect(() => {
     // The state gallery fakes its own connectivity per frame on a fixed clock; never fight it.
     if (clock.fixed) return;
-    const update = () => connectivity.setGate(CORRIDOR_GATE, clock.nowMs() < CORRIDOR_DROPS_AT);
+    const update = () => {
+      const nowMs = clock.nowMs();
+      const inGap = coverageGapEnabled && nowMs >= CORRIDOR_DROPS_AT && nowMs < CORRIDOR_RETURNS_AT;
+      connectivity.setGate(CORRIDOR_GATE, !inGap);
+    };
     update();
     const id = window.setInterval(update, 1000);
     return () => window.clearInterval(id);
-  }, [clock]);
+  }, [clock, coverageGapEnabled]);
+
+  const setCoverageGapEnabled = useCallback(
+    (enabled: boolean) => {
+      setCoverageGapEnabledState(enabled);
+      if (initialSettings === undefined) void setSetting(SETTINGS_KEYS.coverageGap, enabled);
+    },
+    [initialSettings],
+  );
 
   useEffect(() => {
     if (initialSettings) return; // the state gallery fixes its own settings; never read or persist them.
@@ -108,8 +134,8 @@ export function DriverProvider({ children, apiOptions, initialSettings }: Driver
   const theme: Theme = settings.sunlight ? "field" : preferredScheme;
 
   const value = useMemo<DriverContextValue>(
-    () => ({ api, settings, setSunlight, setTextSize, setLanguage, theme }),
-    [api, settings, setSunlight, setTextSize, setLanguage, theme],
+    () => ({ api, settings, setSunlight, setTextSize, setLanguage, theme, coverageGapEnabled, setCoverageGapEnabled }),
+    [api, settings, setSunlight, setTextSize, setLanguage, theme, coverageGapEnabled, setCoverageGapEnabled],
   );
 
   return <DriverContext.Provider value={value}>{children}</DriverContext.Provider>;

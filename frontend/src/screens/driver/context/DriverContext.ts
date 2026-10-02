@@ -12,6 +12,9 @@ export type DriverContextValue = {
   setLanguage: (language: Language) => void;
   /** The resolved role theme: "field" when the sunlight switch is on, else the phone's preference. */
   theme: Theme;
+  /** The Kandy corridor coverage gap dev setting (driver prompt 4 section 4), off by default. */
+  coverageGapEnabled: boolean;
+  setCoverageGapEnabled: (enabled: boolean) => void;
 };
 
 export const DriverContext = createContext<DriverContextValue | undefined>(undefined);
@@ -29,6 +32,11 @@ export function useDriverApi(): DriverApi {
 export function useDriverSettings() {
   const { settings, setSunlight, setTextSize, setLanguage, theme } = useDriverContext();
   return { settings, setSunlight, setTextSize, setLanguage, theme };
+}
+
+export function useCoverageGap(): { enabled: boolean; setEnabled: (enabled: boolean) => void } {
+  const { coverageGapEnabled, setCoverageGapEnabled } = useDriverContext();
+  return { enabled: coverageGapEnabled, setEnabled: setCoverageGapEnabled };
 }
 
 /** Bound to the current language; falls back to English, then the key itself. */

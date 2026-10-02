@@ -72,6 +72,9 @@ async function main() {
 
   // H5/H7, 04:45: the route is known but not yet downloaded or acknowledged (R1.3 A).
   await page.goto(`${base}/driver/run?at=04:45`, { waitUntil: "networkidle" });
+  // A cold Vite cache can take a moment to compile on the very first navigation; everything after
+  // this is a client-side render or a same-origin reload, which do not have this delay.
+  await page.waitForSelector("text=Acknowledge v4", { timeout: 15_000 });
   let text = await body();
   check(text.includes("Acknowledge v4"), "R1.3 A, 04:45: Acknowledge v4 is offered");
   check(text.includes("Waiting for loading"), "R1.3 A, 04:45: waiting for loading before 04:50");
