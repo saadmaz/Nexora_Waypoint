@@ -3,6 +3,7 @@ import { PinSheet } from "../../../field/components";
 import { HERO_DATE, HERO_EVENING_DATE } from "../../../field/clock/clock";
 import { Dock, type DockAlertModel } from "../dock/Dock";
 import type { VehicleCardProps } from "../dock/VehicleCard";
+import { LoadPlan, type LoadPlanRow } from "../loadplan/LoadPlan";
 
 const noop = () => undefined;
 
@@ -140,6 +141,60 @@ const l16bVehicles: VehicleCardProps[] = [
 const l1s3Vehicles: VehicleCardProps[] = [
   vehicle({ id: "VEH039", temperature: "reefer", trips: 1, orderCount: 3, departsAt: "05:10", inLabel: "in 56 min", action: { label: "Load VEH039", primary: true, icon: "truck" } }),
 ];
+
+// --- L2 Load plan rows -----------------------------------------------------------------------
+
+function row(partial: Partial<LoadPlanRow> & Pick<LoadPlanRow, "orderId" | "outletId" | "loadNumber" | "stopNumber" | "unitsExpected">): LoadPlanRow {
+  return {
+    brand: "Fresh",
+    chilled: false,
+    dockLabel: "Rear dock",
+    unitsLoaded: 0,
+    weightKg: 0,
+    state: "todo",
+    orderIdIn: "quantity",
+    ...partial,
+  };
+}
+
+/** VEH039 trip 1, reverse stop order: OUT087 first, OUT084's two orders last. */
+function veh039Rows(unitsLoaded: { ord2003?: number; ord2002?: number; ord2001?: number } = {}): LoadPlanRow[] {
+  const done = (loaded: number | undefined, expected: number): LoadPlanRow["state"] =>
+    loaded === undefined ? "todo" : loaded >= expected ? "checked" : "short";
+  return [
+    row({ orderId: "ORD2003", outletId: "OUT087", loadNumber: 1, stopNumber: 2, unitsExpected: 9, weightKg: 55, unitsLoaded: unitsLoaded.ord2003 ?? 0, state: done(unitsLoaded.ord2003, 9) }),
+    row({ orderId: "ORD2002", outletId: "OUT084", loadNumber: 2, stopNumber: 1, unitsExpected: 8, weightKg: 45, unitsLoaded: unitsLoaded.ord2002 ?? 0, state: done(unitsLoaded.ord2002, 8), orderIdIn: "heading" }),
+    row({ orderId: "ORD2001", outletId: "OUT084", loadNumber: 3, stopNumber: 1, unitsExpected: 12, weightKg: 70, chilled: true, unitsLoaded: unitsLoaded.ord2001 ?? 0, state: done(unitsLoaded.ord2001, 12), orderIdIn: "heading" }),
+  ];
+}
+
+/** VEH036 trip 1 after the swap: OUT012 (protected) first, OUT011 last. All four are chilled. */
+function veh036Rows(checkedThrough = 0): LoadPlanRow[] {
+  const base = [
+    { orderId: "ORD1001", outletId: "OUT012", loadNumber: 1, stopNumber: 4, unitsExpected: 37, weightKg: 220, protectedOrder: true },
+    { orderId: "ORD1011", outletId: "OUT005", loadNumber: 2, stopNumber: 3, unitsExpected: 43, weightKg: 260 },
+    { orderId: "ORD1016", outletId: "OUT006", loadNumber: 3, stopNumber: 2, unitsExpected: 38, weightKg: 230, dockLabel: "Street" },
+    { orderId: "ORD1014", outletId: "OUT011", loadNumber: 4, stopNumber: 1, unitsExpected: 40, weightKg: 240 },
+  ];
+  return base.map((b, i) =>
+    row({ ...b, chilled: true, unitsLoaded: i < checkedThrough ? b.unitsExpected : 0, state: i < checkedThrough ? "checked" : "todo" }),
+  );
+}
+
+/** VEH003 trip 1 as released in v3, original 5-stop order, all Planned (held, never checked). */
+function veh003HeldRows(): LoadPlanRow[] {
+  return [
+    row({ orderId: "ORD1001", outletId: "OUT012", loadNumber: 1, stopNumber: 5, unitsExpected: 37, weightKg: 220, chilled: true, protectedOrder: true }),
+    row({ orderId: "ORD1002", outletId: "OUT009", loadNumber: 2, stopNumber: 4, unitsExpected: 35, weightKg: 210, chilled: true }),
+    row({ orderId: "ORD1011", outletId: "OUT005", loadNumber: 3, stopNumber: 3, unitsExpected: 43, weightKg: 260, chilled: true }),
+    row({ orderId: "ORD1016", outletId: "OUT006", loadNumber: 4, stopNumber: 2, unitsExpected: 38, weightKg: 230, chilled: true, dockLabel: "Street" }),
+    row({ orderId: "ORD1014", outletId: "OUT011", loadNumber: 5, stopNumber: 1, unitsExpected: 40, weightKg: 240, chilled: true }),
+  ];
+}
+
+const VEH036_CAPACITY = { weightKg: 950, weightCapKg: 1040, volumeM3: 6.3, volumeCapM3: 7.0 };
+const VEH036_SWAP = { replacesVehicleId: "VEH003", note: "OUT009 removed in v4" };
+const noopUnits = () => undefined;
 
 export const LOADER_FRAMES: GalleryFrame[] = [
   {
@@ -341,5 +396,373 @@ export const LOADER_FRAMES: GalleryFrame[] = [
     height: 844,
     clock: { date: HERO_EVENING_DATE, time: "22:10" },
     render: () => <Dock dockLabel="Peliyagoda dock" nowLabel="22:10" connectivity={SYNCED} state="error" onRetry={noop} />,
+  },
+
+  // --- L2 Load plan ----------------------------------------------------------------------------
+  {
+    frameId: "L2.1-A",
+    figmaNodeId: "442:28482",
+    name: "L2.1 · A · 04:30 · In progress (VEH039, 2 of 3 checked)",
+    width: 390,
+    height: 844,
+    clock: { date: HERO_DATE, time: "04:30" },
+    render: () => (
+      <LoadPlan
+        vehicleId="VEH039"
+        dockLabel="Kandy dock"
+        departsAt="05:10"
+        planVersion={4}
+        connectivity={SYNCED}
+        phase="ready"
+        checked={{ done: 2, total: 3 }}
+        chilledZone
+        rows={veh039Rows({ ord2003: 9, ord2002: 8 })}
+        onRecordUnits={noopUnits}
+        onFlagShort={noopUnits}
+        onFlagIssue={noop}
+        onConfirmGate={noop}
+        onBack={noop}
+      />
+    ),
+  },
+  {
+    frameId: "L2.1-B",
+    figmaNodeId: "442:28591",
+    name: "L2.1 · B · 04:31 · Count confirm, stepper prefilled",
+    width: 390,
+    height: 1000,
+    clock: { date: HERO_DATE, time: "04:31" },
+    render: () => (
+      <LoadPlan
+        vehicleId="VEH039"
+        dockLabel="Kandy dock"
+        departsAt="05:10"
+        planVersion={4}
+        connectivity={SYNCED}
+        phase="ready"
+        checked={{ done: 2, total: 3 }}
+        chilledZone
+        rows={veh039Rows({ ord2003: 9, ord2002: 8 })}
+        demoExpanded={{ orderId: "ORD2001", draftUnits: 12 }}
+        onRecordUnits={noopUnits}
+        onFlagShort={noopUnits}
+        onFlagIssue={noop}
+        onConfirmGate={noop}
+        onBack={noop}
+      />
+    ),
+  },
+  {
+    frameId: "L2.2",
+    figmaNodeId: "442:28714",
+    name: "L2.2 · 03:20 · Short units entry (VEH036)",
+    width: 390,
+    height: 1040,
+    clock: { date: HERO_DATE, time: "03:20" },
+    render: () => (
+      <LoadPlan
+        vehicleId="VEH036"
+        dockLabel="Peliyagoda dock"
+        departsAt="03:30"
+        planVersion={4}
+        connectivity={SYNCED}
+        phase="ready"
+        checked={{ done: 3, total: 4 }}
+        chilledZone
+        swap={VEH036_SWAP}
+        rows={veh036Rows(3)}
+        demoExpanded={{ orderId: "ORD1014", draftUnits: 36 }}
+        onRecordUnits={noopUnits}
+        onFlagShort={noopUnits}
+        onFlagIssue={noop}
+        onConfirmGate={noop}
+        onBack={noop}
+      />
+    ),
+  },
+  {
+    frameId: "L2.3-A",
+    figmaNodeId: "442:28858",
+    name: "L2.3 · A · 04:49 · All checked, gate enabled",
+    width: 390,
+    height: 844,
+    clock: { date: HERO_DATE, time: "04:49" },
+    render: () => (
+      <LoadPlan
+        vehicleId="VEH039"
+        dockLabel="Kandy dock"
+        departsAt="05:10"
+        planVersion={4}
+        connectivity={SYNCED}
+        phase="ready"
+        checked={{ done: 3, total: 3 }}
+        chilledZone
+        rows={veh039Rows({ ord2003: 9, ord2002: 8, ord2001: 12 })}
+        onRecordUnits={noopUnits}
+        onFlagShort={noopUnits}
+        onFlagIssue={noop}
+        onConfirmGate={noop}
+        onBack={noop}
+      />
+    ),
+  },
+  {
+    frameId: "L2.3-B",
+    figmaNodeId: "442:28959",
+    name: "L2.3 · B · 04:49 · PIN sheet: confirm VEH039 loaded",
+    width: 390,
+    height: 844,
+    clock: { date: HERO_DATE, time: "04:49" },
+    render: () => (
+      <div>
+        <LoadPlan
+          vehicleId="VEH039"
+          dockLabel="Kandy dock"
+          departsAt="05:10"
+          planVersion={4}
+          connectivity={SYNCED}
+          phase="ready"
+          checked={{ done: 3, total: 3 }}
+          chilledZone
+          rows={veh039Rows({ ord2003: 9, ord2002: 8, ord2001: 12 })}
+          onRecordUnits={noopUnits}
+          onFlagShort={noopUnits}
+          onFlagIssue={noop}
+          onConfirmGate={noop}
+          onBack={noop}
+        />
+        <PinSheet
+          open
+          onOpenChange={noop}
+          title="Confirm VEH039 loaded"
+          whoLabel="Who's acknowledging?"
+          people={PEOPLE}
+          initialPersonId="ruwan"
+          demoPhase="entry"
+          demoDigits="12"
+          verify={async () => true}
+          onConfirmed={noop}
+          confirmedText={(name) => `Loaded by ${name}`}
+        />
+      </div>
+    ),
+  },
+  {
+    frameId: "L2.4",
+    figmaNodeId: "442:29120",
+    name: "L2.4 · 04:50 · Loaded / cleared",
+    width: 390,
+    height: 844,
+    clock: { date: HERO_DATE, time: "04:50" },
+    render: () => (
+      <LoadPlan
+        vehicleId="VEH039"
+        dockLabel="Kandy dock"
+        departsAt="05:10"
+        planVersion={4}
+        connectivity={SYNCED}
+        phase="loaded"
+        checked={{ done: 3, total: 3 }}
+        chilledZone
+        rows={veh039Rows({ ord2003: 9, ord2002: 8, ord2001: 12 })}
+        loadedBy={{ name: "Ruwan", at: "04:50" }}
+        whoKnows={["Nimal's phone shows 3 orders on board", "Dispatch and OUT084 see Loaded"]}
+        onRecordUnits={noopUnits}
+        onFlagShort={noopUnits}
+        onFlagIssue={noop}
+        onConfirmGate={noop}
+        onBack={noop}
+      />
+    ),
+  },
+  {
+    frameId: "L2.5",
+    figmaNodeId: "442:29162",
+    name: "L2.5 · 02:56 · Held (VEH003)",
+    width: 390,
+    height: 1240,
+    clock: { date: HERO_DATE, time: "02:56" },
+    render: () => (
+      <LoadPlan
+        vehicleId="VEH003"
+        dockLabel="Peliyagoda dock"
+        departsAt="03:30"
+        planVersion={3}
+        connectivity={SYNCED}
+        phase="held"
+        checked={{ done: 0, total: 5 }}
+        chilledZone
+        rows={veh003HeldRows()}
+        heldReason="Held: reefer unit failed pre-departure check at 02:55"
+        heldGoTo={{ label: "Go to VEH035", onClick: noop }}
+        onRecordUnits={noopUnits}
+        onFlagShort={noopUnits}
+        onFlagIssue={noop}
+        onConfirmGate={noop}
+        onCallDispatch={noop}
+        onBack={noop}
+      />
+    ),
+  },
+  {
+    frameId: "L2.6-A",
+    figmaNodeId: "442:29293",
+    name: "L2.6 · A · 03:10 · VEH036 reload after swap",
+    width: 390,
+    height: 1360,
+    clock: { date: HERO_DATE, time: "03:10" },
+    render: () => (
+      <LoadPlan
+        vehicleId="VEH036"
+        dockLabel="Peliyagoda dock"
+        departsAt="03:30"
+        planVersion={4}
+        connectivity={SYNCED}
+        phase="ready"
+        checked={{ done: 0, total: 4 }}
+        chilledZone
+        swap={VEH036_SWAP}
+        capacity={VEH036_CAPACITY}
+        rows={veh036Rows(0)}
+        onRecordUnits={noopUnits}
+        onFlagShort={noopUnits}
+        onFlagIssue={noop}
+        onConfirmGate={noop}
+        onBack={noop}
+      />
+    ),
+  },
+  {
+    frameId: "L2.6-B",
+    figmaNodeId: "442:29445",
+    name: "L2.6 · B · 03:25 · VEH036 loaded",
+    width: 390,
+    height: 1340,
+    clock: { date: HERO_DATE, time: "03:25" },
+    render: () => (
+      <LoadPlan
+        vehicleId="VEH036"
+        dockLabel="Peliyagoda dock"
+        departsAt="03:30"
+        planVersion={4}
+        connectivity={SYNCED}
+        phase="loaded"
+        checked={{ done: 4, total: 4 }}
+        chilledZone
+        swap={VEH036_SWAP}
+        capacity={VEH036_CAPACITY}
+        rows={veh036Rows(4)}
+        loadedBy={{ name: "Priya", at: "03:25" }}
+        onRecordUnits={noopUnits}
+        onFlagShort={noopUnits}
+        onFlagIssue={noop}
+        onConfirmGate={noop}
+        onBack={noop}
+      />
+    ),
+  },
+  {
+    frameId: "L2.S-1",
+    figmaNodeId: "442:29604",
+    name: "L2.S · 1 · Empty: no orders on this vehicle",
+    width: 390,
+    height: 844,
+    clock: { date: HERO_DATE, time: "05:10" },
+    render: () => (
+      <LoadPlan
+        vehicleId="VEH039"
+        dockLabel="Kandy dock"
+        departsAt="05:10"
+        planVersion={4}
+        connectivity={SYNCED}
+        phase="empty"
+        checked={{ done: 0, total: 0 }}
+        chilledZone={false}
+        rows={[]}
+        onRecordUnits={noopUnits}
+        onFlagShort={noopUnits}
+        onFlagIssue={noop}
+        onConfirmGate={noop}
+        onBack={noop}
+      />
+    ),
+  },
+  {
+    frameId: "L2.S-2",
+    figmaNodeId: "442:29624",
+    name: "L2.S · 2 · Loading",
+    width: 390,
+    height: 844,
+    clock: { date: HERO_DATE, time: "05:10" },
+    render: () => (
+      <LoadPlan
+        vehicleId="VEH039"
+        dockLabel="Kandy dock"
+        departsAt="05:10"
+        planVersion={4}
+        connectivity={SYNCED}
+        phase="loading"
+        checked={{ done: 0, total: 0 }}
+        chilledZone={false}
+        rows={[]}
+        onRecordUnits={noopUnits}
+        onFlagShort={noopUnits}
+        onFlagIssue={noop}
+        onConfirmGate={noop}
+        onBack={noop}
+      />
+    ),
+  },
+  {
+    frameId: "L2.S-3",
+    figmaNodeId: "442:29659",
+    name: "L2.S · 3 · Offline: checks saved on tablet",
+    width: 390,
+    height: 1000,
+    clock: { date: HERO_DATE, time: "05:10" },
+    render: () => (
+      <LoadPlan
+        vehicleId="VEH039"
+        dockLabel="Kandy dock"
+        departsAt="05:10"
+        planVersion={4}
+        connectivity={OFFLINE_CHIP}
+        phase="offline"
+        checked={{ done: 2, total: 3 }}
+        chilledZone
+        rows={veh039Rows({ ord2003: 9, ord2002: 8 }).map((r) => (r.state === "checked" ? { ...r, rowNote: "offline" } : r))}
+        onRecordUnits={noopUnits}
+        onFlagShort={noopUnits}
+        onFlagIssue={noop}
+        onConfirmGate={noop}
+        onBack={noop}
+      />
+    ),
+  },
+  {
+    frameId: "L2.S-4",
+    figmaNodeId: "442:29774",
+    name: "L2.S · 4 · Error: check not saved",
+    width: 390,
+    height: 1000,
+    clock: { date: HERO_DATE, time: "05:10" },
+    render: () => (
+      <LoadPlan
+        vehicleId="VEH039"
+        dockLabel="Kandy dock"
+        departsAt="05:10"
+        planVersion={4}
+        connectivity={SYNCED}
+        phase="ready"
+        checked={{ done: 2, total: 3 }}
+        chilledZone
+        rows={veh039Rows({ ord2003: 9, ord2002: 8 }).map((r) => (r.orderId === "ORD2001" ? { ...r, rowNote: "error" } : r))}
+        onRecordUnits={noopUnits}
+        onFlagShort={noopUnits}
+        onFlagIssue={noop}
+        onConfirmGate={noop}
+        onBack={noop}
+      />
+    ),
   },
 ];

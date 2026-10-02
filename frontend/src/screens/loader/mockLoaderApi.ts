@@ -1,7 +1,8 @@
 import type { DepotId, Trip, Vehicle, VehicleTag } from "../../domain/field";
 import { colomboMs, formatTime, HERO_DATE } from "../../field/clock/clock";
-import { connectivity, NetworkError } from "../../field/offline";
-import { DECISION_AT, pinFor, tripsV3, tripsV4, VEH036_AVAILABLE_AT, VEHICLES } from "./fixtures";
+import { OTHER_PERSON_ID } from "../../field/components";
+import { connectivity, enqueue, NetworkError, registerSyncHandler } from "../../field/offline";
+import { DECISION_AT, GUEST_PIN, pinFor, tripsV3, tripsV4, VEH036_AVAILABLE_AT, VEHICLES } from "./fixtures";
 import type {
   AcknowledgePlanInput,
   ConfirmLoadedInput,
@@ -56,6 +57,14 @@ async function simulateNetwork(): Promise<void> {
  * flag on VEH003 is decided at 03:00 (or sooner with `devResolveExceptionNow`), moving its trips to
  * VEH036 and deferring ORD1002.
  */
+/** Record types PRD v3.1 section 9 lists: every loader write goes through the outbox under one of these. */
+for (const type of ["loader.ack", "loader.check", "loader.confirmLoaded", "loader.exception"]) {
+  registerSyncHandler(type, async () => {
+    await simulateNetwork();
+    return { result: "accepted" };
+  });
+}
+
 export function createMockLoaderApi(nowMs: () => number): LoaderApi {
   const acknowledgements = new Map<DepotId, DockAcknowledgement>();
   const tags = new Map<string, VehicleTag[]>(Object.entries(VEHICLES).map(([id, v]) => [id, [...v.tags]]));
@@ -196,6 +205,9 @@ export function createMockLoaderApi(nowMs: () => number): LoaderApi {
           dock: stop.dock,
           unitsExpected: order.units,
           unitsLoaded: recorded?.get(order.id) ?? 0,
+          weightKg: order.weightKg,
+          volumeM3: order.volumeM3,
+          protectedOrder: order.tags.includes("Protected"),
           state: (recorded?.get(order.id) ?? 0) >= order.units ? "checked" : (recorded?.get(order.id) ?? 0) > 0 ? "short" : "todo",
         });
       }
@@ -225,15 +237,18 @@ export function createMockLoaderApi(nowMs: () => number): LoaderApi {
       } satisfies DockView;
     },
 
-    async verifyPin(personId, pin) {
-      await simulateNetwork();
+    async verifyPin(personId, pin, otherName) {
+      // PRD v3.1: the tablet caches salted hashes for every PIN person and the guest PIN, so PIN
+      // checks work offline; the server only re-verifies on sync. "Other…" takes the guest PIN,
+      // the same at both docks (A55).
+      if (personId === OTHER_PERSON_ID) return pin === GUEST_PIN && !!otherName?.trim();
       return pinFor(personId) === pin;
     },
 
     async acknowledgePlan({ dockId, version, personId, personName }: AcknowledgePlanInput) {
-      await simulateNetwork();
       if (version < currentVersion()) return "conflict";
       acknowledgements.set(dockId, { version, personId, personName, at: formatTime(nowMs()) });
+      await enqueue({ type: "loader.ack", payload: { dockId, version, personId, personName }, actor: personId, planVersionOnDevice: version });
       return "accepted";
     },
 
@@ -256,24 +271,27 @@ export function createMockLoaderApi(nowMs: () => number): LoaderApi {
       } satisfies LoadPlanView;
     },
 
-    async recordCheck({ vehicleId, trip, orderId, unitsLoaded }: RecordCheckInput) {
-      await simulateNetwork();
+    async recordCheck(input: RecordCheckInput) {
+      const { vehicleId, trip, orderId, unitsLoaded, personId } = input;
       const key = `${vehicleId}·${trip}`;
       const map = checks.get(key) ?? new Map<string, number>();
       map.set(orderId, unitsLoaded);
       checks.set(key, map);
+      await enqueue({ type: "loader.check", payload: input, actor: personId, planVersionOnDevice: currentVersion() });
     },
 
-    async confirmLoaded({ vehicleId, trip, personName }: ConfirmLoadedInput) {
-      await simulateNetwork();
+    async confirmLoaded(input: ConfirmLoadedInput) {
+      const { vehicleId, trip, personId, personName } = input;
       confirmed.set(`${vehicleId}·${trip}`, { at: formatTime(nowMs()), by: personName });
+      await enqueue({ type: "loader.confirmLoaded", payload: input, actor: personId, planVersionOnDevice: currentVersion() });
     },
 
-    async flagException({ type, vehicleId, trip, orderIds, unitsShort, note }: FlagExceptionInput) {
-      await simulateNetwork();
+    async flagException(input: FlagExceptionInput) {
+      const { type, vehicleId, trip, orderIds, unitsShort, note, personId } = input;
       const id = `EXC${exceptionSeq++}`;
       exceptions.set(id, { id, type, vehicleId, trip, orderIds, unitsShort, note, status: "reviewing" });
       if (type === "Vehicle check failed") tags.set(vehicleId, ["Held"]);
+      await enqueue({ type: "loader.exception", payload: { ...input, id }, actor: personId, planVersionOnDevice: currentVersion() });
       return id;
     },
 

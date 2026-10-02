@@ -47,6 +47,10 @@ export type LoadPlanOrderRow = {
   dock: DockType;
   unitsExpected: number;
   unitsLoaded: number;
+  weightKg: number;
+  volumeM3: number;
+  /** Set for an outlet protected this run (deferred yesterday): OUT012 on the VEH036 swap. */
+  protectedOrder?: boolean;
   state: LoadCheckState;
 };
 
