@@ -763,7 +763,8 @@ On a phone, open the `Network` address `npm run dev:https` prints, accept the ce
 
 | Route | What |
 |---|---|
-| `/loader`, `/loader/dock`, `/loader/vehicles/:vehicleId/trips/:trip`, `/loader/changes` | Loader root, always Dark · pre-dawn. Placeholders for L1, L2, L4 |
+| `/loader`, `/loader/dock` | Loader root, always Dark · pre-dawn. L1 Dock is built (loader prompt); see "Waypoint Load" below |
+| `/loader/vehicles/:vehicleId/trips/:trip`, `/loader/changes` | Placeholders for L2 and L4 |
 | `/driver`, `/driver/run`, `/driver/stops/:stopId`, `/driver/stops/:stopId/outcome`, `/driver/issues`, `/driver/history`, `/driver/notifications`, `/driver/finish`, `/driver/me` | Driver root, Dark for now (the theme rule lands with driver prompt 3). Placeholders for R1 to R9 |
 | `/loader/_states`, `/driver/_states` | State galleries, dev only, empty until the role prompts register their frames. `?frame=ID` renders one frame at its Figma size |
 | `/field/_components` | Every field component in Dark, Field and Light side by side (dev only) |
@@ -825,6 +826,442 @@ Import from `field/offline`. One IndexedDB, `waypoint-field`: `outbox`, `cache`,
 - Compare each component with its Figma frame once the role screens register frames in the galleries (`npm run compare`). `.figma/` and `.compare/` are git-ignored.
 - `Mono` renders at the surrounding weight; the frames use Plex Mono Medium (500) for IDs. Compare when the first screens land and set it if it differs.
 - Sign-in: no sign-in exists on this branch, so `loader@waypoint.demo` and `driver@waypoint.demo` do not land anywhere yet.
+
+## 🔐 App shell (sign-in, role picker, sessions, presenter control)
+
+The frames every role passes through before its own screens: sign-in (G1), the role picker (G2), per-role sessions and the one presenter control the judge walkthrough drives. Branch: `feature/auth`, cut from `develop`, frontend only. There is no backend yet, so everything runs against a mock. The brief is [`claude/field-build/06-app-shell.md`](claude/field-build/06-app-shell.md).
+
+**Status:** A0, A1 and A3 built (`tsc -b`, `oxlint`, `vitest run`, `vite build` all clean; 39 tests, 18 of them in `screens/auth`). A3 landed before A1 and A2 because the Figma connection was down; `/start` and `/auth/_states` answer with placeholders until A2 and A6 replace them. A2 and A4 to A6 are not started.
+
+### Accounts
+
+One demo password for all four accounts. PRD v3 section 4c leaves passwords to A40 and the README. The password is the backend's `DEMO_PASSWORD` (`.env.example`, seeded by `backend/seed/accounts.py`); the mock uses the same value so signing in behaves the same in mock and API mode. There is no `.env.example` change here.
+
+| Role | Email | Shown as | Lands on |
+|---|---|---|---|
+| Dispatcher | `dispatcher@waypoint.demo` | Kumari | `/dispatcher/queue` |
+| Loader | `loader@waypoint.demo` | Dock tablet (a shared device, not a person) | `/loader/dock` |
+| Driver | `driver@waypoint.demo` | Nimal | `/driver/run` |
+| Store | `store@waypoint.demo` | Anusha | `/store/orders` |
+
+Password for all four: `waypoint-demo`. The loader still enters a PIN per action after signing in; `PinSheet` from the field foundation does that and is not rebuilt here.
+
+### Sessions (`src/screens/auth/session.ts`)
+
+Stored per role under `wp.session.dispatcher`, `wp.session.loader`, `wp.session.driver` and `wp.session.store`, so one browser holds all four roles in four tabs. Signing out clears one role only. A session holds the role, email, display name, an opaque token and the sign-in time; the token is a demo string in mock mode and is shaped so a real JWT is a swap.
+
+- Every read and write is wrapped. A blocked or cleared `localStorage`, or a quota error, never breaks sign-in: a failed read means "not signed in", a failed write leaves a session that lasts the tab.
+- The tab-lifetime fallback answers only for a role whose write failed. A role that saved normally is dropped from it, so a session cleared in another tab or by clearing site data reads as signed out.
+- Nothing clears a session on a failed network call, so the driver token survives going offline and the outbox can sync later (PRD v3 section 15).
+- `readAnySession()` backs the `/` redirect and returns the first role in picker order (dispatcher, loader, driver, store); `readAllSessions()` backs the signed-in state on the `/start` cards.
+
+### Sign-in API (`AuthApi.ts`, `mockAuthApi.ts`)
+
+`signIn(email, password)`, `signOut(role)` and `getSession(role)`. A wrong password returns `{ ok: false, reason: "invalid_credentials" }` and being offline returns `{ ok: false, reason: "offline" }`; neither throws. An unknown email and a wrong password give the same answer. The mock answers in 300 to 600 ms like the field transport, and at once under vitest.
+
+`VITE_AUTH_API=mock|api` picks the implementation, defaulting to the mock. PRD v3 section 9 principle 7 names the pattern `VITE_<ROLE>_API` for the four roles only, so this is a small extension of it, not something the PRD already says.
+
+### Figma nodes
+
+File `0qCle1zCrSImSou4lVlvmL`, page "Nexora (main)" `0:1`. The G frames are one contiguous block at `442:67xxx`.
+
+| Node | Frame |
+|---|---|
+| `442:67261` | G1.1 Sign-in, desktop (1440 x 900) |
+| `442:67336` | G1.2 Sign-in, phone, Light (390 x 844) |
+| `442:67411` | G1.3 Sign-in, phone, Dark · pre-dawn (390 x 844) |
+| `442:67486` | G1.4 Sign-in, wrong password (390 x 844) |
+| `442:67568` | G1.5 Sign-in, offline (390 x 844) |
+| `442:67656` | G2.1 Role landing, Dispatcher (480 x 560) |
+| `442:67672` | G2.2 Role landing, Loader (480 x 560) |
+| `442:67688` | G2.3 Role landing, Driver (480 x 560) |
+| `442:67704` | G2.4 Role landing, Store (480 x 560) |
+| `442:67720` | G3 Presenter mode over D6.4 (1440 x 900) |
+| `442:68072` | G4 "Why this screen" over D7.1 (1440 x 900) |
+
+There are five G1 and four G2 frames, as PRD v3 section 3 says. The conventions table once listed `175:2174`, `175:2456` and `175:2472`. They render the same frames as their `442:67xxx` counterparts but are an older copy outside this block; build from the table above.
+
+### Notes from reading the frames
+
+- **The sign-in frames already read "Waypoint".** The brief expected "Waypoint Dispatch" and a departure to fix it. G1.3 prints the neutral wordmark already, which is what PRD v3 section 6 asks for, so no departure was needed. Each role's own app name still appears in its chrome.
+- **G1.4 and G1.5 are drawn.** The brief expected no retry and no offline frame. Both exist, taller than the base phone frame because they carry extra content, so they are copied as drawn. The retry behaviour (inline error, password cleared, focus back on it, email kept, no attempt counting) is still built, and only where the frames stop short.
+- **G1.5's offline text, in full.** The warning alert reads "You're offline" (Archivo SemiBold 14) over "Sign-in needs a connection once. After that, field screens work offline." (Archivo Regular 13, line height 18). That is the whole string; the earlier metadata dump cut it at "After t...". The rest of the frame: the Sign in button at 40% opacity, the email field showing the placeholder "name@waypoint.lk", the password field empty, and below a divider the "Demo accounts" helper with a "Prototype" tag and four rows ("Kumari · Dispatcher", "Dock tablet · Loader", "Nimal · Driver", "Anusha · Store manager", each over its `@waypoint.demo` address in Plex Mono 12). The brief suggested "Your orders and deliveries are safe. Nothing was changed." for offline sign-in; Figma wins, so that line is not used.
+- **PRD section 3's G2 card copy is abbreviated against the frames.** The frames add "· synced" to the Loader and Driver cards, plus a context line above and a target line below each card (for example "Peliyagoda dock · enter PIN per action" above and "Opens L1 Dock board" below). The frames are what gets built.
+- **The G2 corner labels** (`DISPATCHER · LIGHT`, `LOADER · DARK`, `DRIVER · DARK`, `STORE · LIGHT`) name the theme of the role app each card opens, which is the per-role table in PRD v3 section 6. `/start` itself stays Light · office, and `/sign-in` is Light on desktop and Dark at phone width.
+- **G2.1 names two screens** ("Opens D1 Queue / D6 Operations") but the card goes to `/dispatcher/queue`. The line is kept as drawn because it is descriptive text.
+
+### Sign-in (A1)
+
+`/sign-in` is one screen, `SignInScreen`, that draws every G1 frame from props: the layout (desktop or phone), a wrong password, offline and busy. `SignInRoute` owns the state and talks to the AuthApi through `getAuthApi()`, which is where `VITE_AUTH_API` is read. It throws in `api` mode until the real client exists, so nobody signs in against the mock by accident.
+
+- **Files** (`src/screens/auth/`): `SignInScreen.tsx` and its CSS module, `SignInRoute.tsx`, `signInStrings.ts` (every string, copied from Figma), `useIsPhone.ts`, `useSignInConnectivity.ts`, `authClient.ts`, and `gallery/` (the frame registry and the page).
+- **Gallery and compare.** `/auth/_states` lists the five frames at their Figma size; `?frame=G1.4` draws one. `npm run compare -- auth G1.1 G1.2 G1.3 G1.4 G1.5` screenshots them beside `.figma/<id>.png` (it needs `npm run dev` running).
+- **Retry.** A wrong password or an unknown email shows "Email or password is wrong. Check both and try again." under the password, keeps the email, clears the password and puts focus back on it. Attempts are not counted and nothing locks.
+- **Offline.** `navigator.onLine` events are fed into the field `connectivity` store by `useSignInConnectivity`, because the field runtime that normally does this does not run on `/sign-in`. Offline shows the G1.5 notice and disables Sign in; an existing session is never touched.
+- **Loading.** The form is a disabled `fieldset` and the button is busy. The button keeps its box, so nothing moves.
+- **Demo accounts.** Tapping a row signs in at once with the demo password. Offline it only fills the fields.
+
+**Decisions confirmed (2 Oct).** Demo rows sign in at once; desktop controls are 40 px as drawn and 44 px on touch; the wrong-password message names what to do. Where Figma is silent or contradicts the brief on a UX point, the stronger experience is chosen and any visible difference from a frame is recorded under "Departures from the brief".
+
+**How it was checked.** Each frame was captured at 1x and diffed against its Figma PNG: every frame has the exact Figma size, every box edge (card, inputs, button, rows, notice) is within 1 px, and what remains is text and icon anti-aliasing plus a 1 px offset on the Prototype tag. The behaviour was driven in Chromium: wrong password then retry, no lockout, unknown email, no layout shift while loading, the four demo rows, four roles in four tabs of one browser, `/` redirecting a signed-in browser, the Dark phone theme and offline blocking and recovery. That script is scratch; the permanent four-role Playwright check comes in A6.
+
+### Departures from the brief
+
+- **Offline detection** reads the field `connectivity` object, not `navigator.onLine` directly. It wraps the browser's online state and adds "Simulate offline", which the walkthrough uses, so sign-in agrees with the rest of the app about being offline.
+- **The API pattern** follows `api/StoreApi.ts` and `mockStoreApi.ts`. The brief points at `LoaderApi` and `mockLoaderApi.ts`, which live on the unmerged `feature/loader`.
+- **`Role`** is the existing union in `domain/status.ts`; no second one was declared.
+- **The wrong-password message names what to do.** G1.4 draws "Email or password is wrong." The brief asked for an error that says what to do next, so the live message adds "Check both and try again." The drawn sentence is verbatim and still does not say which of the two was wrong. This is a visible difference from G1.4, chosen deliberately, so the gallery frame and the compare for G1.4 show the longer text.
+- **Line height is 1.08**, not the project's fixed 34 and 24. The frames set the sign-in text to automatic line height, and the browser's own `normal` (1.088) drifts 2 px down the card. 1.08 was measured against G1.2 and lines every box up exactly.
+- **The desktop button is the shared `Button`**, medium, with its height and label size overridden through the `--size-button-md` and `--text-button-md` tokens inside the sign-in screen (40 px and 14 px, as G1.1). No second button was built and no shared file changed.
+- **The disabled Sign in is the shared Button's 50%**; G1.5 draws 40%.
+- **The demo row icons are 18 px**, as drawn. The shared `Icon` has no 18 size, so the SVG is sized in the sign-in CSS.
+- **The email value is set in Plex Mono**, as G1.4 draws it, with the placeholder in Archivo.
+- Sign-in assumptions where Figma is silent (demo row behaviour, the live theme, desktop control height, focus on load, empty submit) are in PRD section 4d under "App shell assumptions", unnumbered for central numbering.
+
+### Shared files this role has changed
+
+- **`frontend/src/app/App.tsx`** (A3, its own commit; a shared contract under Contributing section 18). It now routes `/` (a redirect), `/sign-in`, `/start`, `/auth/_states`, `/loader/*`, `/driver/*`, `/dispatcher/*`, `/field/_components` and `/store/*`. The route components live in `screens/auth/` under their final names, so sign-in, the role picker and the gallery replace their placeholders without touching this file again.
+  - **The Store is no longer the catch-all.** Unknown paths go back to `/`, which sends a signed-in person to their role home and everyone else to `/sign-in`. The Store keeps every `/store/...` URL it had. It cannot sit under a `/store/*` parent, because `StoreRoutes` uses absolute `/store/...` paths and React Router would resolve them relative to `/store`, so it stays at the catch-all and answers only for its own prefix.
+  - **Dispatcher slot.** `feature/dispatch-planning` is not merged, so `/dispatcher/*` renders a placeholder. The route has to exist: a signed-in dispatcher is sent from `/` to `/dispatcher/queue`, and without it that path would bounce back to `/` forever. The slot is marked in `App.tsx`. When the dispatcher branch merges, replace that line with `<Route path="/dispatcher/*" element={<DispatcherApp />} />` and delete `DispatcherSlot`.
+- The presenter control (`app/PresenterControl.tsx`) and the Store top bar change in A4 and A5, each in its own commit, and will be listed here.
+
+### Phases
+
+- [x] A0 `AuthApi`, mock, `session.ts`, types (10 tests)
+- [x] A1 G1 sign-in, five states, desktop and phone, retry, offline (8 new tests)
+- [ ] A2 G2 `/start`, four role cards
+- [x] A3 router: `/sign-in`, `/start`, `/` redirect, `/auth/_states` (`/start` and `/auth/_states` are placeholders until A2 and A6)
+- [ ] A4 one shared presenter panel in `app/presenter/`, replacing the Store's copy
+- [ ] A5 avatar menu, mounted in the Store top bar
+- [ ] A6 gallery, Figma compare, Playwright four-role sign-in, this section completed, `docs/ai-disclosure.md` line
+
+### Still to check
+
+- The Store keeps `app/scenarioClock.ts` and the field apps keep `field/clock/clock.ts`. Two clocks, not unified here; whoever wires the real API should merge them.
+- The vitest session tests stub `window.localStorage` because the test environment is `node`. A browser-level check of the four-tab sign-in comes with the Playwright script in A6.
+- **Real client, wire format.** Over the wire the backend sends camelCase (`accessToken`, `expiresAt`, `displayName`), because its `ApiModel` has a camelCase alias generator. The real `AuthApi` maps those to `Session`; the field names in `types.ts` already match.
+- **A server error has no frame.** `SignInFailureReason` is `invalid_credentials` or `offline`. A `5xx`, or a `429` if the backend adds rate limiting, would need a third reason and copy, and Figma draws neither. Decide with the real client.
+- **Sign-in button weight and disabled opacity.** The label renders at the shared token's 600 where the Figma dump says Bold, and the disabled button is the shared 50% where G1.5 draws 40%. Check both against the Store's buttons in the A6 compare pass.
+- **G1.4 compare.** The live message is longer than the frame's by design, so the G1.4 compare will differ on that one line.
+
+---
+
+## 🏭 Waypoint Load (Loader)
+
+L1 Dock, L2 Load plan, L3 Flag exception and L4 Plan changed, built in `frontend/`, branch `feature/loader` from `feature/field-foundation`. Binding rules: [`docs/build/field-conventions.md`](docs/build/field-conventions.md) and the loader prompt. The tablet layout (L1.7) is built and a Playwright run plays both stories (L6).
+
+**Status:** L0 (types, fixtures, `LoaderApi`, mock server), L1 (Dock: every state, PIN acknowledgement, countdowns, held vehicle, plan-changed banner, offline cache, empty, loading, error) and L2 (Load plan: checks, count confirm, short units, the gate, loaded, held, the VEH003 → VEH036 swap reload), L3 (flag exception sheet, the outbox-driven sent, saved and failed states) and L4 (what changed between plan versions, acknowledge, begin loading) built, checked and compared against Figma. L1.7 (tablet master-detail at 1024 px and wider) is built as L5. The state gallery holds every frame the loader prompt lists (42), all compared against Figma, and `npm run test:loader-stories` plays both stories in a browser.
+
+### How to run
+
+```bash
+cd frontend
+npm install
+npm run dev
+# http://localhost:5173/loader/dock?dock=peliyagoda        Priya's dock
+# http://localhost:5173/loader/dock?dock=kandy&at=04:14     Ruwan's dock, v4 no change
+# http://localhost:5173/loader/vehicles/VEH003/trips/1/flag?dock=peliyagoda&date=2026-09-29&at=02:55&dev=1   Priya's flag
+npm run compare -- loader L1.1 L1.3 L2.1-A L2.3-A L2.4 L2.5 L2.6-A L2.6-B --base http://localhost:5173
+```
+
+`?dock=peliyagoda|kandy` sets which dock this tablet is at and saves it (`settings` table); without it, or on a first run with nothing saved, a plain dock picker asks once. This picker is not a designed screen (loader prompt section 3 allows it) and is kept out of the main UI.
+
+### The two stories
+
+- **Priya, Peliyagoda.** Open `/loader/dock?dock=peliyagoda`. Acknowledge plan v3 (PIN `1234`), open VEH003 or VEH035's load plan, check each order (the count stepper is prefilled, lower it for a shortfall), confirm the gate with a PIN. To play the swap, open `/loader/dock?dock=peliyagoda&date=2026-09-29&at=02:55&dev=1`, acknowledge v3, open VEH003, **Flag issue**, **Vehicle check failed**, **Send to Dispatch** (PIN `1234`), then tap **Dispatch decides now** (the tab on the top edge) instead of waiting for 03:00. **Review change** opens L4: what changed (ORD1002 removed, VEH003 → VEH036), **Acknowledge and load VEH036** (PIN), then **Begin loading VEH036** opens VEH036's load plan.
+- **Ruwan, Kandy.** Open `/loader/dock?dock=kandy`. Acknowledge plan v3 (PIN `5678`) first (so there is a version to compare against), then once Peliyagoda's plan reaches v4 the Kandy dock shows "Plan v4: no change to your vehicles" and asks for a fresh acknowledgement (L1.6 A/B), then load VEH039 (L2.1 to L2.4) and confirm the gate.
+
+### Demo PINs
+
+Priya `1234`, Ruwan `5678` (PRD v3 assumption A36). Both are offered at both docks (their `dock` in `fixtures.ts` is their home dock, informational only). "Other…" takes a typed name plus the guest PIN `0000` and is recorded as the actor under that name.
+
+### `LoaderApi` and the mock server (`src/screens/loader/`)
+
+- `fixtures.ts`: docks, people, PINs and the guest PIN, plan v3 and v4 trips for VEH003, VEH035, VEH036, VEH011 (Peliyagoda) and VEH039 (Kandy), copied from PRD v3 §4c's "Plan v3 trips" and "Pinned orders" tables.
+- `LoaderApi.ts` / `mockLoaderApi.ts`: one in-memory server per app session. `getDock`, `getLoadPlan`, `getPlanDiff`, `getException`, `getCurrentVersion` read it; `acknowledgePlan`, `recordCheck`, `confirmLoaded`, `flagException` write it. Every write applies to the mock server at once (so the screen never waits on the network to show a check as saved) and is also enqueued under `loader.ack`, `loader.check`, `loader.confirmLoaded` or `loader.exception`, so the outbox, the sync engine and the connectivity chip all see it the same way a real write would behave. The VEH003 "Vehicle check failed" exception resolves into plan v4 at the scenario's 03:00, or at once via `devResolveExceptionNow`, which the **Dispatch decides now** tab (`?dev=1`) calls.
+- `LoaderProvider.tsx` / `LoaderContext.ts`: creates the one `LoaderApi` for the session, resolves the dock, and remembers the last person to enter a PIN this session (`currentPerson`) as the actor for a write the frames never re-prompt for, such as a per-order count confirm.
+- Reads go through `useFieldQuery` (`field/offline/query.ts`): cache-then-network, falling back to the last cached value on a `NetworkError` and marking it stale (L1.S-3, L2.S-3).
+
+### L1 Dock (`src/screens/loader/dock/`)
+
+`Dock.tsx` is presentational (a `view`, an `alert`, a list of vehicle cards, a pinned acknowledge button); `DockContainer.tsx` wires it to `LoaderApi`, the scenario clock and connectivity for the live route, and the state gallery builds the same `Dock` and `VehicleCard` straight from literal fixture props, per frame. `VehicleCard.tsx` is the vehicle row (L1.1 to L1.6), including the held variant with its "Go to VEH0xx" shortcut.
+
+### L2 Load plan (`src/screens/loader/loadplan/`)
+
+`LoadPlan.tsx` is presentational and covers every L2 phase: the in-progress checklist with each order's inline count-confirm (no sheet: the row itself expands, matching L2.1 B's taller frame), the gate, two different "loaded" layouts (L2.4's plain summary with "Who already knows" for a normal vehicle, L2.6 B's capacity bars and full order list for the swap), the held/frozen read-only list (L2.5), and the empty, loading, offline and error states. `LoadPlanContainer.tsx` wires it to `LoaderApi`. The reverse-stop-order check row reuses `LoaderCheckCard` (field conventions LIB1), extended this phase with a `planned` state (the held list's read-only pill) and a `protectedOrder` flag (OUT012's lock tag in place of its brand tag).
+
+### L3 Flag exception (`src/screens/loader/flag/`)
+
+`FlagSheet.tsx` is the bottom sheet over the load plan: **What's wrong?** (L3.1, the six types), the details for the chosen type (L3.2 A for a failed vehicle check, L3.2 B for an order), then it follows the flag: **sending** (L3.4 C), **sent, Kumari reviewing** (L3.3 A) and **decision made, plan v4** (L3.3 B). `FlagStatus.tsx` draws the two full screens that replace the sheet: **saved on this tablet** (L3.4 A, offline) and **couldn't send** (L3.4 B). `FlagContainer.tsx` wires them to `LoaderApi` and the outbox.
+
+The flow runs at `/loader/vehicles/:vehicleId/trips/:trip/flag` (the load plan stays behind the sheet). "Flag issue" opens the type chooser; "Flag shortage" on L2.2 opens Missing item with that order and the units short already filled in. **Send to Dispatch** asks for a PIN (`PinSheet`), then saves the flag in the outbox. What the sheet shows comes from that outbox record, not a timer: waiting while online is "sending", waiting while offline is "saved on this tablet", an error is "couldn't send" (Retry runs `runSync({ force: true })`), accepted is "sent". A failed vehicle check holds the vehicle at once (L1.4, L2.5) and Dispatch decides it into plan v4 at 03:00 on the scenario clock; **Review change** then opens L4.
+
+**Every other flag only reaches Dispatch** (PRD v3.1 G-14, no designed resolution): the sheet stays at "sent", the status line becomes "Kumari has seen this" once Dispatch opens it, and no plan version follows. Add `?dev=1` (or `?presenter=1`) to show a **Dispatch decides now** button, which decides the VEH003 check or marks any other flag seen, so the flow can be played without waiting for 03:00. In API mode the real dispatcher does this at D8 (PRD v3.1 section 13).
+
+An optional photo (Vehicle check failed, Damaged item, Wrong item, Other) uses the device camera where there is one and the file picker where there is not (A58), compressed to JPEG at 1600 px and quality 0.7 (A57), and uploads after its record.
+
+### L4 Plan changed (`src/screens/loader/changes/`)
+
+`PlanChanged.tsx` is presentational: the diff in the order the prompt asks for (Removed, loudest; Changed; Unchanged; the new trip 1 capacity; the vehicles with no change, collapsed), the pinned **Acknowledge and load** with its "You'll enter your PIN" helper, and the states around it: **acknowledged** (L4.2), **no change for this dock** (L4.3, still needs acknowledging), **up to date** (L4.S 1), **loading** (L4.S 2), **offline, may be missing a newer version** (L4.S 3) and **couldn't load, Retry** (L4.S 4). `ChangesContainer.tsx` wires it to `getDock` and `getPlanDiff` at `/loader/changes`. The diff runs from the version the dock last acknowledged to the current one; once this screen acknowledges, it keeps showing that same diff (L4.2) instead of reading the new version as the old one. **Begin loading** goes to the first changed vehicle's load plan.
+
+### L5 Tablet master-detail (`src/screens/loader/tablet/`)
+
+At 1024 px and wider the dock and load plan share one screen (frame L1.7, 1024 x 768). `TabletShell.tsx` draws the app bar (Waypoint Load, tabs, date line, sync chip), a 360 px master pane and the detail pane. `TabletDock.tsx` owns the dock query and passes it to `DockContainer` (`embedded`, so a card selects its vehicle and has no action button); the detail pane is `LoadPlanContainer` in `embedded` mode. The selected vehicle comes from the URL (`/loader/vehicles/:id/trips/:n[/flag]`); on `/loader/dock` it is the next vehicle to load once the dock is acknowledged, and a placeholder while the dock is locked. `LoaderApp.tsx` uses a layout route (`DockRoutes`) that renders `TabletDock` on wide screens and an `Outlet` on phones, so the phone screens are unchanged. `WideColumn.tsx` centres L4 at 720 px.
+
+### Playwright run of both stories
+
+`npm run test:loader-stories` (`scripts/loader-stories.ts`, needs the dev server; `-- --base http://localhost:5199` for another port, `-- --headed` to watch) plays both stories at 390 x 844 in Chromium. Mock state lives in memory, so each story stays in one page session after its first load and every later step is a tap.
+
+- **Priya, Peliyagoda, from 02:55:** acknowledge v3 (PIN 1234), open VEH003, flag Vehicle check failed, send with PIN, Kumari reviewing; the tablet goes offline (the chip says Offline) and back online; Dispatch decides, the sheet reads plan changed to v4; review the change (ORD1002, VEH036), acknowledge v4 with PIN, begin loading VEH036.
+- **Ruwan, Kandy, from 04:14:** acknowledge with PIN 5678, open VEH039, check ORD2003, ORD2002 and ORD2001 (the progress reads 1, 2, 3 of 3), confirm loaded with PIN, and see it cleared.
+
+It checks there is no horizontal overflow on the offline step and the change screen, fails on any uncaught page error, and saves `.compare/loader-stories-fail.png` when a step fails.
+
+### State gallery
+
+`/loader/_states` registers all 14 of L1's frames (L1.1 to L1.7, the four L1.S states) and all 13 of L2's frames (L2.1 A to L2.6 B, the four L2.S states). It also registers all 8 of L3's frames (L3.1, L3.2 A and B, L3.3 A and B, L3.4 A to C) and all 7 of L4's (L4.1 to L4.3, L4.S 1 to 4): 42 frames in all. `npm run compare -- loader --all` renders every one beside its Figma screenshot. `npm run compare -- loader <id>` matches each against its Figma screenshot; `PinSheet`'s `demoPhase`/`demoDigits` props and `LoadPlan`'s `demoExpanded` prop freeze a sheet or a row open for the frames that need it (L1.2 B/C, L2.1 B, L2.2, L2.3 B).
+
+### Departures from the Designathon design (loader)
+
+- **L1.1 / L1.5 locked cards.** A locked card with no diff shows no action at all; a locked card with a diff shows "Acknowledge vN first" and its own disabled button. The build shows the detail line and button only when the card carries a Changed/No change tag, so one rule reproduces both L1.1 (bare) and L1.5 (detailed) exactly.
+- **VEH035's checked count.** L1.3 reads "3 of 4 orders checked" at 00:10, L1.4 reads "3 of 5" at 02:56, with no event between them that checks a 5th order. The state gallery keeps both numbers verbatim (literal per-frame fixtures); the live dock computes VEH035's progress for real, starting at 0, since it is not part of either hero story and the two frame numbers are not reconcilable with one running total.
+- **L2.4 vs L2.6 B's "loaded" layout.** The frames draw two different confirmations: L2.4 is a plain icon-tile summary with a "Who already knows" reassurance list, L2.6 B is a green banner with capacity bars and the full checked order list. The build keeps both, switching on whether the vehicle is a swap (`swap` prop present).
+- **Per-order checks carry no PIN step**, matching L2.1 B exactly (stepper, then "Confirm N units", no keypad); the record's actor is the last person who entered a PIN this session (`currentPerson`), falling back to `"unknown"` if nobody has yet. Only the dock acknowledgement and the L2 gate ask for a PIN, as drawn.
+- **L3's four types with no details frame** (Damaged item, Wrong item, Warehouse shortage, Other). Figma draws details only for Vehicle check failed (L3.2 A) and Missing item (L3.2 B). The first three reuse the Missing item layout with their own heading, icon and "Units damaged / wrong / short" label; Damaged item and Wrong item also offer the photo tile as evidence. Other asks "What happened?" with a typed note. Wording the frames do not give: "Tell Dispatch in a sentence.", the PIN sheet title "Send flag for VEH003", "Who's flagging?" and "Flag from Priya", the sent line for a non-vehicle flag ("Dispatch has your flag. You can keep loading the other orders.") and "Kumari has seen this".
+- **L3.2 B lists three orders; the live sheet lists every order on the trip.** The frame shows ORD1001, ORD1011 and ORD1014 of VEH003 trip 1's five. The gallery frame keeps those three, with ORD1011 drawn without its Chilled tag; the live sheet draws the tag on every chilled order, as PRD 4c has them.
+- **"Flag shortage" opens Missing item.** The Figma link from L2.2 goes to L3.2 B (Missing item), so that is the type prefilled, not Warehouse shortage.
+- **Type labels.** Figma draws "Warehouse shortage" and "Vehicle check failed" on one line, running into the tile's padding. That is what 390 px and wider does; on a narrower screen the label wraps instead of leaving its tile.
+- **No phone number.** "Call Dispatch" (L3.4 A) has no number to dial and does nothing yet: the app holds no phone numbers (field conventions section 12), only "Peliyagoda dispatch desk" as drawn.
+- **L3.4 A and B have no back chevron**, as drawn; "Keep waiting" returns to the dock. Their top bar reads "Peliyagoda", without "dock", as the frames do.
+- **Esc or a scrim tap on the details step returns to the type list** rather than closing the sheet, so a wrong type is one step to undo; Cancel on the type list closes it.
+- **L4's deferral pill icon.** The Removed card's "Deferred · policy → Wed" pill is drawn with a curved arrow; the shared icon set has no matching glyph, so it uses `calendar-clock`, which says the same thing (moved to a later day).
+- **L4 titles are links to the dock.** The screens have no back chevron, as drawn, so the title ("Plan v3 → v4") is the way back.
+- **Wording the L4 frames do not give.** The v3-to-v4 case of "no change" for a dock other than Kandy reads "v4 did not change your vehicles."; the acknowledged-but-no-diff case returns to the dock instead of showing an empty diff; the expanded "no change" list reads "VEH035: same trips, same orders as v3".
+- **The phone's gate has only the confirm button once every order is checked.** L2.3 A draws no Flag issue button there, only "Confirm loaded: clear to depart" and "You'll enter your PIN". Flag issue returns if an order is unchecked again, and the tablet detail pane keeps it as L1.7 draws.
+- **The tablet's Issues tab is drawn but inert.** L1.7 shows it; the loader has no designed Issues screen, so it does nothing.
+- **No visible gate helper in the tablet detail pane.** L1.7 draws the pinned gate row without the helper line; it stays in the page for screen readers.
+- **Compact checked rows.** On L1.7 a loaded row drops its brand tag and zone line; `LoaderCheckCard` takes `compact` for it.
+- **L4 on a wide screen.** There is no tablet frame for L4, so it is centred in a 720 px column.
+- **Long order-ID lines wrap** with a trailing dot on a long list, rather than being cut.
+- **Sheets stay a centred bottom sheet at tablet width**; no tablet frame draws one.
+- **The dev control is a tab on the top edge.** It used to sit in a corner and covered the pinned action on L4 and the dock; no loader screen puts anything on the top edge, centre.
+
+### Shared files this role has changed
+
+- `field/components/PinSheet.tsx`: two new optional props, `demoPhase` and `demoDigits`, so the state gallery can freeze the sheet on its success or wrong-PIN frame without a fake timer. No existing prop or behaviour changed.
+- `field/components/LoaderCheckCard.tsx`: a `compact` prop (L1.7's loaded row), a `planned` state (L2.5's read-only pill), a `protectedOrder` flag (a lock tag in place of the brand tag), and a `"{n} short"` tag next to the position tag when `state` is `short`. No existing prop or behaviour changed.
+- `field/format.ts`: added `formatCountdown(minutes)` ("in 3 h 45 min", "in 56 min").
+- `field/offline/query.ts` (new) and `field/offline/index.ts`: `useFieldQuery`, the cache-then-network read hook every field screen's offline state needs. Exported alongside the rest of `field/offline`.
+- `vite.config.ts`: `server.fs.allow` now adds the real parent of `node_modules` only when it resolves outside the project directory (a worktree with a symlinked `node_modules`); a normal checkout is unaffected.
+- `shared/ui/Icon.tsx`: two new names, `archive` and `wrench`, which L3.1 draws. Additive.
+- `field/components/BottomSheet.tsx`: a gallery (non-modal) sheet now draws the 60 percent scrim Radix leaves out and no longer pulls focus into its frame, so the L1.2, L2.3 B and L3 frames dim their screen as Figma does; a tap on anything carrying `data-keeps-sheet-open` (the dev controls, and the presenter control when it lands) no longer dismisses an open sheet. The live modal behaviour is otherwise unchanged.
+- `field/offline/query.ts`: `useFieldQuery` also returns `refresh()`, a background re-read that keeps the current screen, alongside `retry()`, which resets to loading. Polling and refreshing after a write used `retry`, which blanked the whole screen and unmounted an open sheet every 15 seconds; they use `refresh` now.
+- `scripts/compare-frames.ts`: waits 500 ms before capturing, so a sheet is shown settled rather than sliding in.
+- `docs/ai-disclosure.md` (new): the table Contributing.md section 29 asks for, with this branch's row.
+
+### Phases
+
+- [x] L0 types, fixtures, `LoaderApi` and mock server
+- [x] L1 Dock: every state, PIN acknowledgement, countdowns, offline cache
+- [x] L2 Load plan: checks, count confirm, short units, gate + PIN, loaded, held, swap reload
+- [x] L3 Flag exception sheet
+- [x] L4 Plan changed
+- [x] L5 L1.7 tablet master-detail
+- [x] L6 Playwright run of both stories, final README pass
+
+---
+
+## 🚚 Driver (Waypoint Driver)
+
+Nimal's app: today's stops, offline-first, one decision at a time. Built in `frontend/`. Branch: `feature/driver`, cut from `develop` after `feature/field-foundation` merged. Driver prompt 3 (`claude/field-build/03-driver-core.md`) covers the shell and the hero delivery path (R1 Route, R2 Stop detail, R3 Record outcome, the Me tab); the outbox sheet, sync, conflicts and notifications (R4, R5, R8) are prompt 4, and problems, history, the GPS tracker, finish run and calendar days (R6, R7, R9, R10) are prompt 5.
+
+**Status:** R1 to R3, the Me tab and driver prompt 4 (R4 Outbox, R5 Sync result, R8 Notifications, the conflict and its resolution) are built, checked and pushed. D0 to D5 and O1 to O6 (below) are done, except the physical-phone check, which needs a person with a phone (see "Real devices").
+
+### How to run
+
+```bash
+cd frontend
+npm install
+npm run dev              # http://localhost:5173
+npm run dev:https        # self-signed HTTPS on the LAN: the real camera needs a secure context on a phone
+npm run compare -- driver R1.1 R3.1   # frame screenshots beside Figma (needs the dev server and .figma/<id>.png)
+npm run test:hero        # the hero path end to end against a running dev server (see "Checks run")
+npm run test:hero -- --partial   # the same, ending with the presenter's "Keep as Partial (10 of 12)"
+npm test                 # vitest, 55 tests
+npm run build && npm run preview   # then, in another terminal:
+npm run test:offline -- --base http://localhost:4173   # the production build opens with no network
+```
+
+Add `?presenter=1` to any driver URL to get the presenter controls in the Outbox sheet (see "The Outbox").
+
+| Route | Screen |
+|---|---|
+| `/driver`, `/driver/run` | R1 Route |
+| `/driver/stops/:stopId` | R2 Stop detail |
+| `/driver/stops/:stopId/outcome` | R3 Record outcome |
+| `/driver/me` | R1.9 Me tab |
+| `/driver/issues` | R6 Issues (placeholder; driver prompt 5) |
+| `/driver/history` | R7 History (placeholder; driver prompt 5) |
+| `/driver/notifications` | R8.1 Notifications, R8.4 when empty |
+| `/driver/notifications/photo/:blobId` | R8.3 Photo failure detail |
+| `/driver/sync-result?view=conflict`, `synced`, `resolved` | R5 Sync result |
+| `/driver/finish` | R9 Finish run (placeholder; driver prompt 5) |
+| `/driver/_states` | The state gallery (dev only; `?frame=ID` renders one frame full screen) |
+
+**The scenario clock.** `?at=HH:MM` starts the clock there and lets it tick in real time; `?date=YYYY-MM-DD` picks the day (default Tue 29 Sep 2026). Without `?at=` the driver starts at 04:45, the first frame's own time. There is no presenter control on this role (that is the Store's): to move through the hero timeline quickly, re-open a route with a later `?at=` rather than waiting in real time; the phone's local state (acknowledged, departed, each stop's arrival and outcome) is in IndexedDB and survives the navigation, so this is how the hero walkthrough script moves between H5 and H14.
+
+**The hero path** (PRD H5 to H14, driver prompt 3 section 2): 04:45 route known, not yet downloaded (R1.3 A) → tap Acknowledge v4, downloads (R1.2 A), ready offline (R1.2 B) → tap again, acknowledged, Ruwan's gate confirmation shows once past 04:50 (R1.3 B / R1.4) → 05:10 Start route (R1.5) → 05:17 the Kandy corridor drops coverage for real (R1.6) → 05:26 arrive OUT084 before its window, wait for 05:30 (R2.2 A) → window open, record Delivered for ORD2001 and ORD2002 with a photo and a receiver name (R3.1 → R3.7, which turned out to be the Run screen itself, see "Departures") → 05:48 arrive OUT087, already inside its window → 05:58 record Delivered for ORD2003 → 05:59 all stops recorded, five records waiting on the phone (R3.9 / R3.10).
+
+### The theme rule and text size
+
+The sunlight switch (R1.9) wins when it is on, forcing Field; otherwise the phone's own `prefers-color-scheme` decides Dark or Light, per the R1.9 copy ("Dark mode follows your phone's setting"). Verified in a real browser: toggling the switch flips the role root's `data-theme` at once and the choice survives a reload (`DriverProvider`, backed by the field database's `settings` table).
+
+Text size (Standard / Large) scales the body content, not the chrome: `DriverShell` applies CSS `zoom: 1.15` to the scrollable `<main>` when Large is chosen, so the top bar and tab bar stay their fixed size while everything else — type and the spacing around it together — grows. `zoom` is Chromium and WebKit only (not Firefox); the project's own tooling (Playwright, the compare script) and real phones (Chrome, Safari) are both covered, so this was the pragmatic choice over rewriting every driver stylesheet's fixed-px type scale into a parallel rem-based one.
+
+### Language
+
+The `t(key, params)` dictionary (`i18n.ts`) is complete in English and routes every driver string, as the brief asks. Sinhala and Tamil are still empty and fall back to English, exactly as driver prompt 3 scoped it ("filled in prompt 5"); when they are filled they will be a machine draft needing a native-speaker review (open decision O-8), not reviewed as of this PR. Language labels in the Me tab picker are always shown in their own script regardless of the chosen language.
+
+### Offline and the Kandy corridor
+
+`DriverProvider` runs a real connectivity gate (`field/offline`'s `connectivity.setGate`) that closes at Tue 29 Sep 05:17 and reopens at 06:40, the **coverage profile**: the Kandy gap. The presenter's "Kandy corridor coverage gap" switch (under `?presenter=1`) turns the profile on and off, and **Simulate offline** in the Outbox holds the phone offline whatever the clock says. This is independent of a real network drop: the Playwright hero walkthrough exercises both, dropping the browser's own connection with `context.setOffline(true)` as well as letting the scripted gate do its job, and both agree once the clock passes 05:17.
+
+`getRun` reads the phone's own cache and never throws offline, since the route has to be usable with no signal by design; writes (`acknowledgePlan`, `startRoute`, `recordArrival`, `recordOutcome`) update that same cache at once, so the screen reflects them immediately, and queue an outbox record (`driver.ack`, `driver.startRoute`, `driver.arrival`, `driver.outcome`) that the shared sync engine sends once it can. The mock server applies the v5 conflict rule from driver prompt 4 (see "Sync result and the conflict").
+
+**Known gap, a team call:** records already waiting when the app opens online are sent by the 30 s timer or the next `online` event, not at once. Nothing is lost, but a reload leaves them for up to 30 s. Syncing at start would be friendlier on a phone, but it would also change the hero walkthrough's offline reloads, which load a page online for a moment, so it is left as is until the team decides.
+
+### The Outbox (driver prompt 4, O2)
+
+The connectivity chip on every driver screen opens the R4 Outbox sheet (`screens/driver/outbox/`). It is a read of the phone's own outbox (`useOutbox()`) and connectivity (`useConnectivity()`), so it never touches the network. One bar says what the device is doing, in this order: sending ("Sending 5 records…", with "3 / 5" also on the chip), offline ("Offline · 5 saved on phone", "Last sync 05:17"), failed and retrying, sent for review ("1 stop (2 orders) sent for review. Nothing for you to do."), or all synced (the empty state). The rows are the driver's own events in save order: Departed, Arrival, and one outcome per order. The plan acknowledgement is not listed. A conflict row reads Synced again once Dispatch has resolved its stop.
+
+- **Simulate offline** (the "Prototype" row) is the foundation's real `connectivity.setSimulatedOffline`: it persists, and every screen reacts.
+- **Send now** and **Retry now** call `connectivity.sendNow()`, which forces a run past the 30 s wait. Pressing it repeatedly joins the run in flight, so nothing is sent twice. Offline it sends nothing and loses nothing.
+- **Presenter controls** appear in the sheet only under `?presenter=1`: the Kandy corridor coverage gap switch, "Fail next photo upload", and "Dispatch resolves now: Keep delivery" or "Keep as Partial (10 of 12)" while a conflict is open.
+- The chip gains two drawn variants: "3 / 5" while syncing, and "Retrying 1" while a failed record waits for its automatic retry.
+
+### Sync result and the conflict (driver prompt 4, O3)
+
+R5 (`screens/driver/sync/SyncResultScreen.tsx`, route `/driver/sync-result?view=conflict|synced|resolved`) says plainly how the run stands after a sync. It is one screen with seven frames: what went out and what went to Dispatch (R5.1), all synced (R5.2), Dispatch's decision (R5.3), and offline again, sync failed, nothing to sync and loading (R5.S). Every count is read from the same rows the Outbox shows (`outboxRows`), so the two cannot disagree. R5.1's two conflicting orders are one row, "Delivered ORD2001 + ORD2002", and the 05:21 and "store's request" wording comes from the conflict the mock server returned (`ConflictDetail.changedAt` and `changedBy`, added for this).
+
+**When it shows** (`sync/syncView.ts`). Only a catch-up run counts: the phone had been offline with records waiting, the run was not cut short, something went out, and nothing failed. A single record sent from the road a moment after it is saved is not a "sync result". The result is queued once and shown the next time the driver is on the Run screen, or over an open Outbox. The outcome screens never enable it, so it can never interrupt R3 while recording. It survives a reload while unseen, and so does "the phone was offline", so an app killed offline still tells the driver once it syncs. A resolution from Dispatch queues R5.3 once per stop.
+
+**While a conflict is open** and the phone is online, `useSyncWatcher` (mounted by the shell, so on every driver screen) asks `getNotices` every 30 s of scenario time and after every sync. When Dispatch's decision lands on a stop the run switches from R1.7 to R1.8 by itself and R5.3 shows once.
+
+**R1.7 and R1.8 are real.** The run screen's all-recorded layout reads the stops: a stop with an open conflict is "Sent for review" with the amber bar and View (which opens the Outbox on the conflict); a resolved stop reads Delivered, or Partial, with the green bar. While records still wait it is R3.9 and R3.10, the same layout with "5 on phone" and Saved on phone pills. `RunScreen`'s gallery-only `reviewNotice` prop is gone. Frames R1.7, R1.8 and R5.1 to R5.S 4 are in `/driver/_states` and were compared against Figma with `npm run compare`.
+
+### Photos after records, and the failure branch (driver prompt 4, O4)
+
+A stop's photo and signature belong to its first record and upload only after that record has reached the server, one at a time in the order they were taken. `recordOutcome` ties them to the record before it is queued: queueing starts a sync at once, and until now nothing called `attachBlob`, so a photo had no owner and the engine would have sent it ahead of the delivery it proves.
+
+A failed upload never fails its record. The record reads Synced, the photo stays on the phone, and the phone retries it every 30 s (or at once on Retry or Try again).
+
+- **R8.2, the alert on the run.** "Couldn't send photo of stop 1. Kept on phone." with Retry. The alert text opens R8.3; Retry sends now. The progress pill reads "1 on phone", and the stop reads "Delivered 05:42 · photo still on phone" with a "Photo on phone" pill. The alert takes the bar's slot ahead of the under-review notice, since it is the one the driver can act on; the stop's own pill still shows a stop under review.
+- **R8.3, the detail** (`sync/PhotoFailureScreen.tsx`, route `/driver/notifications/photo/:blobId`): what failed, what is safe, when it was taken, the last try, when the delivery record synced, and the reference WP-SYNC-409. Try again sends now; View outbox opens the sheet, whose bar reads "1 photo didn't send. Retrying automatically every 30 s." When the photo gets through the driver is taken back to the run and the alert is gone. The notifications list links its "Sync failed" entry to the same route.
+- **One notice per photo.** The phone retries every 30 s, so the "Sync failed" notice is kept once per photo with the time of the latest try, and names the real stop from the photo's record (it used to say stop 1 for every photo).
+- **A failed photo is not a failed sync.** The R5.S 2 "Sync failed" screen is for records that did not send; a photo that will not send is the run's alert, and R5.1 still shows the records that got through.
+
+### Notifications and the bell (driver prompt 4, O5)
+
+R8.1 (`notices/NotificationsScreen.tsx`, route `/driver/notifications`) lists only the changes that affect the driver's own run, newest first, and R8.4 is its empty state. The notices live in the phone's own cache, so they are there offline and survive a reload. The bell on every driver screen counts the unread ones; it is a number, never a bare dot.
+
+- **What it holds:** Dispatch resolved a stop; sync failed (a photo); delivery sent for review; N records synced (what went out, listed); plan v5 received (the first time a sync reaches the server); you went offline (once per spell of no coverage); orders on board (the load confirmed); plan released. Filters: All, Sync, Dispatch, Run.
+- **Opening one** marks it read and leads where the navigation map says: resolved to R5.3, sent for review to R5.1, sync failed to R8.3, records synced to the Outbox. Plan and load entries are information only. "Mark all read" clears the count and the bell badge.
+- **Born read:** the plan release and the load confirmation are things the server told the phone before the day began, so they arrive read; the bell counts what needs a look. The same goes for "You went offline".
+- **A batch, not every record:** "N records synced" appears when two or more arrivals or deliveries go out together. One record sent from the road a moment after it is saved raises nothing.
+
+### Real devices, the service worker and the iOS note (driver prompt 4, O6)
+
+- **Offline after one visit.** The production build registers a service worker (`vite-plugin-pwa`). `npm run test:offline` checks it: after one visit it sets the browser offline, reloads, and checks that the cached run is on screen, that a departure recorded offline survives a reload, and that the Me tab shows storage used. This passes on desktop Chromium.
+- **Storage.** `startFieldRuntime` asks `navigator.storage.persist()` at first run; the browser decides, and desktop Chromium usually says no for a new origin. The Me tab shows "N MB used" from `navigator.storage.estimate()`.
+- **iOS has no Background Sync API.** Safari on iPhone will not wake the app to send records. Syncing happens only while the app is open: on the `online` event, on the 30 s timer, and on "Send now". A driver who records a stop in a dead zone and closes the app sends nothing until the app is opened again with coverage. The app does not register a background sync on Android either, so it behaves the same way there.
+- **The physical-phone check has not been done.** It needs a person with a phone. Checklist, on a production build served over HTTPS (`npm run build`, then any HTTPS host):
+  1. Android (Chrome) and iPhone (Safari): open the app once with coverage, then Add to Home Screen and open it from the icon.
+  2. Acknowledge plan v4 and start the route, with coverage.
+  3. Turn airplane mode on at "05:17" (or turn on Simulate offline in the Outbox).
+  4. Record the whole of stop 1 with a real photo from the real camera, a receiver name and Delivered for both orders, then stop 2.
+  5. Kill the app from the app switcher. Reopen it with airplane mode still on: the run, the five waiting records and the Outbox must all be there.
+  6. Turn airplane mode off. Open the app and press "Send now" if nothing moves within 30 s. Watch R4.2, then R5.1.
+  7. Note anything that differs: the camera permission prompt, the keyboard covering the receiver name, the bars sitting under the browser chrome, the storage reading on the Me tab.
+
+### Camera, signature and receiver name
+
+`CameraCapture` opens a real `getUserMedia({ video: { facingMode: "environment" } })` viewfinder with a shutter; if the camera is unavailable or permission is refused it falls back to `<input type="file" accept="image/*" capture="environment">`, per field conventions and PRD A58. Headless Chromium has no camera, so every photo in the gallery, the hero walkthrough and this PR's own testing went through the file-input fallback; the live viewfinder path has not been tried on a physical phone in this PR (do that over `npm run dev:https` before the judge walkthrough). Captured photos are compressed with the shared `compressImage` (JPEG, longest edge 1600 px, quality 0.7, PRD A57) and stored with `saveBlob`. `SignaturePad` is a pointer-events canvas saved as a PNG blob. `ReceiverNameForm` offers per-outlet recent-name chips from the fixtures.
+
+### Phases
+
+- [x] D0 types, fixtures, `DriverApi` and mock, sync handlers
+- [x] D1 shell: top bar, banner, tab bar, theme rule, text size, the `t()` dictionary, Me tab
+- [x] D2 R1 Route, every state (R1.1 to R1.6, R1.10, R1.S)
+- [x] D3 R2 Stop detail, every state (R2.1 to R2.3, R2.S 1 to 4)
+- [x] D4 R3 Record outcome: all five outcomes, the per-order grid, camera, receiver name, signature, validation (R3.1 to R3.11)
+- [x] D5 state gallery, a compare pass against Figma, the hero-path Playwright walkthrough, this section
+
+Driver prompt 4 (`claude/field-build/04-driver-offline.md`):
+
+- [x] O1 mock server: plan v5, the conflict rule, grouping by stop, notices, the 06:44 resolution, dev controls, the coverage profile
+- [x] O2 R4 Outbox sheet, Simulate offline, Send now and Retry now (frames R4.1, R4.2, R4.3 1 to 3)
+- [x] O3 R5 Sync result (R5.1 to R5.3, R5.S 1 to 4), R1.7 and R1.8 on real data, the 30 s conflict poll
+- [x] O4 photo upload after records (attached before queueing, in capture order), R8.2 and R8.3 failure branch with retry
+- [x] O5 R8 Notifications list (R8.1), empty (R8.4), the bell count, mark read
+- [x] O6 gallery, compare, remaining tests, the offline production-build check, README. The physical-phone check is written down above and still needs a person with a phone
+
+### Departures from the Designathon design
+
+Figma wins on UI and copy (field conventions section 2); where it was silent or where building exactly what it drew was impractical, this is what was built instead, and why. Numbered departure rows now collide across parallel branches, so these are prose, not register rows; HH numbers them centrally.
+
+- **R1.3 B and R1.4 are one state, not two.** Both show the plan acknowledged and the loader confirmed, not yet departed; the only difference Figma draws (R1.4 additionally shows the Will-wait and Chilled tags and the Navigate button on the first stop card) reads as the same moment captured a little further along, so the build shows those consistently in both rather than toggling them off for a few minutes after acknowledging.
+- **The connectivity chip's wording is inferred, not drawn as a rule.** Every pre-departure frame's chip time equals that frame's own clock time exactly ("Synced 04:54" at 04:54, "Synced 05:08" at 05:08 and so on), so the build reads it as "Synced `now`" while not yet departed, and "Online" once departed (R1.5, R1.10) or on an error/empty screen (R2.S 3, R2.S 4) — never a stored last-sync timestamp pre-departure.
+- **R3.7, R3.9, R3.10 and R3.5 C are the Run screen, not separate screens.** Reading their frames side by side, all four are the same "Run 1 · VEH039" layout with a done stop shown as a compact row instead of its full card (`CompletedStopRow`), worded for the moment: "{outcome} HH:MM · saved on phone, syncs later" or "{outcome} · issue sent to Dispatch when you reconnect" mid-run (R3.5 C, R3.7), "{outcome} HH:MM · signed {name}" plus a "Saved on phone" tag once every stop is done (R3.9, R3.10). Saving an outcome in `OutcomeScreen` always just navigates to `/driver/run`, which renders the right one from the data.
+- **R2's "Arrived" and "Window opened" facts are two stat tiles,** not Figma's two-row list with an inline tag on each row. Same information, a different shared-component shape; not worth a new row-list component for two call sites.
+- **"All synced" and "Nothing to send" are a plain line,** not the pill Figma draws next to "N of 2 stops done". A stops-done progress bar was still added under that line once it was clear from a pixel comparison that Figma draws one.
+- **Call store has no action.** The dataset has no outlet phone numbers, and field conventions section 8 bars inventing one ("use Peliyagoda dispatch desk" is the pattern for a dispatch contact, not a store's). The button is drawn but does nothing yet.
+- **One shared Proof of delivery section, even in the per-order grid (R3.4).** Figma draws a single photo, receiver name and optional signature for the whole stop in every outcome layout, including when orders have different outcomes, so a Damaged order's "take a photo of the damage" instruction points at that same single capture rather than a second one.
+- **Other reuses the Refused pattern exactly** (reason chips, a name field, "Dispatch will decide"), as driver prompt 3 section 6 directs, since no frame draws it.
+- **(Superseded by O3) R1.7 and R1.8 were gallery-only layouts.** Both are registered in `/driver/_states` with fixture data shaped the way driver prompt 4's sync result will supply it (`RunScreen`'s `reviewNotice` prop), but nothing in this prompt produces a real review or resolution notice, since that needs the conflict rule and a plan v5 the phone does not yet know about (by design: "the phone never learns about plan v5 in this prompt").
+- **ORD2003's weight and volume are not drawn anywhere** (only its 9-unit count is, on R1.2 and R2.3). Estimated from ORD2002's per-unit rate (45 kg / 0.6 m³ for 8 ambient units) as 51 kg / 0.68 m³ for 9 units.
+- **R3.9 and R3.10 were realigned in O3.** Prompt 3 built them as a plain list with a green "Saved on phone" tag. The Figma frames are the same card layout as R1.7: progress row with a "5 on phone" pill, two segments, an uppercase "In trip history" label, and cards with a cloud icon, the outcome and a Saved on phone pill. The helper line sits above Finish run, and the "Delivery saved on this phone" toast is the dark card with an amber cloud after the list. It now shows only when the last outcome was just saved, not on every reopen.
+- **R5.1's rows are in save order,** not Figma's (Arrival OUT084, Delivered ORD2003, Arrival OUT087, then the conflict). The order in the frame follows no rule the data has.
+- **R5.3 for a Partial resolution** has no frame. It reuses the layout with the title "Kept as Partial at OUT084", the body "Dispatch kept your delivery at OUT084 as Partial · 07:05." (the prompt's copy), a Partial pill on each order, and R1.8's bar reads "OUT084 - resolved: delivered as Partial. Kumari kept your delivery at 07:05."
+- **"Call Dispatch" on R5.S 2 has no action,** like "Call store": the dataset has no dispatch desk number and none is invented. The failed screen reuses the reference WP-SYNC-409 that R8.3 uses for a photo.
+- **R8.3 has no bell, chip or tab bar, as drawn.** It opens from the alert on the run and from the list.
+- **"You went offline" is timed when the phone notices,** not at the scripted 05:17: with a real disconnect in the walkthrough it reads 05:20. The Kandy gate frame draws 05:17; with the coverage gap switch on the two agree.
+- **The bell badge is the danger colour at 18 px,** as R1.7, R1.8 and R8.2 draw it, not the amber count the foundation had.
+- **R5.1 opened from an old "sent for review" entry after Dispatch has decided shows the decision (R5.3),** since the conflict it describes is gone.
+- **Camera and Receiver name drop the tab bar; Signature keeps it**, matching what each frame actually draws (R3.2, R3.3 omit it; R3.11 does not).
+- **The Prototype row stays on the live Outbox in every state.** R4.2 and R4.3 draw the sheet without it, but it is the only way to turn Simulate offline on while online, so the app always shows it. Their gallery frames pass `showSimulate: false` so they still match Figma.
+- **"Send now" is pressable offline.** Figma draws it enabled on R4.1 (offline), and the prompt says it is only possible online; it stays enabled and does nothing until coverage returns, rather than greying out a button the frame shows live.
+- **No prototype timers.** Figma's "Times out to" links (R4.2 to R5.1 after 2.5 s, R1.7 to R5.3 after 5 s, R8.2 to R5.3 after 5 s, R5.S 4 to R5.2, R1.3 B to R1.4, R1.5 to R1.6) are not built as timers. Each screen follows the data instead: R5.1 opens when a catch-up sync finishes, R5.3 when Dispatch's decision reaches the phone, and R8.2 stays until the photo sends.
+- **R1.3 A, R1.3 B and R1.4 were compared in O6 and are not pixel-matched.** Their copy and order match, but Figma draws the plan card with a bold title and a smaller button, the loader line as a green card with a check (R1.3 B, R1.4) or as a clock line above an amber Start route (R1.3 A), amber "Will wait" tags and, on R1.4, Navigate after the tags. The build keeps the shared Card, Button and Tag components from the foundation as they are. Left as a departure rather than reworked at the end of the build.
+- **The run's progress bar is teal and plain,** where Figma draws amber segments and, on R1.5, an "All synced" pill (see also the "All synced" line above).
+- **Icons fixed in O6:** Arrive has the map-pin, Problem the alert triangle, and the Issues tab the alert circle, as drawn. The Issues tab's red count badge (R3.5 C) is not built, since Issues is prompt 5.
+- **Behind the R4 sheet** Figma draws the run's subtitle as "2 of 2 stops done · Kandy" and a collapsed stop card; the build's dimmed run reads "All recorded · Plan v4" with the real cards. Both are behind the scrim.
+- **Mono text is regular weight where Figma draws Medium** (IBM Plex Mono is loaded in regular only).
+- **The live app now fills the screen** (`DriverShell`: `height: 100dvh` outside the gallery), so a long screen such as R5.1 scrolls inside the main area and the pinned bar and tab bar stay at the bottom. Gallery frames keep a minimum height so a tall frame grows, as the compare script expects.
+- **The chip says "Synced HH:MM" after a catch-up with news, and "Online" otherwise.** R1.7, R1.8, R4.3 1, R4.3 3, R5.1 and R5.3 draw "Synced" with a time; R5.2 and R5.S 3 draw "Online". The build shows "Synced" with the last sync time on the run, R5.1 and R5.3 while a stop is under review or resolved, and "Online" everywhere else once departed. The Figma frames do not state a rule, so this is inferred.
+- **Syncing and Failed are the plain muted outline on the phone chip,** as R5.S 2 and R5.S 4 draw them, not amber or red. The loader's tablet chip is unchanged.
+
+### Shared files this role has changed
+
+- `frontend/src/domain/field.ts`: `Stop` gains optional `parkingNote` and `unloadMinutes` (additive; R1 and R2's "Rear dock, normal parking. Allow about 15 min to unload.").
+- `frontend/package.json`: two new scripts, `test:hero` and `test:offline`. No dependency or version change.
+- `frontend/src/field/components/BottomSheet`: a `flush` variant (full-bleed body, 40 px grabber) and a `headerAside` slot, a z-index so the sheet and scrim sit above the shell's bars, a plain scrim in the non-modal gallery case (Radix draws none), and the flush sheet opens focused on itself. Existing sheets are unchanged.
+- `frontend/src/field/components/ConnectivityChip`: `progress` ("3 / 5") and a `retrying` status ("Retrying 1"). Additive.
+- `frontend/src/field/offline/blobs.ts` and `db.ts`: `useBlobs()` (null until the first read) and `lastAttemptAt` on a blob, for "Last try". Additive.
+- `frontend/src/field/offline/sync.ts`: photos upload in the order they were taken (the table is keyed by a random id, so they went in a random order), and a failed upload records the time of the try.
+- `frontend/src/field/components/NotificationBell`: the badge is the danger colour, 18 px, top left of the icon (R1.7, R1.8, R8.2). Additive to the count it already took.
+- `frontend/src/field/components/PinnedActionBar`: `helperPosition` ("above" for R1.7, R1.8, R3.9, R3.10). Additive.
+- `frontend/src/field/components/ConnectivityChip.module.css`: the phone chip's Syncing and Failed are the muted outline (R5.S 2, R5.S 4).
+- `frontend/src/field/offline/sync.ts`: a call that joins a run already in flight now makes the run go round once more when it finishes. A record saved while a run was sending was never in that run's list and waited for the 30 s timer, which left "Departed" unsent in the hero walkthrough about one run in three. One new unit test.
+- `frontend/src/field/offline/sync.ts`: `requeueInterrupted()`, called when the engine starts. A record left `sending` by a reload or a killed app was never retried; it now goes back to `waiting` and is sent (the server answers `duplicate` if the first send landed). One new unit test.
+
+### Checks run (D5 and O6)
+
+- `npm run typecheck`, `npm run lint` and `npm run build` are clean on every commit. `npm test`: 55 tests in 6 files (the conflict rule, grouping by stop, duplicates, the counts on R5 equal the outbox, a photo failure keeps its record Synced, resolution and partial resolution, notices, the outbox mode precedence, the requeue and rerun engine fixes).
+- `npm run test:hero` plays 04:45 to 06:46 at 390 x 844 and passes with 64 checks (10 of 10 runs earlier in O6, plus the runs after the final changes): the offline spell, the five waiting records, the 06:40 reconnect, R5.1, the WP-SYNC-409 photo failure and its recovery, R1.7, the 06:44 resolution, R5.3, R1.8 and R8.1. `-- --partial` ends with the presenter's partial resolution instead and passes with 63. The photo failure is one section of the hero script, not a second script: it needs the same 05:42 record and the same 06:40 sync, so splitting it would only repeat them.
+- `npm run test:offline` passes against the production build (service worker, cached run, a record saved offline survives a reload, storage on the Me tab).
+- Pixel-compared with `npm run compare` against Figma screenshots: R1.1, R1.3 A, R1.3 B, R1.4, R1.5, R1.6, R1.7, R1.8, R2.1, R2.2 B, R2.S 1, R3.1, R3.5 B, R3.5 C, R3.7, R3.9, R3.10, R4.1, R4.2, R4.3 1 to 3, R5.1 to R5.3, R5.S 1 to 4 and R8.1 to R8.4. R4, R5 and R8 match apart from the accepted items above; R1.3 A, R1.3 B, R1.4, R1.5, R1.6, R3.5 C and R3.7 differ as listed under the departures. The other R2 and R3 frames were text-verified in D5, not pixel-compared again.
+- Earlier, in D5: every registered R1 to R3 frame was read against the Figma file's own text; the sunlight switch, text size and language settings were checked for persistence across a reload.
+- **Not done:** the physical-phone check (see "Real devices"); the live camera viewfinder has only run through the file-input fallback; no vitest covers `useSyncWatcher` itself (there is no React testing library in the project), and the hero script is what shows R5.3 queued once.
 
 ---
 

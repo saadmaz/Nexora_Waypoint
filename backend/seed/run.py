@@ -162,6 +162,7 @@ def seed(db: Session, *, data_dir: Path | None = None, strict: bool = False) -> 
 
     if load_reference.csvs_present(data_dir):
         report["reference"] = {"source": "csv", **load_reference.load(db, data_dir)}
+        report["reference"]["calendar_generated"] = fallback.extend_calendar(db)
         checks.run(db)
         report["checks"] = "passed"
     elif strict:

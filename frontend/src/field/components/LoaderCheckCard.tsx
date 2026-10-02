@@ -5,7 +5,7 @@ import { Mono } from "../../shared/ui/Mono";
 import { Tag } from "../../shared/ui/Tag";
 import styles from "./LoaderCheckCard.module.css";
 
-export type LoaderCheckState = "todo" | "checked" | "short";
+export type LoaderCheckState = "todo" | "checked" | "short" | "planned";
 
 export type LoaderCheckCardProps = {
   outletId: string;
@@ -21,16 +21,22 @@ export type LoaderCheckCardProps = {
   dock: string;
   unitsLoaded: number;
   unitsExpected: number;
+  /** "planned" is the held vehicle's read-only row (L2.5): never checked, a Planned pill, no action. */
   state: LoaderCheckState;
+  /** OUT012 on L2.5: a lock tag replaces the brand tag (deferred yesterday, protected this run). */
+  protectedOrder?: boolean;
+  /** L1.7: a loaded row drops its brand tag and zone line, as the tablet frame draws it. */
+  compact?: boolean;
   /** The action under the row, for example the 56 px "Load 12 units" button. */
   children?: ReactNode;
   /** Words for the screen: "Loaded", "Short". */
-  labels?: { loaded: string; short: string; chilledZone: string; ambient: string; load: string; stop: string };
+  labels?: { loaded: string; short: string; planned: string; chilledZone: string; ambient: string; load: string; stop: string };
 };
 
 const DEFAULT_LABELS = {
   loaded: "Loaded",
   short: "Short",
+  planned: "Planned",
   chilledZone: "Chilled zone",
   ambient: "Ambient",
   load: "Load",
@@ -57,10 +63,13 @@ export function LoaderCheckCard({
   unitsLoaded,
   unitsExpected,
   state,
+  protectedOrder,
+  compact,
   children,
   labels = DEFAULT_LABELS,
 }: LoaderCheckCardProps) {
   const done = state === "checked";
+  const lean = compact && done;
   return (
     <article className={[styles.card, state === "short" && styles.short].filter(Boolean).join(" ")}>
       {chilled && <span className={styles.accent} aria-hidden />}
@@ -83,14 +92,27 @@ export function LoaderCheckCard({
               <span className={[styles.position, done && styles.muted].filter(Boolean).join(" ")}>
                 {labels.load} <Mono>{ordinal(loadNumber)}</Mono> · {labels.stop} <Mono>{stopNumber}</Mono>
               </span>
-              <Tag kind={BRAND_KIND[brand]} noDot={brand !== "Fresh"}>
-                {brand}
-              </Tag>
+              {lean ? null : protectedOrder ? (
+                <Tag kind="outline" icon="lock">
+                  Protected
+                </Tag>
+              ) : (
+                <Tag kind={BRAND_KIND[brand]} noDot={brand !== "Fresh"}>
+                  {brand}
+                </Tag>
+              )}
+              {state === "short" && (
+                <Tag kind="danger" icon={null}>
+                  {unitsExpected - unitsLoaded} short
+                </Tag>
+              )}
             </div>
-            <p className={[styles.zone, chilled && styles.chilledZone].filter(Boolean).join(" ")}>
-              {chilled && <Icon name="snowflake" size={16} />}
-              {chilled ? labels.chilledZone : labels.ambient} · {dock}
-            </p>
+            {!lean && (
+              <p className={[styles.zone, chilled && styles.chilledZone].filter(Boolean).join(" ")}>
+                {chilled && <Icon name="snowflake" size={16} />}
+                {chilled ? labels.chilledZone : labels.ambient} · {dock}
+              </p>
+            )}
             <div className={styles.quantity}>
               <span className={[styles.units, done && styles.muted].filter(Boolean).join(" ")}>
                 {orderIdIn === "quantity" && <>{orderId} · </>}
@@ -106,6 +128,12 @@ export function LoaderCheckCard({
                 <span className={styles.shortPill}>
                   <Icon name="alert-circle" size={14} />
                   {labels.short}
+                </span>
+              )}
+              {state === "planned" && (
+                <span className={styles.plannedPill}>
+                  <Icon name="route" size={14} />
+                  {labels.planned}
                 </span>
               )}
             </div>

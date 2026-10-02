@@ -1,0 +1,32 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  /* Field conventions section 12: the driver app is a centred column, at most 430 px, on wider screens. */
+  max-width: 430px;
+  margin: 0 auto;
+  background: var(--surface-0);
+}
+
+/* The live app fills the screen, so a long body scrolls inside <main> and the pinned bar and tab
+   bar stay at the bottom. Gallery frames (fixed clock) keep min-height so a tall frame can grow. */
+.pageFill {
+  height: 100dvh;
+}
+
+.main {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--gutter-phone);
+  padding-bottom: var(--space-6);
+}
+
+/* R1.9 "Large": 1.15x (field conventions section 3, A56). `zoom` scales the body content's type
+   and spacing together so nothing clips; the top bar and tab bar stay the chrome's own size. */
+.mainLarge {
+  zoom: 1.15;
+}

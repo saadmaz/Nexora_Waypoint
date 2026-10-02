@@ -46,6 +46,21 @@ button.chip {
   color: var(--signal);
 }
 
+/* R4.2 shows "3 / 5" and R4.3 2 "Retrying 1" in the plain muted outline, not the amber one. */
+.progress,
+.retrying {
+  border-color: var(--on-chrome-muted);
+  color: var(--on-chrome);
+}
+
+/* The driver's R5 frames draw Syncing and Failed as the plain muted outline too, not amber or red. */
+.phone.syncing,
+.phone.failed {
+  background: transparent;
+  border-color: var(--on-chrome-muted);
+  color: var(--on-chrome);
+}
+
 /* A soft fill, so the text keeps its contrast on the always-dark chrome in all three themes. */
 .failed {
   background: var(--danger-soft);

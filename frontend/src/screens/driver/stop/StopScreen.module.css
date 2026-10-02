@@ -1,0 +1,107 @@
+.heading {
+  font: var(--text-h2);
+  color: var(--ink);
+}
+
+.subheading {
+  font: var(--text-h3);
+  color: var(--ink);
+}
+
+.body {
+  font: var(--text-body);
+  color: var(--ink-muted);
+}
+
+.caption {
+  font: var(--text-caption);
+  color: var(--ink-muted);
+}
+
+.stopOf {
+  font: var(--text-label);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.tagsRow {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.actionRow {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.actionRow > * {
+  flex: 1 1 0;
+}
+
+.statRow {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.stat {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+
+.statValue {
+  font: var(--text-h3);
+  color: var(--ink);
+}
+
+.statLabel {
+  font: var(--text-caption);
+  color: var(--ink-muted);
+}
+
+.ordersList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.orderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+
+.orderId {
+  font: var(--text-h3);
+  color: var(--ink);
+}
+
+.orderMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font: var(--text-body-sm);
+  color: var(--ink-muted);
+}
+
+.confirmLine {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--success-soft);
+  color: var(--success);
+  border-radius: var(--radius-md);
+  font: var(--text-body-sm);
+}

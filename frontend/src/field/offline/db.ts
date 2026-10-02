@@ -53,6 +53,8 @@ export type BlobRecord = {
   uploadStatus: BlobUploadStatus;
   attempts: number;
   lastError?: string;
+  /** Epoch ms of the last failed upload, for "Last try 06:42" on R8.3. */
+  lastAttemptAt?: number;
   nextAttemptAt?: number;
   createdAt: number;
 };

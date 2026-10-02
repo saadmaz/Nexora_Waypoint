@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     scenario_start: datetime = datetime(2026, 9, 28, 15, 30, tzinfo=COLOMBO)
 
     #: Demo passwords (O-4). Overridden in .env; listed in the README.
-    demo_password: str = "waypoint-demo"
+    demo_password: str = "waypoint"
 
 
 @lru_cache

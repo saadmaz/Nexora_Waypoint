@@ -53,6 +53,8 @@ let blobUploader: BlobUploader | undefined;
 const resultListeners = new Set<(result: SyncResult) => void>();
 let lastResult: SyncResult | undefined;
 let running: Promise<SyncResult | undefined> | undefined;
+/** A call that arrived while a run was in flight: the run goes round again once it is done. */
+let rerun: RunOptions | undefined;
 
 /** A role registers how each of its record types is sent, for example `registerSyncHandler("driver.arrival", …)`. */
 export function registerSyncHandler(type: string, handler: SyncHandler): void {
@@ -110,7 +112,8 @@ async function runOnce(options: RunOptions): Promise<SyncResult | undefined> {
   const all = await db.outbox.orderBy("seq").toArray();
   const toSend = all.filter((r) => dueNow(r, force));
   const owners = new Map(all.map((r) => [r.clientId, r]));
-  const blobs = (await db.blobs.toArray()).filter((b) => blobDue(b, force));
+  // One at a time, in the order the photos were taken (the table is keyed by a random id).
+  const blobs = (await db.blobs.toArray()).sort((a, b) => a.createdAt - b.createdAt).filter((b) => blobDue(b, force));
   if (toSend.length === 0 && !blobs.some((b) => ownerSynced(b, owners))) return undefined;
 
   connectivity.setSyncing(true);
@@ -209,6 +212,7 @@ async function runOnce(options: RunOptions): Promise<SyncResult | undefined> {
             uploadStatus: "failed",
             attempts: blob.attempts + 1,
             lastError: reason,
+            lastAttemptAt: nowMs(),
             nextAttemptAt: nowMs() + RETRY_AFTER_MS,
           });
           blobFailures.push({ id: blob.id, recordClientId: blob.recordClientId, reason });
@@ -242,14 +246,29 @@ async function runOnce(options: RunOptions): Promise<SyncResult | undefined> {
 
 /**
  * Sends what is waiting, in the order it was saved. One run at a time: a second call while a run
- * is in flight joins it, so pressing "Send now" repeatedly sends nothing twice. Resolves to the
- * run's summary, or undefined when there was nothing to do or the device is offline.
+ * is in flight joins it, so pressing "Send now" repeatedly sends nothing twice. A call that joins a
+ * run may have been made because a record was just saved, which that run never saw, so the run
+ * goes round once more when it finishes. Resolves to the run's summary, or undefined when there
+ * was nothing to do or the device is offline.
  */
 export function runSync(options: RunOptions = {}): Promise<SyncResult | undefined> {
-  if (running) return running;
-  running = runOnce(options).finally(() => {
-    running = undefined;
-  });
+  if (running) {
+    rerun = { force: (rerun?.force ?? false) || (options.force ?? false) };
+    return running;
+  }
+  running = (async () => {
+    try {
+      let result = await runOnce(options);
+      while (rerun) {
+        const next = rerun;
+        rerun = undefined;
+        result = (await runOnce(next)) ?? result;
+      }
+      return result;
+    } finally {
+      running = undefined;
+    }
+  })();
   return running;
 }
 
@@ -260,6 +279,21 @@ export async function hasWork(): Promise<boolean> {
   const owners = new Map(records.map((r) => [r.clientId, r]));
   const blobs = await db.blobs.toArray();
   return blobs.some((b) => blobDue(b, false) && ownerSynced(b, owners));
+}
+
+/**
+ * A record is `sending` only while a run is answering it. If the page was reloaded or killed in
+ * that moment the record is stranded: nothing is sending it and nothing would ever retry it. Put
+ * those back to `waiting`; the server answers `duplicate` if it did get the first send.
+ */
+export async function requeueInterrupted(): Promise<number> {
+  if (running) return 0;
+  const stranded = (await db.outbox.toArray()).filter((r) => r.status === "sending");
+  for (const record of stranded) {
+    await db.outbox.where("clientId").equals(record.clientId).modify({ status: "waiting", attempts: Math.max(0, record.attempts - 1) });
+  }
+  if (stranded.length > 0) await refreshWaitingCount();
+  return stranded.length;
 }
 
 let interval: ReturnType<typeof setInterval> | undefined;
@@ -288,6 +322,11 @@ export function startSyncEngine(options: { syncOnEnqueue?: boolean } = {}): () =
       window.removeEventListener("offline", onOffline);
     };
   }
+
+  // Whatever a previous page left half-sent goes back in the queue, then a run picks it up.
+  void requeueInterrupted().then((count) => {
+    if (count > 0) void runSync();
+  });
 
   interval = setInterval(() => {
     void hasWork().then((work) => {

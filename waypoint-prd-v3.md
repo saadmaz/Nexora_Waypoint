@@ -635,6 +635,18 @@ Everything below was invented or inferred. **Disclosure rule:** no per-screen "M
 | A57 | **New (1 Oct, field build).** Photo compression: JPEG, longest edge 1600 px, quality 0.7 | R3, L3 |
 | A58 | **New (1 Oct, field build).** Camera permission refused or no camera falls back to the phone's file picker with rear camera capture | R3.2 |
 
+### App shell assumptions (feature/auth, 2 Oct), to be numbered centrally
+
+These rows are not numbered on this branch: parallel branches numbering their own rows has collided twice. HH numbers them on Sat 3 Oct.
+
+| # | Assumption | Used in | How to retire it |
+|---|---|---|---|
+| to number | **New (2 Oct, app shell).** The "Demo accounts" rows on sign-in sign in at once with the demo password. Offline they only fill the email and password, because a new sign-in needs a connection. The frames draw the rows and a Prototype tag but no behaviour | G1.1 to G1.5 | Keep; or remove the rows after the judge walkthrough |
+| to number | **New (2 Oct, app shell).** The live sign-in is Light at 640 px and wider and Dark below it (theme follows the working environment, section 6). Figma draws G1.2 and G1.4 Light on a phone and G1.3 and G1.5 Dark, so the state gallery draws each frame as drawn | `/sign-in` | Keep |
+| to number | **New (2 Oct, app shell).** Desktop sign-in controls are 40 px as G1.1 draws them, and 44 px on a touch screen so the tap target holds. Phone controls are 56 px as drawn | G1.1 | Keep |
+| to number | **New (2 Oct, app shell).** Focus on load: the desktop puts the cursor in Email; the phone puts it nowhere, so the keyboard stays down. The focus ring the frames show on Password is the focus style, not a starting position | G1.1 to G1.3 | Keep |
+| to number | **New (2 Oct, app shell).** Submitting with an empty email or password shows the wrong-password message and sends no request | G1.4 | Keep |
+
 ### Corrections to app.html
 
 app.html (Plan A) is retired for the Hackathon. The React build replaces it; corrections C1 to C18 are absorbed into this spec and need not be applied to app.html.
@@ -1103,6 +1115,8 @@ Start with these. Add a row the day a visible difference from the Day 5 frames i
 | DP-14 | GPS permission prompt and the permission-refused case have no frame | A short plain explanation at Start route; refused → R9.2 layout with planned distances | Driver prompt 05 |
 | DP-15 | Driver shows Dark in every frame | Light · office when the phone prefers light, as the R1.9 copy says | V31 |
 | DP-16 | S1.3 B (15:42) and S1.3 D (15:45) both read "20 min left" on the cutoff alert | The countdown is computed from the scenario clock: 18 min at 15:42 and 15 min at 15:45 | Q14: every number is computed; a live countdown cannot match two static frames |
+| DP-17 | L1.1's locked cards are bare; L1.5's locked cards show "Acknowledge vN first" and a disabled button | The detail line and button render only on a card carrying a Changed/No change tag, bare otherwise | Reproduces both frames exactly from one rule instead of one per frame; loader prompt 02 |
+| DP-18 | VEH035 reads "3 of 4 orders checked" at 00:10 (L1.3) and "3 of 5" at 02:56 (L1.4), with no event between them that checks a 5th order | The state gallery keeps both numbers verbatim (per-frame fixture); the live dock computes VEH035's progress for real, starting at 0, since it is not part of either hero story | Q14: the two frame numbers are not reconcilable with one running total; loader prompt 02 |
 | DP-19 | No dock picker or dock switch | A dock setting: `?dock=`, a first-run picker, and "Change dock" in presenter mode | One tablet account serves two docks; judges must reach both |
 | DP-20 | Language labels are drawn in three scripts; every other screen is English only | Sinhala and Tamil for every driver string, machine drafted, not reviewed by a native speaker | R1.9 offers the choice; a switch with no effect would be worse (O-8) |
 | DP-21 | R3.2 assumes camera permission is granted | Refused or missing camera falls back to the file picker | Judges may open the app on a laptop (A58) |
