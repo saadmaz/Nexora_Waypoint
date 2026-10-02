@@ -843,7 +843,7 @@ Import from `field/offline`. One IndexedDB, `waypoint-field`: `outbox`, `cache`,
 | **R6 problems are threads.** `driver.problem` gains `updatesClientId`; `exceptions` gains `parent_id` and `seen_at` | Driver, backend |
 | **The app shell has no owner.** Build stage 2b covers `/sign-in`, `/start`, per-role sessions, the avatar menu, the presenter panel and Change dock. It is about half a day and blocks stage 7 (open decision O-11) | Whoever takes it |
 
-Also added: assumptions A55 to A58 (the guest PIN, text size Large at 1.15 ×, photo compression at JPEG / 1600 px / 0.7, the camera fallback to the file picker), departures DP-17 to DP-23, known gaps G-14 and G-15, and open decisions O-8 to O-11.
+Also added: assumptions A55 to A58 (the guest PIN, text size Large at 1.15 ×, photo compression at JPEG / 1600 px / 0.7, the camera fallback to the file picker), departures DP-19 to DP-25, known gaps G-14 and G-15, and open decisions O-8 to O-11.
 
 **One check is still open.** A55 says Priya and Ruwan are offered at both docks, as drawn on L1.2 A (`442:27454`). The Figma connection was unavailable when v3.1 was written, so the row says to confirm it: if only Ruwan and Other… appear on that Kandy frame, drop Priya from Kandy and keep the rest of the row.
 
