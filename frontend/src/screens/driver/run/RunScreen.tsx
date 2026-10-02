@@ -4,11 +4,13 @@ import { formatDate, formatTime } from "../../../field/clock/clock";
 import { useNow } from "../../../field/clock/useClock";
 import { DriverStopCard, OfflineBanner, PinnedActionBar } from "../../../field/components";
 import { useConnectivity, type ConnectivitySnapshot } from "../../../field/offline";
+import { Alert } from "../../../shared/ui/Alert";
 import { Button } from "../../../shared/ui/Button";
 import { Card } from "../../../shared/ui/Card";
 import { Icon } from "../../../shared/ui/Icon";
 import { Mono } from "../../../shared/ui/Mono";
 import { LoadingSkeleton, StateScreen } from "../../../shared/ui/StateScreen";
+import { StatusPill } from "../../../shared/ui/StatusPill";
 import { Tag } from "../../../shared/ui/Tag";
 import { useDriverApi, useT } from "../context/DriverContext";
 import { useDriverRun } from "../context/useDriverRun";
@@ -34,6 +36,9 @@ export type RunScreenProps = {
   /** The state gallery only: R3.9 (true, the just-saved toast) vs R3.10 (false, settled) when every
    * stop is already seeded done on mount, which the real app never does in one render. */
   forceJustSaved?: boolean;
+  /** The state gallery only: R1.7 and R1.8's review notice layout. The sync result that would
+   * really drive this is driver prompt 4's; there is no live trigger for it yet. */
+  reviewNotice?: { body: string; action?: string };
 };
 
 /**
@@ -41,7 +46,7 @@ export type RunScreenProps = {
  * comes from the run data, connectivity and the clock. Covers R1.1 to R1.6 and the merged
  * R1.3 B / R1.4 "ready to depart" view; R1.10 is this same screen in the Field theme.
  */
-export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadError, forceJustSaved }: RunScreenProps = {}) {
+export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadError, forceJustSaved, reviewNotice }: RunScreenProps = {}) {
   const t = useT();
   const api = useDriverApi();
   const navigate = useNavigate();
@@ -342,6 +347,16 @@ export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadE
             {t("run.savedToast")}
           </div>
         )}
+        {reviewNotice && (
+          <Alert tone="conflict">
+            {reviewNotice.body}
+            {reviewNotice.action && (
+              <Button variant="ghost" size="medium" auto>
+                {reviewNotice.action}
+              </Button>
+            )}
+          </Alert>
+        )}
         <p className={styles.caption}>{t("run.inTripHistory")}</p>
         <div className={styles.stopsList}>
           {run.stops.map((stop) => (
@@ -416,12 +431,15 @@ export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadE
 
   return (
     <DriverShell title={title} subtitle={subtitle} banner={banner} connectivityOverride={connectivityOverride}>
-      <p className={styles.departedHeading}>{t("run.departed")}</p>
+      <StatusPill status="Departed" className={styles.departedPill} />
       <p className={styles.departedLine}>
         {t("run.departedPrefix", { time: run.departedAt ?? "" })} <Mono>{current.outletId}</Mono>
         {t("run.departedSuffix", { eta: current.plannedArrival })}
       </p>
       <p className={styles.statusLine}>{t("run.stopsDone", { done: doneCount, total: run.stops.length })}</p>
+      <div className={styles.progressTrack}>
+        <div className={styles.progressFill} style={{ width: `${(doneCount / run.stops.length) * 100}%` }} />
+      </div>
       {statusTail && <p className={styles.statusLine}>{statusTail}</p>}
       <div className={styles.stopsList}>{stopCardsDeparted}</div>
     </DriverShell>

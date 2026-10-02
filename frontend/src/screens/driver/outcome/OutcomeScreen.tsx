@@ -343,6 +343,7 @@ export function OutcomeScreen({ connectivityOverride, stopIdOverride, subviewOve
                 className={[styles.chip, stopOutcome === outcome && styles.chipChosen].filter(Boolean).join(" ")}
                 onClick={() => setStopOutcome(outcome)}
               >
+                {stopOutcome === outcome && <Icon name="check" size={16} />}
                 {outcomeLabel(outcome, t)}
               </button>
             ))}

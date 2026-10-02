@@ -164,6 +164,61 @@ export const DRIVER_FRAMES: GalleryFrame[] = [
       }),
   },
   {
+    frameId: "R1.7",
+    figmaNodeId: "442:56405",
+    name: "R1.7 · Under review (after sync) — layout only, driver prompt 4 supplies the data",
+    width: 390,
+    height: 844,
+    clock: { date: HERO_DATE, time: "06:41" },
+    render: () =>
+      renderDriverFrame(
+        <RunScreen
+          connectivityOverride={ONLINE}
+          reviewNotice={{ body: "Dispatch is reviewing your delivery at OUT084. Nothing for you to do.", action: "View" }}
+        />,
+        {
+          theme: "dark",
+          apiOptions: {
+            seed: {
+              downloadedVersion: 4,
+              acknowledgedVersion: 4,
+              departedAt: "05:10",
+              stops: {
+                OUT084: { arrivalAt: "05:26", outcomes: OUT084_OUTCOMES },
+                OUT087: { arrivalAt: "05:48", outcomes: { ORD2003: { orderId: "ORD2003", outcome: "Delivered", unitsDelivered: 9, savedAt: "05:58" } } },
+              },
+            },
+          },
+        },
+      ),
+  },
+  {
+    frameId: "R1.8",
+    figmaNodeId: "442:56492",
+    name: "R1.8 · Resolved notice — layout only, driver prompt 4 supplies the data",
+    width: 390,
+    height: 844,
+    clock: { date: HERO_DATE, time: "06:45" },
+    render: () =>
+      renderDriverFrame(
+        <RunScreen connectivityOverride={ONLINE} reviewNotice={{ body: "OUT084 - resolved: delivered. Kumari kept your delivery at 06:44." }} />,
+        {
+          theme: "dark",
+          apiOptions: {
+            seed: {
+              downloadedVersion: 4,
+              acknowledgedVersion: 4,
+              departedAt: "05:10",
+              stops: {
+                OUT084: { arrivalAt: "05:26", outcomes: OUT084_OUTCOMES },
+                OUT087: { arrivalAt: "05:48", outcomes: { ORD2003: { orderId: "ORD2003", outcome: "Delivered", unitsDelivered: 9, savedAt: "05:58" } } },
+              },
+            },
+          },
+        },
+      ),
+  },
+  {
     frameId: "R2.1",
     figmaNodeId: "442:56582",
     name: "R2.1 · Before arrival (OUT084)",

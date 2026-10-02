@@ -87,13 +87,13 @@ export function DriverShell({
   return (
     <div className={styles.page}>
       <FieldTopBar title={title} subtitle={subtitle} onBack={onBack}>
+        <NotificationBell count={0} onClick={() => navigate("/driver/notifications")} />
         <ConnectivityChip
           status={status}
           time={chipTime !== undefined ? formatTime(chipTime) : undefined}
           count={connectivity.waitingCount}
           onClick={() => setOutboxOpen(true)}
         />
-        <NotificationBell count={0} onClick={() => navigate("/driver/notifications")} />
       </FieldTopBar>
       {banner}
       <main className={styles.main}>{children}</main>

@@ -13,6 +13,10 @@
   color: var(--ink-muted);
 }
 
+.departedPill {
+  align-self: flex-start;
+}
+
 .cardStack {
   display: flex;
   flex-direction: column;
@@ -35,13 +39,6 @@
 .statusLine {
   font: var(--text-body-sm);
   color: var(--ink-muted);
-}
-
-.departedHeading {
-  font: var(--text-label);
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
-  color: var(--route);
 }
 
 .departedLine {
