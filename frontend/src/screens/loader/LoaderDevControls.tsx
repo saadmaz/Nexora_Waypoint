@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Button } from "../../shared/ui/Button";
 import { useLoader } from "./LoaderContext";
 import styles from "./LoaderDevControls.module.css";
 
@@ -17,19 +16,21 @@ function devControlsOn(): boolean {
  */
 export function LoaderDevControls() {
   const { api } = useLoader();
+  // Read once when the app opens: moving between screens drops the query string, but the controls should stay.
+  const [on] = useState(devControlsOn);
   const [done, setDone] = useState(false);
-  if (!devControlsOn()) return null;
+  if (!on) return null;
   return (
     <aside className={styles.panel} aria-label="Developer controls" data-keeps-sheet-open>
-      <Button
-        size="medium"
-        variant="secondary"
+      <button
+        type="button"
+        className={styles.button}
         onClick={() => {
           void api.devResolveExceptionNow().then(() => setDone(true));
         }}
       >
         {done ? "Dispatch has decided" : "Dispatch decides now"}
-      </Button>
+      </button>
     </aside>
   );
 }

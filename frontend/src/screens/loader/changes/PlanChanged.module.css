@@ -1,0 +1,382 @@
+/* L4 Plan changed (loader prompt section 3). Every value is from frames L4.1 to L4.S 4. */
+
+.screen {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 100%;
+  background: var(--surface-0);
+  color: var(--ink);
+}
+
+.titleLink {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* L4.2: the plan-status pill sits on the chrome, under the top bar. */
+.planStatus {
+  display: flex;
+  padding: 0 var(--space-4) var(--space-3);
+  background: var(--chrome);
+}
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: var(--space-1) 10px var(--space-1) var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--success-soft);
+  color: var(--success);
+  font: var(--text-pill);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* L4.S 3: the offline bar under the top bar. */
+.offlineBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px var(--space-4);
+  border-top: 1px solid var(--line);
+  background: var(--chrome);
+  color: var(--on-chrome);
+  font: var(--text-body-sm);
+}
+
+.offlineBarIcon {
+  display: inline-flex;
+  flex: 0 0 20px;
+}
+
+.body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-4) var(--space-6);
+}
+
+.label {
+  margin: 0;
+  font: var(--text-label);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+/* L4.2: the acknowledged banner. Its text is ink on the soft green, not the success colour. */
+.successBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--success-soft);
+  color: var(--ink);
+}
+
+.successIcon {
+  display: inline-flex;
+  flex: 0 0 20px;
+  margin-top: 2px;
+  color: var(--success);
+}
+
+.successText {
+  margin: 0;
+  font: var(--text-h3);
+  font-weight: 600;
+}
+
+/* L4.3 and L4.S 1: Figma draws these two left-aligned, not centred like the shared StateScreen. */
+.stateBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding-top: var(--space-6);
+}
+
+.stateTile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-lg);
+}
+
+.stateTileRoute {
+  background: var(--route-soft);
+  color: var(--route);
+}
+
+.stateTileSuccess {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.stateTitle {
+  margin: 0;
+  font: var(--text-h2);
+}
+
+.stateBody {
+  margin: 0;
+  font: var(--text-h3);
+  font-weight: 400;
+  color: var(--ink-muted);
+}
+
+/* The diff rows */
+
+.removed {
+  display: flex;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--danger-soft);
+}
+
+.removedAccent {
+  flex: 0 0 3px;
+  background: var(--danger);
+}
+
+.removedBody {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-4);
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font: var(--text-pill);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.tagRemoved {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.tagChanged {
+  background: var(--signal-soft);
+  color: var(--warning);
+}
+
+.tagUnchanged {
+  border: 1px solid var(--line-strong);
+  color: var(--ink);
+}
+
+.removedTitle {
+  margin: 0;
+  font: var(--text-h3);
+  font-weight: 600;
+}
+
+.removedLine {
+  margin: 0;
+  font: var(--text-body);
+}
+
+.deferPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: var(--space-1) 10px var(--space-1) var(--space-2);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-pill);
+  color: var(--ink-muted);
+  font: var(--text-pill);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+}
+
+.changedText {
+  margin: 0;
+  font: var(--text-h3);
+  font-weight: 400;
+  color: var(--ink);
+}
+
+.fromVehicle {
+  text-decoration: line-through;
+}
+
+.unchangedText {
+  margin: 0;
+  font: var(--text-h3);
+  font-weight: 400;
+  color: var(--ink-muted);
+}
+
+.capacity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.capacityValue {
+  font: var(--text-data);
+  color: var(--ink);
+}
+
+.collapsed {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--size-button-lg);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  color: var(--ink-muted);
+  font: var(--text-body);
+  text-align: left;
+}
+
+.collapsedText {
+  flex: 1 1 auto;
+}
+
+.chevron {
+  display: inline-flex;
+  transition: transform var(--duration-colour) ease;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.collapsedList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0 var(--space-4) var(--space-2);
+  list-style: none;
+  color: var(--ink-muted);
+  font: var(--text-body);
+}
+
+/* Pinned actions */
+
+.pinned {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-4) 28px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-1);
+}
+
+.pinnedHelper {
+  margin: 0;
+  text-align: center;
+  font: var(--text-caption);
+  color: var(--ink-muted);
+}
+
+/* L4.2: "Begin loading" is the amber action, not the teal one. */
+.signalButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  height: var(--size-button-lg);
+  padding: 0 var(--space-5);
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--signal);
+  color: var(--on-signal);
+  font: var(--text-button-lg);
+}
+
+/* L4.S 4: Figma draws the alert title in ink, not the danger colour the shared Alert uses. */
+.errorTitle {
+  color: var(--ink);
+}
+
+/* Loading */
+
+.loadingLine {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font: var(--text-h3);
+  font-weight: 400;
+  color: var(--ink-muted);
+}
+
+.spin {
+  display: inline-flex;
+  color: var(--route);
+  animation: spin 1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation: none;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.skeletonRow {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 88px;
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+}
+
+.skeletonBar {
+  height: 20px;
+  width: 72px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.skeletonLine {
+  height: 16px;
+  width: min(260px, 100%);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
