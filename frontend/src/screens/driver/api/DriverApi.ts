@@ -24,4 +24,9 @@ export type DriverApi = {
    * here; they are generated locally when a sync run finishes. `sinceIso` is a hint only, like a
    * real `getNotices(since)` would take; the mock just returns everything so far. */
   getNotices(date: string, sinceIso?: string): Promise<DriverNotice[]>;
+  /** Marks notices read (the unread count on the bell, R8.1). All of them when `ids` is omitted. */
+  markNoticesRead(date: string, ids?: string[]): Promise<void>;
+  /** The phone lost coverage: keeps "You went offline" once per spell. `spellKey` is the last sync time
+   * (or 0), which is the same for the whole spell. */
+  noteWentOffline(date: string, spellKey: number): Promise<void>;
 };

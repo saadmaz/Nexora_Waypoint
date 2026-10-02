@@ -1,4 +1,4 @@
-import { formatTime } from "../../../field/clock/clock";
+import { formatTime, isoDate } from "../../../field/clock/clock";
 import {
   getCache,
   NetworkError,
@@ -26,6 +26,7 @@ import {
   VEHICLE,
   baseStops,
 } from "../fixtures";
+import { outboxRows } from "../outbox/outboxModel";
 import type { ConflictDetail, DriverNotice, DriverRun, DriverStop, LoaderConfirmation, OutcomeInput, RecordedOutcome, Resolution } from "../types";
 import type { DriverApi } from "./DriverApi";
 
@@ -88,6 +89,22 @@ function wait(ms: number): Promise<void> {
   return ms > 0 ? new Promise((resolve) => setTimeout(resolve, ms)) : Promise.resolve();
 }
 
+/** Newest first. Notices from the same minute keep the order the driver would read them in. */
+const SAME_MINUTE_ORDER: DriverNotice["kind"][] = [
+  "resolved",
+  "photo_failed",
+  "sent_for_review",
+  "synced",
+  "plan_received",
+  "went_offline",
+  "orders_on_board",
+  "plan_released",
+];
+
+export function sortNotices(notices: readonly DriverNotice[]): DriverNotice[] {
+  return [...notices].sort((a, b) => b.at.localeCompare(a.at) || SAME_MINUTE_ORDER.indexOf(a.kind) - SAME_MINUTE_ORDER.indexOf(b.kind));
+}
+
 function buildNotice(partial: Omit<DriverNotice, "id" | "read">): DriverNotice {
   return { id: crypto.randomUUID(), read: false, ...partial };
 }
@@ -97,8 +114,8 @@ function buildNotice(partial: Omit<DriverNotice, "id" | "read">): DriverNotice {
 function resolvedNotice(outletId: string, resolution: Resolution): DriverNotice {
   const body =
     resolution.decision === "keep_delivery"
-      ? `${outletId} - resolved: delivered. ${resolution.by} kept your delivery at ${resolution.at}.`
-      : `Dispatch kept your delivery at ${outletId} as Partial · ${resolution.at}.`;
+      ? `${resolution.by} kept your delivery at ${outletId}.`
+      : `${resolution.by} kept your delivery at ${outletId} as Partial.`;
   return buildNotice({ kind: "resolved", title: `${outletId} resolved`, body, at: resolution.at, outletId });
 }
 
@@ -135,7 +152,13 @@ async function applyConflict(date: string, outletId: string, conflict: ConflictD
   local.conflicts[outletId] = conflict;
   if (isNew) {
     local.notices.unshift(
-      buildNotice({ kind: "sent_for_review", title: "Delivery sent for review", body: `${outletId} sent to Dispatch for review.`, at: conflict.at, outletId }),
+      buildNotice({
+        kind: "sent_for_review",
+        title: "Delivery sent for review",
+        body: `Dispatch deferred ${outletId} at ${conflict.changedAt} at the store's request, while you were offline. Your record is safe.`,
+        at: conflict.at,
+        outletId,
+      }),
     );
   }
   await writeDeviceState(date, local, nowMs);
@@ -147,6 +170,16 @@ async function noteServerContact(date: string, nowMs: number): Promise<void> {
   const local = await readDeviceState(date);
   if (local.knownServerVersion === PLAN_V5.v) return;
   local.knownServerVersion = PLAN_V5.v;
+  const changedOutlet = baseStops().find((stop) => stop.orders.some((order) => V5_DEFERRED_ORDERS.includes(order.id)))?.outletId;
+  local.notices.unshift(
+    buildNotice({
+      kind: "plan_received",
+      title: `Plan v${PLAN_V5.v} received`,
+      body: `${changedOutlet ?? "A stop"} was changed while you were offline.`,
+      at: formatTime(nowMs),
+      outletId: changedOutlet,
+    }),
+  );
   await writeDeviceState(date, local, nowMs);
 }
 
@@ -232,7 +265,7 @@ export function registerDeviceNoticeSync(date: string, now: () => number): void 
           buildNotice({
             kind: "photo_failed",
             title: "Sync failed",
-            body: `Couldn't send photo of stop ${stop?.number ?? 1}. Kept on phone.`,
+            body: `Couldn't send photo of stop ${stop?.number ?? 1}. Kept on phone. Retrying.`,
             at: formatTime(nowMs),
             reference: PHOTO_FAILURE_REFERENCE,
             outletId,
@@ -240,8 +273,19 @@ export function registerDeviceNoticeSync(date: string, now: () => number): void 
           }),
         );
       }
-    } else if (result.conflicts === 0 && result.accepted > 0) {
-      local.notices.unshift(buildNotice({ kind: "synced", title: `${result.accepted} records synced`, at: formatTime(nowMs) }));
+    }
+    // A batch going out is worth a line; one record sent from the road a moment after it was saved is not.
+    {
+      const sent = new Set(result.items.filter((item) => item.result === "accepted" || item.result === "duplicate").map((item) => item.clientId));
+      const records = (await Promise.all([...sent].map((id) => getRecord(id)))).filter((r): r is NonNullable<typeof r> => r !== undefined);
+      const labels = outboxRows(records)
+        .filter((row) => row.kind !== "departed")
+        .map((row) => (row.kind === "arrival" ? `Arrival ${row.subject}` : `${row.outcomeWord} ${row.subject}`));
+      if (labels.length >= 2) {
+        local.notices.unshift(
+          buildNotice({ kind: "synced", title: `${labels.length} records synced`, body: `${labels.join(", ")}.`, at: formatTime(nowMs) }),
+        );
+      }
     }
     await writeDeviceState(date, local, nowMs);
   });
@@ -448,11 +492,72 @@ export function createMockDriverApi(now: () => number, options: MockDriverApiOpt
         changed = true;
       }
     }
+
+    // What the server told the phone before the day began: the plan that was released, and the load
+    // being confirmed. They are informational, so they are born read; the bell counts what needs a look.
+    const scheduled: DriverNotice[] = [];
+    for (const version of PLAN_VERSIONS) {
+      if (isoDate(Date.parse(version.releasedAt)) === date && Date.parse(version.releasedAt) <= nowMs) {
+        scheduled.push({
+          id: `plan-v${version.v}`,
+          kind: "plan_released",
+          title: `Plan v${version.v} released`,
+          body: `${version.note} Acknowledge it before you start.`,
+          at: formatTime(Date.parse(version.releasedAt)),
+          read: true,
+        });
+      }
+    }
+    if (isConfirmedByNow(date, confirmation, nowMs)) {
+      const orderCount = baseStops().reduce((sum, stop) => sum + stop.orders.length, 0);
+      scheduled.push({
+        id: "on-board",
+        kind: "orders_on_board",
+        title: `${orderCount} orders on board`,
+        body: `Confirmed by ${confirmation.by} at ${confirmation.at}.`,
+        at: confirmation.at,
+        read: true,
+      });
+    }
+    for (const notice of scheduled) {
+      if (!local.notices.some((n) => n.id === notice.id)) {
+        local.notices.push(notice);
+        changed = true;
+      }
+    }
+
     if (changed) await writeState(date, local);
-    return local.notices;
+    return sortNotices(local.notices);
   }
 
-  return { getRun, downloadRun, acknowledgePlan, startRoute, recordArrival, recordOutcome, getNotices };
+  async function markNoticesRead(date: string, ids?: string[]): Promise<void> {
+    const local = await readState(date);
+    let changed = false;
+    for (const notice of local.notices) {
+      if (!notice.read && (ids === undefined || ids.includes(notice.id))) {
+        notice.read = true;
+        changed = true;
+      }
+    }
+    if (changed) await writeState(date, local);
+  }
+
+  async function noteWentOffline(date: string, spellKey: number): Promise<void> {
+    const local = await readState(date);
+    const id = `offline-${spellKey}`;
+    if (local.notices.some((n) => n.id === id)) return;
+    local.notices.unshift({
+      id,
+      kind: "went_offline",
+      title: "You went offline",
+      body: "Records now save on this phone and sync later.",
+      at: formatTime(now()),
+      read: true,
+    });
+    await writeState(date, local);
+  }
+
+  return { getRun, downloadRun, acknowledgePlan, startRoute, recordArrival, recordOutcome, getNotices, markNoticesRead, noteWentOffline };
 }
 
 /** The loader confirms at a fixed scenario time ("04:50"); the device date is only used for the "today" guard. */

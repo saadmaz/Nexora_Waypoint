@@ -877,6 +877,8 @@ The `t(key, params)` dictionary (`i18n.ts`) is complete in English and routes ev
 
 `getRun` reads the phone's own cache and never throws offline, since the route has to be usable with no signal by design; writes (`acknowledgePlan`, `startRoute`, `recordArrival`, `recordOutcome`) update that same cache at once, so the screen reflects them immediately, and queue an outbox record (`driver.ack`, `driver.startRoute`, `driver.arrival`, `driver.outcome`) that the shared sync engine sends once it can. The mock server simply accepts everything in this prompt; driver prompt 4 adds the conflict rule.
 
+Known gap: records already waiting when the app opens online are sent by the 30 s timer or the next `online` event, not at once. Nothing is lost, but a reload leaves them for up to 30 s. Whether opening the app should sync at once is a call for the team; it would also change the walkthrough's offline reloads, which load a page online for a moment.
+
 ### The Outbox (driver prompt 4, O2)
 
 The connectivity chip on every driver screen opens the R4 Outbox sheet (`screens/driver/outbox/`). It is a read of the phone's own outbox (`useOutbox()`) and connectivity (`useConnectivity()`), so it never touches the network. One bar says what the device is doing, in this order: sending ("Sending 5 records…", with "3 / 5" also on the chip), offline ("Offline · 5 saved on phone", "Last sync 05:17"), failed and retrying, sent for review ("1 stop (2 orders) sent for review. Nothing for you to do."), or all synced (the empty state). The rows are the driver's own events in save order: Departed, Arrival, and one outcome per order. The plan acknowledgement is not listed. A conflict row reads Synced again once Dispatch has resolved its stop.
@@ -907,6 +909,15 @@ A failed upload never fails its record. The record reads Synced, the photo stays
 - **One notice per photo.** The phone retries every 30 s, so the "Sync failed" notice is kept once per photo with the time of the latest try, and names the real stop from the photo's record (it used to say stop 1 for every photo).
 - **A failed photo is not a failed sync.** The R5.S 2 "Sync failed" screen is for records that did not send; a photo that will not send is the run's alert, and R5.1 still shows the records that got through.
 
+### Notifications and the bell (driver prompt 4, O5)
+
+R8.1 (`notices/NotificationsScreen.tsx`, route `/driver/notifications`) lists only the changes that affect the driver's own run, newest first, and R8.4 is its empty state. The notices live in the phone's own cache, so they are there offline and survive a reload. The bell on every driver screen counts the unread ones; it is a number, never a bare dot.
+
+- **What it holds:** Dispatch resolved a stop; sync failed (a photo); delivery sent for review; N records synced (what went out, listed); plan v5 received (the first time a sync reaches the server); you went offline (once per spell of no coverage); orders on board (the load confirmed); plan released. Filters: All, Sync, Dispatch, Run.
+- **Opening one** marks it read and leads where the navigation map says: resolved to R5.3, sent for review to R5.1, sync failed to R8.3, records synced to the Outbox. Plan and load entries are information only. "Mark all read" clears the count and the bell badge.
+- **Born read:** the plan release and the load confirmation are things the server told the phone before the day began, so they arrive read; the bell counts what needs a look. The same goes for "You went offline".
+- **A batch, not every record:** "N records synced" appears when two or more arrivals or deliveries go out together. One record sent from the road a moment after it is saved raises nothing.
+
 ### Camera, signature and receiver name
 
 `CameraCapture` opens a real `getUserMedia({ video: { facingMode: "environment" } })` viewfinder with a shutter; if the camera is unavailable or permission is refused it falls back to `<input type="file" accept="image/*" capture="environment">`, per field conventions and PRD A58. Headless Chromium has no camera, so every photo in the gallery, the hero walkthrough and this PR's own testing went through the file-input fallback; the live viewfinder path has not been tried on a physical phone in this PR (do that over `npm run dev:https` before the judge walkthrough). Captured photos are compressed with the shared `compressImage` (JPEG, longest edge 1600 px, quality 0.7, PRD A57) and stored with `saveBlob`. `SignaturePad` is a pointer-events canvas saved as a PNG blob. `ReceiverNameForm` offers per-outlet recent-name chips from the fixtures.
@@ -926,7 +937,7 @@ Driver prompt 4 (`claude/field-build/04-driver-offline.md`):
 - [x] O2 R4 Outbox sheet, Simulate offline, Send now and Retry now (frames R4.1, R4.2, R4.3 1 to 3)
 - [x] O3 R5 Sync result (R5.1 to R5.3, R5.S 1 to 4), R1.7 and R1.8 on real data, the 30 s conflict poll
 - [x] O4 photo upload after records (attached before queueing, in capture order), R8.2 and R8.3 failure branch with retry
-- [ ] O5 R8 Notifications
+- [x] O5 R8 Notifications list (R8.1), empty (R8.4), the bell count, mark read
 - [ ] O6 gallery, compare, remaining tests, real-device check
 
 ### Departures from the Designathon design
@@ -947,8 +958,10 @@ Figma wins on UI and copy (field conventions section 2); where it was silent or 
 - **R5.1's rows are in save order,** not Figma's (Arrival OUT084, Delivered ORD2003, Arrival OUT087, then the conflict). The order in the frame follows no rule the data has.
 - **R5.3 for a Partial resolution** has no frame. It reuses the layout with the title "Kept as Partial at OUT084", the body "Dispatch kept your delivery at OUT084 as Partial · 07:05." (the prompt's copy), a Partial pill on each order, and R1.8's bar reads "OUT084 - resolved: delivered as Partial. Kumari kept your delivery at 07:05."
 - **"Call Dispatch" on R5.S 2 has no action,** like "Call store": the dataset has no dispatch desk number and none is invented. The failed screen reuses the reference WP-SYNC-409 that R8.3 uses for a photo.
-- **R8.3 is reached by route, not yet from a list.** The photo failure detail opens from the alert on the run; O5 adds the notifications list and its link to it. R8.3 has no bell, chip or tab bar, as drawn.
-- **The bell has no count yet** (R1.7 draws 2, R1.8 draws 3). That is O5.
+- **R8.3 has no bell, chip or tab bar, as drawn.** It opens from the alert on the run and from the list.
+- **"You went offline" is timed when the phone notices,** not at the scripted 05:17: with a real disconnect in the walkthrough it reads 05:20. The Kandy gate frame draws 05:17; with the coverage gap switch on the two agree.
+- **The bell badge is the danger colour at 18 px,** as R1.7, R1.8 and R8.2 draw it, not the amber count the foundation had.
+- **R5.1 opened from an old "sent for review" entry after Dispatch has decided shows the decision (R5.3),** since the conflict it describes is gone.
 - **Camera and Receiver name drop the tab bar; Signature keeps it**, matching what each frame actually draws (R3.2, R3.3 omit it; R3.11 does not).
 - **The Prototype row stays on the live Outbox in every state.** R4.2 and R4.3 draw the sheet without it, but it is the only way to turn Simulate offline on while online, so the app always shows it. Their gallery frames pass `showSimulate: false` so they still match Figma.
 - **"Send now" is pressable offline.** Figma draws it enabled on R4.1 (offline), and the prompt says it is only possible online; it stays enabled and does nothing until coverage returns, rather than greying out a button the frame shows live.
@@ -963,6 +976,7 @@ Figma wins on UI and copy (field conventions section 2); where it was silent or 
 - `frontend/src/field/components/ConnectivityChip`: `progress` ("3 / 5") and a `retrying` status ("Retrying 1"). Additive.
 - `frontend/src/field/offline/blobs.ts` and `db.ts`: `useBlobs()` (null until the first read) and `lastAttemptAt` on a blob, for "Last try". Additive.
 - `frontend/src/field/offline/sync.ts`: photos upload in the order they were taken (the table is keyed by a random id, so they went in a random order), and a failed upload records the time of the try.
+- `frontend/src/field/components/NotificationBell`: the badge is the danger colour, 18 px, top left of the icon (R1.7, R1.8, R8.2). Additive to the count it already took.
 - `frontend/src/field/components/PinnedActionBar`: `helperPosition` ("above" for R1.7, R1.8, R3.9, R3.10). Additive.
 - `frontend/src/field/components/ConnectivityChip.module.css`: the phone chip's Syncing and Failed are the muted outline (R5.S 2, R5.S 4).
 - `frontend/src/field/offline/sync.ts`: a call that joins a run already in flight now makes the run go round once more when it finishes. A record saved while a run was sending was never in that run's list and waited for the 30 s timer, which left "Departed" unsent in the hero walkthrough about one run in three. One new unit test.

@@ -1,0 +1,177 @@
+/* R8.1 Notifications and R8.4 empty (Figma 442:60337, 442:60600). */
+
+.dayRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.day {
+  flex: 1 1 auto;
+  margin: 0;
+  font: var(--text-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.markAll {
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--route);
+  font: var(--text-button-md);
+  cursor: pointer;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  list-style: none;
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+
+.item {
+  border-bottom: 1px solid var(--line);
+}
+
+.item:last-child {
+  border-bottom: 0;
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 72px;
+  padding: var(--space-3) var(--gutter-phone);
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+button.row {
+  cursor: pointer;
+}
+
+.tile {
+  display: inline-flex;
+  flex: 0 0 40px;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+}
+
+.tile_success {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.tile_danger {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.tile_review {
+  background: var(--signal-soft);
+  color: var(--signal);
+}
+
+.tile_route {
+  background: var(--route-soft);
+  color: var(--route);
+}
+
+.tile_offline {
+  background: var(--offline-soft);
+  color: var(--offline);
+}
+
+.stack {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rowTitle {
+  font: var(--text-button-md);
+  color: var(--ink);
+}
+
+.rowBody {
+  font: var(--text-body-sm);
+  color: var(--ink-muted);
+}
+
+.meta {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  font: var(--text-caption);
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-pill);
+  background: var(--route);
+}
+
+.footer,
+.filterEmpty {
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--ink-muted);
+}
+
+/* R8.4: the empty state sits in the middle, a little above centre. */
+.empty {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-4);
+  padding-bottom: 80px;
+}
+
+.emptyTile {
+  display: inline-flex;
+  flex: 0 0 56px;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  color: var(--ink-muted);
+}
+
+.emptyTitle {
+  margin: 0;
+  font: var(--text-h2);
+  color: var(--ink);
+}
+
+.emptyBody {
+  margin: 0;
+  font: var(--text-h3);
+  font-weight: 400;
+  color: var(--ink-muted);
+}

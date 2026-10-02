@@ -56,7 +56,15 @@ export type Resolution = {
   units?: number;
 };
 
-export type DriverNoticeKind = "resolved" | "sent_for_review" | "synced" | "photo_failed";
+export type DriverNoticeKind =
+  | "resolved"
+  | "sent_for_review"
+  | "synced"
+  | "photo_failed"
+  | "plan_received"
+  | "went_offline"
+  | "orders_on_board"
+  | "plan_released";
 
 /** One entry in R8.1 (field conventions section 15: server notices from `getNotices`, and
  * device-made sync notices such as "3 records synced" that never come from the server). */

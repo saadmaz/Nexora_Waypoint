@@ -9,6 +9,7 @@ import { DriverProvider } from "./context/DriverProvider";
 import { useDriverSettings } from "./context/DriverContext";
 import { DriverGallery } from "./gallery/DriverGallery";
 import { MeScreen } from "./me/MeScreen";
+import { NotificationsScreen } from "./notices/NotificationsScreen";
 import { RunScreen } from "./run/RunScreen";
 import { OutcomeScreen } from "./outcome/OutcomeScreen";
 import { StopScreen } from "./stop/StopScreen";
@@ -67,12 +68,7 @@ function DriverRoutes() {
         element={<PlaceholderScreen id="R7" title="History" note="Trip history, read-only. Built in driver prompt 5 (R7)." />}
       />
       <Route path="notifications/photo/:blobId" element={<PhotoFailureScreen />} />
-      <Route
-        path="notifications"
-        element={
-          <PlaceholderScreen id="R8" title="Notifications" back="/driver/run" note="Changes to your own run. Built in driver prompt 4 (R8)." />
-        }
-      />
+      <Route path="notifications" element={<NotificationsScreen />} />
       <Route
         path="finish"
         element={<PlaceholderScreen id="R9" title="Finish run" back="/driver/run" note="Close the run with a GPS distance. Built in driver prompt 5 (R9)." />}

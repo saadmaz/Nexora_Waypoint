@@ -1,15 +1,16 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { formatTime } from "../../../field/clock/clock";
 import { useFieldClock, useNow } from "../../../field/clock/useClock";
 import { ConnectivityChip, FieldTabBar, FieldTopBar, NotificationBell, type ChipStatus, type FieldTab } from "../../../field/components";
 import { connectivity as connectivityStore, useConnectivity, type ConnectivitySnapshot } from "../../../field/offline";
-import { useCoverageGap, useDriverSettings, useOutboxOpen, useT } from "../context/DriverContext";
+import { useCoverageGap, useDriverApi, useDriverSettings, useOutboxOpen, useT } from "../context/DriverContext";
 import { RUN_DATE } from "../fixtures";
 import { resolveConflictNow, setFailNextUpload } from "../api/mockDriverApi";
 import { OutboxSheet, type OutboxProgress, type OutboxPrototypeControls } from "../outbox/OutboxSheet";
 import type { OutboxRow } from "../outbox/outboxModel";
 import { useOutboxView } from "../outbox/useOutboxView";
+import { useNotices } from "../notices/useNotices";
 import { usePhotoState } from "../sync/usePhotoState";
 import { useSyncViewRedirect } from "../sync/useSyncViewRedirect";
 import { useSyncWatcher } from "../sync/useSyncWatcher";
@@ -44,6 +45,8 @@ export type DriverShellProps = {
   showTabBar?: boolean;
   /** R8.3: a top bar with the title only, no bell and no connectivity chip. */
   bareTopBar?: boolean;
+  /** R8.1: the notifications screen has no bell of its own to press. */
+  hideBell?: boolean;
   /** The state gallery only: `connectivity` is one real store shared by every frame on the page, so
    * a frame that needs its own moment (Online, Offline · 5, Synced 04:54 …) passes it here instead
    * of reading the live singleton. The single-frame `?frame=` view (what the compare script shoots)
@@ -72,6 +75,7 @@ export function DriverShell({
   pinned,
   showTabBar = true,
   bareTopBar = false,
+  hideBell = false,
   connectivityOverride,
   chip,
   outboxPreview,
@@ -92,6 +96,13 @@ export function DriverShell({
   const view = useOutboxView(connectivity.status === "syncing");
   useSyncWatcher(view.run);
   const photos = usePhotoState(view.run);
+  const { unread } = useNotices();
+  const api = useDriverApi();
+  const wentOffline = !clock.fixed && connectivity.status === "offline";
+  const spellKey = connectivity.lastSyncAt ?? 0;
+  useEffect(() => {
+    if (wentOffline) void api.noteWentOffline(RUN_DATE, spellKey);
+  }, [api, wentOffline, spellKey]);
   // A finished sync shows once, on the Run screen or over an open Outbox, never while recording.
   const recording = location.pathname.endsWith("/outcome");
   useSyncViewRedirect(!outboxPreview && !recording && (outboxOpen || location.pathname === "/driver/run"), () => setOutboxOpen(false));
@@ -137,7 +148,7 @@ export function DriverShell({
   return (
     <div className={styles.page}>
       <FieldTopBar title={title} subtitle={subtitle} onBack={onBack}>
-        {!bareTopBar && <NotificationBell count={0} onClick={() => navigate("/driver/notifications")} />}
+        {!bareTopBar && !hideBell && <NotificationBell count={unread} onClick={() => navigate("/driver/notifications")} />}
         {!bareTopBar && (
           <ConnectivityChip
             status={status}

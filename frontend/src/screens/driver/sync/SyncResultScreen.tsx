@@ -59,12 +59,17 @@ export function SyncResultScreen({ connectivityOverride, viewOverride, rowsOverr
   const { run } = useDriverRun(RUN_DATE);
   const photos = usePhotoState(run);
 
-  const requested = viewOverride?.kind ?? (params.get("view") as SyncViewKind | null) ?? "empty";
+  const asked = viewOverride?.kind ?? (params.get("view") as SyncViewKind | null) ?? "empty";
   const clientIds = (location.state as { clientIds?: string[] } | null)?.clientIds ?? [];
   const stops = run?.stops ?? [];
+  const askedStop = stops.find((s) => s.outletId === (viewOverride?.outletId ?? params.get("stop")));
+  // An old "sent for review" entry, opened after Dispatch has decided, shows the decision.
+  const requested = asked === "conflict" && askedStop?.resolution && !askedStop.conflict ? "resolved" : asked;
   const resolvedStops = new Set(stops.filter((stop) => stop.resolution).map((stop) => stop.outletId));
-  const allRows = rowsOverride ?? outboxRows(records, resolvedStops);
-  const scoped = clientIds.length > 0 && !rowsOverride ? outboxRows(records.filter((r) => clientIds.includes(r.clientId)), resolvedStops) : allRows;
+  // The departure is not something the sync reports on; arrivals and deliveries are.
+  const allRows = (rowsOverride ?? outboxRows(records, resolvedStops)).filter((row) => row.kind !== "departed");
+  const scoped =
+    clientIds.length > 0 && !rowsOverride ? outboxRows(records.filter((r) => clientIds.includes(r.clientId)), resolvedStops).filter((row) => row.kind !== "departed") : allRows;
   const rows = requested === "synced" || requested === "conflict" ? scoped : allRows;
 
   const outletId = viewOverride?.outletId ?? params.get("stop") ?? stops.find((s) => s.resolution)?.outletId ?? stops.find((s) => s.conflict)?.outletId;

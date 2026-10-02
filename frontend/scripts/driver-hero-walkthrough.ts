@@ -67,7 +67,8 @@ async function main() {
     check((await body()).includes("S. Fernando"), `${label}: receiver name saved (R3.3)`);
 
     await page.getByRole("button", { name: "Save delivery record" }).click();
-    await page.waitForTimeout(500);
+    await page.waitForURL(/\/driver\/run/, { timeout: 10_000 });
+    await page.waitForTimeout(800);
   }
 
   // H5/H7, 04:45: the route is known but not yet downloaded or acknowledged (R1.3 A).
@@ -97,6 +98,12 @@ async function main() {
   await startButton.click();
   await page.waitForTimeout(300);
   check((await body()).includes("Departed"), "R1.5: departed");
+  // The acknowledgement and the departure go out while the phone still has coverage: wait for the
+  // Outbox to say so before the script drops the connection (a reload would otherwise race the send).
+  await page.getByRole("button", { name: /^(Online|Synced)/ }).first().click();
+  await page.getByRole("dialog", { name: "Outbox" }).getByText("Nothing waiting - everything is synced.").waitFor({ timeout: 10_000 });
+  await page.getByRole("button", { name: "Close" }).click();
+  await page.getByRole("dialog", { name: "Outbox" }).waitFor({ state: "detached", timeout: 5_000 });
 
   // H9, 05:17: coverage lost. A real browser-level disconnect, not only the scripted Kandy gate.
   await page.goto(`${base}/driver/run?at=05:20`, { waitUntil: "networkidle" });
@@ -239,6 +246,30 @@ async function main() {
   await page.goto(`${base}/driver/run?at=06:46`, { waitUntil: "networkidle" });
   await page.waitForTimeout(1500);
   check(!page.url().includes("sync-result"), "R5.3 shows once: reopening the run does not show it again");
+
+  // R8.1: the bell counts what is unread, and the list keeps everything on the phone.
+  const bell = page.getByRole("button", { name: /Notifications, \d+ unread/ });
+  check(await bell.isVisible(), "R8.1: the bell shows an unread count");
+  await bell.click();
+  await page.waitForURL(/\/driver\/notifications$/, { timeout: 5_000 });
+  await page.waitForTimeout(600);
+  text = await body();
+  for (const title of ["OUT084 resolved", "Sync failed", "Delivery sent for review", "3 records synced", "Plan v5 received", "You went offline", "3 orders on board", "Plan v4 released"]) {
+    check(text.includes(title), `R8.1: lists "${title}"`);
+  }
+  check(/\d+ UNREAD/i.test(text), "R8.1: the day line counts what is unread");
+  await page.getByRole("radio", { name: "Dispatch" }).click();
+  text = await body();
+  check(text.includes("OUT084 resolved") && !text.includes("3 orders on board"), "R8.1: the Dispatch filter keeps only what Dispatch did");
+  await page.getByRole("radio", { name: "All" }).click();
+  await page.getByRole("button", { name: "Mark all read" }).click();
+  await page.waitForTimeout(600);
+  check(!/UNREAD/i.test(await body()), "R8.1: Mark all read clears the count");
+  check(!(await page.getByRole("button", { name: /Notifications, \d+ unread/ }).count()), "R8.1: and the bell badge goes");
+  await page.getByRole("button", { name: /OUT084 resolved/ }).click();
+  await page.waitForURL(/sync-result\?view=resolved/, { timeout: 5_000 });
+  await page.waitForTimeout(500);
+  check((await body()).includes("Dispatch kept your delivery at OUT084"), "R8.1: OUT084 resolved opens R5.3");
 
   await browser.close();
 

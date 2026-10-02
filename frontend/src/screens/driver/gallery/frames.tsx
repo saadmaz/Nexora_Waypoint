@@ -2,7 +2,9 @@ import { HERO_DATE, HERO_EVENING_DATE } from "../../../field/clock/clock";
 import type { GalleryFrame } from "../../../field/gallery/StateGallery";
 import { GALLERY_SHORTFALL } from "../fixtures";
 import type { OutboxRow, OutboxRowState } from "../outbox/outboxModel";
+import type { DriverNotice } from "../types";
 import { MeScreen } from "../me/MeScreen";
+import { NotificationsScreen } from "../notices/NotificationsScreen";
 import { OutcomeScreen } from "../outcome/OutcomeScreen";
 import { RunScreen } from "../run/RunScreen";
 import { StopScreen } from "../stop/StopScreen";
@@ -43,6 +45,36 @@ const HERO_CONFLICT = {
   at: "06:41",
 };
 const HERO_RESOLUTION = { decision: "keep_delivery" as const, by: "Kumari", at: "06:44" };
+
+/** The notices the hero run has raised by 06:45. Fresh objects each time, since reading one changes it. */
+function heroNotices(unread: string[]): DriverNotice[] {
+  const notice = (id: string, kind: DriverNotice["kind"], title: string, body: string, at: string, extra: Partial<DriverNotice> = {}): DriverNotice => ({
+    id,
+    kind,
+    title,
+    body,
+    at,
+    read: !unread.includes(id),
+    ...extra,
+  });
+  return [
+    notice("resolved", "resolved", "OUT084 resolved", "Kumari kept your delivery at OUT084.", "06:44", { outletId: "OUT084" }),
+    notice("photo", "photo_failed", "Sync failed", "Couldn't send photo of stop 1. Kept on phone. Retrying.", "06:42", {
+      outletId: "OUT084",
+      blobId: "gallery-photo",
+      reference: "WP-SYNC-409",
+    }),
+    notice("review", "sent_for_review", "Delivery sent for review", "Dispatch deferred OUT084 at 05:21 at the store's request, while you were offline. Your record is safe.", "06:40", { outletId: "OUT084" }),
+    notice("synced", "synced", "3 records synced", "Arrival OUT084, Arrival OUT087, Delivered ORD2003.", "06:40"),
+    notice("plan5", "plan_received", "Plan v5 received", "OUT084 was changed while you were offline.", "06:40", { outletId: "OUT084" }),
+    notice("offline", "went_offline", "You went offline", "Records now save on this phone and sync later.", "05:17"),
+  ];
+}
+
+/** Only the notices raised by `time`, so a frame never holds one from the future. */
+function noticesBy(time: string, unread: string[]): DriverNotice[] {
+  return heroNotices(unread).filter((n) => n.at <= time);
+}
 
 /** The hero run's six outbox rows (R4), each in the state a frame draws it in. */
 function heroRows(states: Partial<Record<"arrival084" | "ord2001" | "ord2002" | "arrival087" | "ord2003", OutboxRowState>> = {}): OutboxRow[] {
@@ -247,7 +279,7 @@ const PHOTO_FRAMES: GalleryFrame[] = [
           forceJustSaved={false}
           photoStateOverride={HERO_PHOTO_FAILED}
         />,
-        { theme: "dark", apiOptions: { seed: { ...ALL_RECORDED_SEED, knownServerVersion: 5 } } },
+        { theme: "dark", apiOptions: { seed: { ...ALL_RECORDED_SEED, knownServerVersion: 5, notices: noticesBy("06:42", ["photo"]) } } },
       ),
   },
   {
@@ -262,6 +294,31 @@ const PHOTO_FRAMES: GalleryFrame[] = [
         theme: "dark",
         apiOptions: { seed: { ...ALL_RECORDED_SEED, knownServerVersion: 5 } },
       }),
+  },
+];
+
+const NOTICE_FRAMES: GalleryFrame[] = [
+  {
+    frameId: "R8.1",
+    figmaNodeId: "442:60337",
+    name: "R8.1 · 06:45 · Notifications",
+    width: 390,
+    height: 844,
+    clock: { date: HERO_DATE, time: "06:45" },
+    render: () =>
+      renderDriverFrame(<NotificationsScreen connectivityOverride={SYNCED_0645} />, {
+        theme: "dark",
+        apiOptions: { seed: { ...ALL_RECORDED_SEED, knownServerVersion: 5, resolutions: { OUT084: HERO_RESOLUTION }, notices: noticesBy("06:45", ["resolved", "photo"]) } },
+      }),
+  },
+  {
+    frameId: "R8.4",
+    figmaNodeId: "442:60600",
+    name: "R8.4 · Notifications, empty",
+    width: 390,
+    height: 844,
+    clock: { date: HERO_EVENING_DATE, time: "23:00" },
+    render: () => renderDriverFrame(<NotificationsScreen connectivityOverride={ONLINE} />, { theme: "dark", apiOptions: { seed: {} } }),
   },
 ];
 
@@ -413,7 +470,7 @@ export const DRIVER_FRAMES: GalleryFrame[] = [
     render: () =>
       renderDriverFrame(<RunScreen connectivityOverride={SYNCED_0641} forceJustSaved={false} />, {
         theme: "dark",
-        apiOptions: { seed: { ...ALL_RECORDED_SEED, knownServerVersion: 5, conflicts: { OUT084: HERO_CONFLICT } } },
+        apiOptions: { seed: { ...ALL_RECORDED_SEED, knownServerVersion: 5, conflicts: { OUT084: HERO_CONFLICT }, notices: noticesBy("06:41", ["review", "synced"]) } },
       }),
   },
   {
@@ -426,7 +483,7 @@ export const DRIVER_FRAMES: GalleryFrame[] = [
     render: () =>
       renderDriverFrame(<RunScreen connectivityOverride={SYNCED_0645} forceJustSaved={false} />, {
         theme: "dark",
-        apiOptions: { seed: { ...ALL_RECORDED_SEED, knownServerVersion: 5, resolutions: { OUT084: HERO_RESOLUTION } } },
+        apiOptions: { seed: { ...ALL_RECORDED_SEED, knownServerVersion: 5, resolutions: { OUT084: HERO_RESOLUTION }, notices: noticesBy("06:45", ["resolved", "review", "synced"]) } },
       }),
   },
   {
@@ -853,4 +910,5 @@ export const DRIVER_FRAMES: GalleryFrame[] = [
   ...OUTBOX_FRAMES,
   ...SYNC_FRAMES,
   ...PHOTO_FRAMES,
+  ...NOTICE_FRAMES,
 ];

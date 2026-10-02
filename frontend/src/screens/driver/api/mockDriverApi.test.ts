@@ -1,5 +1,5 @@
 import "fake-indexeddb/auto";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { connectivity } from "../../../field/offline/connectivity";
 import { db } from "../../../field/offline/db";
 import { saveBlob, getBlob } from "../../../field/offline/blobs";
@@ -8,7 +8,8 @@ import { clearSyncHandlers, registerBlobUploader, runSync } from "../../../field
 import { setTimeSource } from "../../../field/offline/time";
 import { RUN_DATE } from "../fixtures";
 import type { DriverApi } from "./DriverApi";
-import { createMockDriverApi, registerDeviceNoticeSync, registerDriverHandlers, resolveConflictNow, setFailNextUpload } from "./mockDriverApi";
+import type { DriverNotice } from "../types";
+import { createMockDriverApi, registerDeviceNoticeSync, registerDriverHandlers, resolveConflictNow, setFailNextUpload, sortNotices } from "./mockDriverApi";
 
 function at(time: string): number {
   return new Date(`${RUN_DATE}T${time}:00+05:30`).getTime();
@@ -196,8 +197,80 @@ describe("photos (driver prompt 4 section 4)", () => {
 
     const failures = (await api.getNotices(RUN_DATE)).filter((n) => n.kind === "photo_failed");
     expect(failures).toHaveLength(1);
-    expect(failures[0].body).toBe("Couldn't send photo of stop 1. Kept on phone.");
+    expect(failures[0].body).toBe("Couldn't send photo of stop 1. Kept on phone. Retrying.");
     expect(failures[0].outletId).toBe("OUT084");
     expect(failures[0].reference).toBe("WP-SYNC-409");
+  });
+});
+
+describe("notifications (driver prompt 4 section 6)", () => {
+  it("holds what the server told the phone before the day began: the plan and the load, born read", async () => {
+    clock = at("02:00");
+    expect(await createMockDriverApi(now).getNotices(RUN_DATE)).toHaveLength(0);
+
+    clock = at("04:50");
+    const notices = await createMockDriverApi(now).getNotices(RUN_DATE);
+    expect(notices.map((n) => [n.at, n.title, n.read])).toEqual([
+      ["04:50", "3 orders on board", true],
+      ["03:00", "Plan v4 released", true],
+    ]);
+    expect(notices[0].body).toBe("Confirmed by Ruwan at 04:50.");
+    expect(notices[1].body).toBe("Route unchanged since v3. Acknowledge it before you start.");
+  });
+
+  it("says what a batch of synced records was, and learns of plan v5 on first contact", async () => {
+    registerDeviceNoticeSync(RUN_DATE, now);
+    clock = at("06:40");
+    const api = createMockDriverApi(now);
+    await api.recordArrival(RUN_DATE, "OUT084");
+    await api.recordArrival(RUN_DATE, "OUT087");
+    await saveDelivered(api, "OUT087", "ORD2003", 9);
+    await runSync();
+
+    // The notices are written by a listener that finishes just after the run does.
+    await vi.waitFor(async () => expect((await api.getNotices(RUN_DATE)).some((n) => n.kind === "synced")).toBe(true));
+    const notices = await api.getNotices(RUN_DATE);
+    const synced = notices.find((n) => n.kind === "synced");
+    expect(synced?.title).toBe("3 records synced");
+    expect(synced?.body).toBe("Arrival OUT084, Arrival OUT087, Delivered ORD2003.");
+    const plan = notices.find((n) => n.kind === "plan_received");
+    expect(plan?.title).toBe("Plan v5 received");
+    expect(plan?.body).toBe("OUT084 was changed while you were offline.");
+  });
+
+  it("counts unread ones and marks them read one at a time or all at once", async () => {
+    clock = at("06:45");
+    const api = createMockDriverApi(now);
+    await saveDelivered(api, "OUT084", "ORD2001", 12);
+    clock = at("06:41");
+    await runSync();
+    clock = at("06:45");
+    const before = await api.getNotices(RUN_DATE);
+    expect(before.filter((n) => !n.read).length).toBeGreaterThan(0);
+
+    const first = before.find((n) => !n.read);
+    await api.markNoticesRead(RUN_DATE, [first?.id ?? ""]);
+    const after = await api.getNotices(RUN_DATE);
+    expect(after.find((n) => n.id === first?.id)?.read).toBe(true);
+
+    await api.markNoticesRead(RUN_DATE);
+    expect((await api.getNotices(RUN_DATE)).every((n) => n.read)).toBe(true);
+  });
+
+  it("notes going offline once per spell, and again after the next sync", async () => {
+    clock = at("05:17");
+    const api = createMockDriverApi(now);
+    await api.noteWentOffline(RUN_DATE, 0);
+    await api.noteWentOffline(RUN_DATE, 0);
+    expect((await api.getNotices(RUN_DATE)).filter((n) => n.kind === "went_offline")).toHaveLength(1);
+
+    await api.noteWentOffline(RUN_DATE, at("05:30"));
+    expect((await api.getNotices(RUN_DATE)).filter((n) => n.kind === "went_offline")).toHaveLength(2);
+  });
+
+  it("lists newest first, and keeps a fixed reading order within one minute", () => {
+    const n = (kind: DriverNotice["kind"], at: string): DriverNotice => ({ id: `${kind}${at}`, kind, title: kind, at, read: true });
+    const sorted = sortNotices([n("plan_received", "06:40"), n("went_offline", "05:17"), n("synced", "06:40"), n("resolved", "06:44"), n("sent_for_review", "06:40")]);
+    expect(sorted.map((x) => x.kind)).toEqual(["resolved", "sent_for_review", "synced", "plan_received", "went_offline"]);
   });
 });
