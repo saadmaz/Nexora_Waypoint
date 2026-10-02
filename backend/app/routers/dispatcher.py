@@ -11,10 +11,13 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query
 
+from waypoint_rules import Move
+from waypoint_rules import validate_move as check_move
 from waypoint_rules.vocab import Brand, OrderStatus, Temp
 
+from .. import clock
 from ..deps import Db, Dispatcher
-from ..errors import not_implemented
+from ..errors import ApiError, not_found, not_implemented
 from ..schemas.dispatcher import (
     AcknowledgementsView,
     CapacityView,
@@ -39,6 +42,11 @@ from ..schemas.dispatcher import (
     ResolveConflictIn,
     SaveMovesIn,
 )
+from ..services import dispatcher_views as views
+from ..services import planning
+from ..services import planning_repo as repo
+from ..services.dispatch_model import DispatchDay
+from ..services.plan_logic import after_move, plan_of
 
 router = APIRouter(prefix="/dispatcher", tags=["dispatcher"])
 
@@ -58,6 +66,26 @@ TagsQ = Annotated[list[str] | None, Query()]
 DistrictsQ = Annotated[list[str] | None, Query()]
 LiveDepotQ = Annotated[Literal["peliyagoda", "kandy", "both"], Query(description="peliyagoda, kandy or both")]
 ShowAllQ = Annotated[bool, Query(alias="all", description="Include vehicles that need no attention")]
+
+
+def _day(db: Db, *, version: int | None = None) -> tuple[date, DispatchDay]:
+    """The run the dispatcher is working on, at plan ``version`` (the latest when omitted)."""
+    now = clock.now(db).replace(tzinfo=None)
+    service_date = repo.active_service_date(now, repo.operating_days(db))
+    day = repo.load_day(db, service_date, now, version=version)
+    if version is not None and day.chosen is None:
+        raise not_found(f"Plan v{version}")
+    return service_date, day
+
+
+def _target(request: MoveRequest) -> tuple[str, int] | None:
+    """The trip a move names, or ``None`` for the deferred pool."""
+    to = request.to
+    if to.deferred:
+        return None
+    if to.vehicle_id is None or to.trip is None:
+        raise ApiError(422, "validation_error", "A move needs a vehicle and a trip, or deferred")
+    return (to.vehicle_id, to.trip)
 
 
 # ---- queue and history (feature/order-management) ---------------------------
@@ -93,55 +121,84 @@ def get_order_history(order_id: str, db: Db, user: Dispatcher) -> OrderHistory:
 @router.get("/capacity", operation_id="getCapacity", response_model=CapacityView)
 def get_capacity(db: Db, user: Dispatcher, depot: DepotId = DEPOT_Q) -> CapacityView:
     """D2: binding resource, availability and the headline sentence."""
-    raise not_implemented("getCapacity")
+    return views.capacity_view(_day(db)[1], depot)
 
 
 @router.get("/plan", operation_id="getPlan", response_model=PlanView)
 def get_plan(db: Db, user: Dispatcher, depot: DepotId = DEPOT_Q, version: int | None = None) -> PlanView:
     """D3: a plan version with its trips and deferrals. Omit ``version`` for the latest."""
-    raise not_implemented("getPlan")
+    return views.plan_view(_day(db, version=version)[1], depot)
 
 
 @router.post("/plan/redraft", operation_id="redraftPlan", response_model=PlanView)
 def redraft_plan(db: Db, user: Dispatcher, depot: DepotId = VIEW_DEPOT_Q) -> PlanView:
     """Runs the planner again and saves the next draft."""
-    raise not_implemented("redraftPlan")
+    service_date, _ = _day(db)
+    planning.draft(db, service_date, actor=user.email, actor_name=user.display_name, note=f"Redrafted by {user.display_name}")
+    db.commit()
+    return views.plan_view(_day(db)[1], depot)
 
 
 @router.post("/plan/validate-move", operation_id="validateMove", response_model=MoveResult)
 def validate_move(body: MoveRequest, db: Db, user: Dispatcher) -> MoveResult:
     """D3.2 to D3.6: ``ok``, every violation, and a before / after consequence preview."""
-    raise not_implemented("validateMove")
+    day = _day(db)[1]
+    if day.chosen is None:
+        raise ApiError(409, "not_ready", "There is no plan yet. The first draft appears at 16:05.")
+    if body.order_id not in day.orders:
+        raise not_found(f"Order {body.order_id}")
+    move = Move(body.order_id, _target(body))
+    plan = plan_of(day)
+    if move.to is not None and move.to not in plan.trips:
+        raise ApiError(409, "no_such_trip", f"{move.to[0]} · Trip {move.to[1]} is not in this plan")
+    result = check_move(plan, move, day.orders, day.ref, day.vehicle_days)
+    return views.move_result_view(day, move, result, after_move(plan, move, day.orders, result))
 
 
 @router.post("/plan/moves", operation_id="saveMoves", response_model=PlanView)
 def save_moves(body: SaveMovesIn, db: Db, user: Dispatcher, depot: DepotId = VIEW_DEPOT_Q) -> PlanView:
     """Accepted moves write a new draft version."""
-    raise not_implemented("saveMoves")
+    service_date, _ = _day(db)
+    planning.save_moves(
+        db,
+        service_date,
+        [(m.order_id, _target(m)) for m in body.moves],
+        note=body.note,
+        actor=user.email,
+        actor_name=user.display_name,
+    )
+    db.commit()
+    return views.plan_view(_day(db)[1], depot)
 
 
 @router.get("/deferrals", operation_id="listDeferrals", response_model=DeferralsView)
 def list_deferrals(db: Db, user: Dispatcher, depot: DepotId = DEPOT_Q) -> DeferralsView:
     """D4: every deferral with its type, binding tag, impact, frees and notice state."""
-    raise not_implemented("listDeferrals")
+    return views.deferrals_view(_day(db)[1], depot)
 
 
 @router.post("/deferrals/notify", operation_id="notifyDeferrals", response_model=NotifyDeferralsOut)
 def notify_deferrals(body: NotifyDeferralsIn, db: Db, user: Dispatcher) -> NotifyDeferralsOut:
     """Sends the store notices for every deferral at the depot that has not been told yet."""
-    raise not_implemented("notifyDeferrals")
+    service_date, _ = _day(db)
+    sent = planning.notify_deferrals(db, service_date, body.depot, actor=user.email)
+    db.commit()
+    return NotifyDeferralsOut(sent=sent)
 
 
 @router.post("/plan/release", operation_id="releasePlan", response_model=PlanView)
 def release_plan(body: ReleasePlanIn, db: Db, user: Dispatcher, depot: DepotId = VIEW_DEPOT_Q) -> PlanView:
     """D5: releasing the current draft creates the released snapshot."""
-    raise not_implemented("releasePlan")
+    service_date, _ = _day(db)
+    planning.release(db, service_date, send_notices=body.send_notices, actor=user.email, actor_name=user.display_name)
+    db.commit()
+    return views.plan_view(_day(db)[1], depot)
 
 
 @router.get("/acknowledgements", operation_id="listAcknowledgements", response_model=AcknowledgementsView)
 def list_acknowledgements(db: Db, user: Dispatcher, version: int | None = None) -> AcknowledgementsView:
     """D5: who has acknowledged a plan version, and who is pending."""
-    raise not_implemented("listAcknowledgements")
+    return views.acknowledgements_view(_day(db, version=version)[1])
 
 
 @router.get("/forecast", operation_id="getForecast", response_model=ForecastView)
