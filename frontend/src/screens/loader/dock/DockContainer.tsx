@@ -32,10 +32,10 @@ export function DockContainer() {
 
   useEffect(() => {
     if (clock.fixed) return;
-    const id = window.setInterval(() => query.retry(), 15_000);
+    const id = window.setInterval(() => query.refresh(), 15_000);
     return () => window.clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clock.fixed, query.retry]);
+  }, [clock.fixed, query.refresh]);
 
   const dockLabel = `${DOCKS.find((d) => d.id === dockId)?.name ?? dockId} dock`;
   const chip = {
@@ -147,7 +147,7 @@ export function DockContainer() {
           version={view.planVersion}
           onDone={() => {
             setAckOpen(false);
-            query.retry();
+            query.refresh();
           }}
         />
       )}
