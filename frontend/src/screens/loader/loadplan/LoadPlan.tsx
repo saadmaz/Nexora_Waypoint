@@ -60,12 +60,16 @@ export type LoadPlanProps = {
   onCallDispatch?: () => void;
   onBack: () => void;
   onRetry?: () => void;
+  /** L1.7: the detail pane. Its own heading instead of the phone top bar, the gate as a pinned row. */
+  embedded?: boolean;
+  trip?: number;
   children?: ReactNode;
 };
 
 /** L2 Load plan (loader prompt section 3): checklist, count confirm, short units, gate, loaded, held, swap. */
 export function LoadPlan(props: LoadPlanProps) {
   const { vehicleId, dockLabel, departsAt, planVersion, connectivity, phase, onBack } = props;
+  if (props.embedded) return <LoadPlanDetail {...props} />;
   const topBar = (
     <FieldTopBar
       title={`Load list · ${vehicleId}`}
@@ -96,6 +100,39 @@ export function LoadPlan(props: LoadPlanProps) {
         {phase === "loaded" && <LoadedView {...props} />}
         {(phase === "ready" || phase === "offline") && <ReadyView {...props} />}
       </main>
+      {props.children}
+    </div>
+  );
+}
+
+/** L1.7 detail pane: "VEH039 · trip 1", the dock line, then the same views as the phone, scrolling inside the pane. */
+function LoadPlanDetail(props: LoadPlanProps) {
+  const { vehicleId, trip = 1, dockLabel, departsAt, planVersion, phase, onBack } = props;
+  return (
+    <div className={styles.detail}>
+      <header className={styles.detailHeader}>
+        <h2 className={styles.detailTitle}>
+          <Mono>{vehicleId}</Mono> · trip {trip}
+        </h2>
+        {departsAt && (
+          <p className={styles.detailSub}>
+            {dockLabel} · departs <Mono>{departsAt}</Mono> · plan <Mono>v{planVersion}</Mono>
+          </p>
+        )}
+      </header>
+      {phase === "offline" && (
+        <OfflineBanner tone="waiting" compact>
+          Offline: checks are saved on this tablet. You can still clear the vehicle to depart; it syncs when back online.
+        </OfflineBanner>
+      )}
+      <div className={styles.detailBody}>
+        {phase === "loading" && <LoadingRows />}
+        {phase === "empty" && <EmptyState onBack={onBack} />}
+        {phase === "error" && <ErrorState onRetry={props.onRetry} />}
+        {phase === "held" && <HeldView {...props} />}
+        {phase === "loaded" && <LoadedView {...props} />}
+        {(phase === "ready" || phase === "offline") && <ReadyView {...props} />}
+      </div>
       {props.children}
     </div>
   );
@@ -242,25 +279,58 @@ function RowNote({ rowNote }: { rowNote?: "offline" | "error" }) {
 }
 
 function ReadyView(props: LoadPlanProps) {
-  const { checked, chilledZone, swap, capacity, rows, onFlagIssue, onConfirmGate, demoExpanded } = props;
+  const { checked, chilledZone, swap, capacity, rows, onFlagIssue, onConfirmGate, demoExpanded, embedded } = props;
   const allSettled = rows.every((r) => r.state !== "todo");
   const nextUnresolved = rows.find((r) => r.state === "todo");
+  const list = rows.map((row) => (
+    <Row key={row.orderId} row={row} demo={row.orderId === demoExpanded?.orderId ? demoExpanded : undefined} {...props} />
+  ));
+  const gateButtons = (
+    <>
+      <Button variant="dangerOutline" icon="flag" onClick={onFlagIssue}>
+        Flag issue
+      </Button>
+      <Button
+        variant={allSettled ? "primary" : "secondary"}
+        icon="check"
+        disabled={!allSettled}
+        aria-describedby={embedded && !allSettled ? "gate-helper" : undefined}
+        onClick={onConfirmGate}
+      >
+        Confirm loaded: clear to depart
+      </Button>
+    </>
+  );
+  if (embedded) {
+    return (
+      <>
+        <div className={styles.detailProgress}>
+          <ProgressHeader checked={checked} chilledZone={chilledZone} />
+        </div>
+        {swap && <SwapBannerRow swap={swap} />}
+        {capacity && <CapacityBlock capacity={capacity} />}
+        <div className={styles.detailRows}>{list}</div>
+        <div className={styles.detailGate}>
+          <div className={styles.detailGateButtons}>{gateButtons}</div>
+          {/* L1.7 draws no helper line; the reason the button is off is still there for a screen reader. */}
+          {!allSettled && nextUnresolved && (
+            <p id="gate-helper" className={styles.srOnly}>
+              Check {nextUnresolved.orderId} or flag an issue first
+            </p>
+          )}
+        </div>
+      </>
+    );
+  }
   return (
     <>
       <ProgressHeader checked={checked} chilledZone={chilledZone} />
       {swap && <SwapBannerRow swap={swap} />}
       {capacity && <CapacityBlock capacity={capacity} />}
       <p className={styles.sectionLabel}>Load order · last stop in first</p>
-      {rows.map((row) => (
-        <Row key={row.orderId} row={row} demo={row.orderId === demoExpanded?.orderId ? demoExpanded : undefined} {...props} />
-      ))}
+      {list}
       <div className={styles.gate}>
-        <Button variant="dangerOutline" icon="flag" onClick={onFlagIssue}>
-          Flag issue
-        </Button>
-        <Button variant={allSettled ? "primary" : "secondary"} icon="check" disabled={!allSettled} onClick={onConfirmGate}>
-          Confirm loaded: clear to depart
-        </Button>
+        {gateButtons}
         {!allSettled && nextUnresolved && (
           <p className={styles.gateHelper}>
             Check {nextUnresolved.orderId} or flag an issue first
@@ -276,6 +346,7 @@ function Row({
   demo,
   onRecordUnits,
   onFlagShort,
+  embedded,
 }: LoadPlanProps & { row: LoadPlanRow; demo?: { orderId: string; draftUnits?: number } }) {
   const [expanded, setExpanded] = useState(!!demo);
   const [draft, setDraft] = useState(demo?.draftUnits ?? row.unitsExpected);
@@ -301,6 +372,7 @@ function Row({
       unitsExpected={row.unitsExpected}
       state={cardState}
       protectedOrder={row.protectedOrder}
+      compact={embedded}
     >
       {row.state === "todo" && !expanded && (
         <>

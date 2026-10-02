@@ -29,6 +29,8 @@ export type DockProps = {
   offlineAsOf?: string;
   onCallDispatch?: () => void;
   onRetry?: () => void;
+  /** L1.7: the master pane. No top bar and no phone gutters; the tablet shell supplies both. */
+  embedded?: boolean;
   children?: ReactNode;
 };
 
@@ -47,13 +49,22 @@ export function Dock({
   offlineAsOf,
   onCallDispatch,
   onRetry,
+  embedded,
   children,
 }: DockProps) {
+  const sectionLabel =
+    alert?.kind === "ready" || alert?.kind === "noChangeReady"
+      ? "Vehicles · locked until you acknowledge"
+      : embedded
+        ? "Vehicles"
+        : "Sorted by departure";
   return (
-    <div className={styles.screen}>
-      <FieldTopBar title="Load lists" subtitle={nowLabel ? <>{dockLabel} · <Mono>{nowLabel}</Mono></> : dockLabel}>
-        <ConnectivityChip status={connectivity.status} time={connectivity.time} count={connectivity.count} size="tablet" />
-      </FieldTopBar>
+    <div className={[styles.screen, embedded && styles.embedded].filter(Boolean).join(" ")}>
+      {!embedded && (
+        <FieldTopBar title="Load lists" subtitle={nowLabel ? <>{dockLabel} · <Mono>{nowLabel}</Mono></> : dockLabel}>
+          <ConnectivityChip status={connectivity.status} time={connectivity.time} count={connectivity.count} size="tablet" />
+        </FieldTopBar>
+      )}
 
       {state === "offline" && (
         <OfflineBanner tone="offline" compact>
@@ -120,15 +131,14 @@ export function Dock({
           </Alert>
         )}
 
+        {/* L1.7 draws the label above the acknowledgement pill; the phone frames draw it below. */}
+        {embedded && (state === "ready" || state === "offline") && vehicles && vehicles.length > 0 && <p className={styles.sectionLabel}>{sectionLabel}</p>}
+
         {state === "ready" && alert && <DockAlert alert={alert} />}
 
         {(state === "ready" || state === "offline") && vehicles && vehicles.length > 0 && (
           <>
-            <p className={styles.sectionLabel}>
-              {alert?.kind === "ready" || alert?.kind === "noChangeReady"
-                ? "Vehicles · locked until you acknowledge"
-                : "Sorted by departure"}
-            </p>
+            {!embedded && <p className={styles.sectionLabel}>{sectionLabel}</p>}
             {vehicles.map((vehicle) => (
               <VehicleCard key={vehicle.id} {...vehicle} />
             ))}

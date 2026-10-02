@@ -12,6 +12,8 @@ export type DockVehicleSummary = {
   activeTrip: 1 | 2;
   /** Departure of the active trip. */
   departsAt: string;
+  /** The active trip's orders, ascending, for the tablet master card (L1.7). */
+  orderIds?: string[];
   status: VehicleLoadStatus;
   checked?: { done: number; total: number };
   /** Set once a newer version exists than the dock's acknowledgement, for L1.5 and L1.6's tags. */

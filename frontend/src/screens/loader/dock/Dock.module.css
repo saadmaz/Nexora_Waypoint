@@ -12,6 +12,23 @@
   padding: var(--space-4) var(--gutter-phone) var(--space-6);
 }
 
+/* L1.7: the master pane fills its column; the shell owns the padding, and the pinned bar spans the pane. */
+.embedded {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.embedded .body {
+  padding: 0;
+  gap: var(--space-3);
+}
+
+.embedded .pinned {
+  padding: var(--space-4) var(--space-4) var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
+}
+
 .sectionLabel {
   font: var(--text-label);
   letter-spacing: var(--tracking-label);

@@ -38,10 +38,19 @@ function buildRows(orders: LoadPlanOrderRow[]): LoadPlanRow[] {
   }));
 }
 
-/** `flagOpen` is the `/flag` route: the same load plan with the L3 flag sheet over it. */
-export function LoadPlanContainer({ flagOpen = false }: { flagOpen?: boolean }) {
-  const { vehicleId = "", trip: tripParam = "1" } = useParams();
-  const trip = tripParam === "2" ? 2 : 1;
+type LoadPlanContainerProps = {
+  /** The `/flag` route: the same load plan with the L3 flag sheet over it. */
+  flagOpen?: boolean;
+  /** L1.7's detail pane: the tablet shell picks the vehicle, so it is a prop and not the route's. */
+  embedded?: boolean;
+  vehicleId?: string;
+  trip?: 1 | 2;
+};
+
+export function LoadPlanContainer({ flagOpen = false, embedded = false, vehicleId: vehicleProp, trip: tripProp }: LoadPlanContainerProps) {
+  const params = useParams();
+  const vehicleId = vehicleProp ?? params.vehicleId ?? "";
+  const trip: 1 | 2 = tripProp ?? (params.trip === "2" ? 2 : 1);
   const { api, dockId, currentPerson, setCurrentPerson } = useLoader();
   const navigate = useNavigate();
   const clock = useFieldClock();
@@ -77,6 +86,8 @@ export function LoadPlanContainer({ flagOpen = false }: { flagOpen?: boolean }) 
         departsAt=""
         planVersion={0}
         connectivity={chip}
+        embedded={embedded}
+        trip={trip}
         phase="loading"
         checked={{ done: 0, total: 0 }}
         chilledZone={false}
@@ -97,6 +108,8 @@ export function LoadPlanContainer({ flagOpen = false }: { flagOpen?: boolean }) 
         departsAt=""
         planVersion={0}
         connectivity={chip}
+        embedded={embedded}
+        trip={trip}
         phase="error"
         checked={{ done: 0, total: 0 }}
         chilledZone={false}
@@ -141,6 +154,8 @@ export function LoadPlanContainer({ flagOpen = false }: { flagOpen?: boolean }) 
       departsAt={view.departsAt}
       planVersion={view.planVersion}
       connectivity={chip}
+      embedded={embedded}
+      trip={trip}
       phase={phase}
       checked={checked}
       chilledZone={chilledZone}

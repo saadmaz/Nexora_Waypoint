@@ -1,0 +1,35 @@
+/* The detail pane with nothing to show: the plan is not acknowledged yet, or no vehicle is chosen. */
+.placeholder {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-6);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-lg);
+  text-align: center;
+}
+
+.placeholderIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+
+.placeholderTitle {
+  margin: 0;
+  font: var(--text-h3);
+  color: var(--ink);
+}
+
+.placeholderBody {
+  margin: 0;
+  font: var(--text-body);
+  color: var(--ink-muted);
+}

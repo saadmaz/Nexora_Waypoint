@@ -2,13 +2,13 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { colomboMs, formatTime, HERO_DATE, minutesUntil } from "../../../field/clock/clock";
 import { useFieldClock, useNow } from "../../../field/clock/useClock";
-import { useConnectivity, useFieldQuery, type ConnectivityStatus } from "../../../field/offline";
+import { useConnectivity, useFieldQuery, type ConnectivityStatus, type FieldQueryResult } from "../../../field/offline";
 import { formatCountdown } from "../../../field/format";
 import { PinSheet, type ChipStatus } from "../../../field/components";
 import { DOCKS, peopleFor } from "../fixtures";
 import { useLoader } from "../LoaderContext";
 import type { DepotId } from "../../../domain/field";
-import type { DockVehicleSummary } from "../types";
+import type { DockView as DockViewModel, DockVehicleSummary } from "../types";
 import { Dock, type DockAlertModel } from "./Dock";
 import type { VehicleCardProps } from "./VehicleCard";
 
@@ -21,13 +21,27 @@ function hasDiff(dockId: DepotId): boolean {
   return dockId === "peliyagoda";
 }
 
-export function DockContainer() {
+/**
+ * `embedded` is L1.7's master pane: no top bar, cards that select (no action button of their own) and
+ * the selected one marked. The router decides which vehicle is selected; this only draws it.
+ */
+export function DockContainer({
+  embedded = false,
+  selectedVehicleId,
+  query: shared,
+}: {
+  embedded?: boolean;
+  selectedVehicleId?: string;
+  /** The tablet shell reads the same dock to pick the detail pane, so it owns the query and hands it down. */
+  query?: FieldQueryResult<DockViewModel>;
+}) {
   const { api, dockId } = useLoader();
   const navigate = useNavigate();
   const clock = useFieldClock();
   const now = useNow(1000);
   const connectivity = useConnectivity();
-  const query = useFieldQuery(`loader:dock:${dockId}`, useCallback(() => api.getDock(dockId), [api, dockId]));
+  const own = useFieldQuery(shared ? null : `loader:dock:${dockId}`, useCallback(() => api.getDock(dockId), [api, dockId]));
+  const query = shared ?? own;
   const [ackOpen, setAckOpen] = useState(false);
 
   useEffect(() => {
@@ -45,10 +59,10 @@ export function DockContainer() {
   };
 
   if (query.status === "loading") {
-    return <Dock dockLabel={dockLabel} nowLabel={formatTime(now)} connectivity={chip} state="loading" />;
+    return <Dock dockLabel={dockLabel} nowLabel={formatTime(now)} connectivity={chip} embedded={embedded} state="loading" />;
   }
   if (query.status === "error") {
-    return <Dock dockLabel={dockLabel} nowLabel={formatTime(now)} connectivity={chip} state="error" onRetry={query.retry} />;
+    return <Dock dockLabel={dockLabel} nowLabel={formatTime(now)} connectivity={chip} embedded={embedded} state="error" onRetry={query.retry} />;
   }
 
   const view = query.value;
@@ -59,6 +73,7 @@ export function DockContainer() {
         dockLabel={dockLabel}
         nowLabel={formatTime(now)}
         connectivity={chip}
+        embedded={embedded}
         state="empty"
         emptyReleaseLabel="23:40"
         emptyCheckedLabel={formatTime(query.updatedAt)}
@@ -106,6 +121,8 @@ export function DockContainer() {
       lockedVersion: view.planVersion,
       changeTag: showChangeTags ? (v.vehicle.id === "VEH003" || v.vehicle.id === "VEH036" ? "Changed" : "No change") : undefined,
       primary: !locked && v.vehicle.id === nextToLoad?.vehicle.id,
+      embedded,
+      selected: v.vehicle.id === selectedVehicleId,
       goToId: heldVehicle?.vehicle.id === v.vehicle.id ? nextToLoad?.vehicle.id : undefined,
       now,
       navigate,
@@ -120,6 +137,7 @@ export function DockContainer() {
         dockLabel={dockLabel}
         nowLabel={formatTime(now)}
         connectivity={chip}
+        embedded={embedded}
         state="offline"
         vehicles={vehicles}
         offlineVersion={view.planVersion}
@@ -134,6 +152,7 @@ export function DockContainer() {
       dockLabel={dockLabel}
       nowLabel={formatTime(now)}
       connectivity={chip}
+      embedded={embedded}
       state="ready"
       alert={alert}
       vehicles={vehicles}
@@ -162,6 +181,8 @@ function buildCard(
     lockedVersion: number;
     changeTag?: "Changed" | "No change";
     primary: boolean;
+    embedded: boolean;
+    selected: boolean;
     goToId?: string;
     now: number;
     navigate: ReturnType<typeof useNavigate>;
@@ -172,6 +193,7 @@ function buildCard(
   const goTo = opts.goToId
     ? { label: `Go to ${opts.goToId}`, onClick: () => opts.navigate(`/loader/vehicles/${opts.goToId}/trips/1`) }
     : undefined;
+  const open = () => opts.navigate(`/loader/vehicles/${v.vehicle.id}/trips/${v.activeTrip}`);
   const label = v.status === "loaded" ? `View ${v.vehicle.id}` : opts.primary ? `Load ${v.vehicle.id} · departs ${v.departsAt}` : `Load ${v.vehicle.id}`;
   return {
     id: v.vehicle.id,
@@ -179,6 +201,7 @@ function buildCard(
     trips: v.trips,
     orderCount: v.orderCount,
     departsAt: v.departsAt,
+    orderIds: v.orderIds,
     inLabel,
     locked: opts.locked,
     status: v.status,
@@ -187,8 +210,10 @@ function buildCard(
     heldReason: v.heldReason,
     lockedVersion: opts.locked ? opts.lockedVersion : undefined,
     goTo,
-    action: goTo ? undefined : { label, primary: opts.primary, icon: opts.primary ? "truck" : undefined },
-    onPress: () => opts.navigate(`/loader/vehicles/${v.vehicle.id}/trips/${v.activeTrip}`),
+    action: goTo || opts.embedded ? undefined : { label, primary: opts.primary, icon: opts.primary ? "truck" : undefined },
+    selected: opts.selected,
+    onSelect: opts.embedded ? open : undefined,
+    onPress: open,
   };
 }
 

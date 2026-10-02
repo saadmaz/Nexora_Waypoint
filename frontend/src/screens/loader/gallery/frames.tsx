@@ -8,6 +8,7 @@ import { FlagSheet, type FlagOrder, type FlagPrefill, type FlagSentModel } from 
 import { PlanChanged, type PlanChangedPhase } from "../changes/PlanChanged";
 import { FlagStatus } from "../flag/FlagStatus";
 import { LoadPlan, type LoadPlanRow } from "../loadplan/LoadPlan";
+import { TabletShell } from "../tablet/TabletShell";
 import type { PlanDiffView } from "../types";
 
 const noop = () => undefined;
@@ -140,6 +141,12 @@ const l16aVehicles: VehicleCardProps[] = [
 const l16bAlert: DockAlertModel = { kind: "noChangeAcknowledged", version: 4, by: "Ruwan", at: "04:15" };
 const l16bVehicles: VehicleCardProps[] = [
   vehicle({ id: "VEH039", temperature: "reefer", trips: 1, orderCount: 3, departsAt: "05:10", inLabel: "in 55 min", action: { label: "Load VEH039 · departs 05:10", primary: true, icon: "truck" } }),
+];
+
+// --- L1.7 · 04:30 · Kandy tablet master-detail: the vehicle list, VEH039 selected, its load plan open
+const l17Alert: DockAlertModel = { kind: "acknowledgedCompact", version: 4, by: "Ruwan", at: "04:15" };
+const l17Vehicles: VehicleCardProps[] = [
+  vehicle({ id: "VEH039", temperature: "reefer", trips: 1, orderCount: 3, departsAt: "05:10", inLabel: "in 40 min", orderIds: ["ORD2001", "ORD2002", "ORD2003"], checked: { done: 2, total: 3 }, selected: true, onSelect: noop }),
 ];
 
 // --- L1.S3 · Offline: last-known dock, still actionable -------------------------------------------
@@ -517,6 +524,43 @@ export const LOADER_FRAMES: GalleryFrame[] = [
     height: 844,
     clock: { date: HERO_DATE, time: "04:15" },
     render: () => <Dock dockLabel="Kandy dock" nowLabel="04:15" connectivity={SYNCED} state="ready" alert={l16bAlert} vehicles={l16bVehicles} />,
+  },
+  {
+    frameId: "L1.7",
+    figmaNodeId: "442:28338",
+    name: "L1.7 · 04:30 · Dock: tablet master-detail (1024 x 768)",
+    width: 1024,
+    height: 768,
+    clock: { date: HERO_DATE, time: "04:30" },
+    render: () => (
+      <TabletShell
+        dockLabel="Kandy dock"
+        dateLabel="Tue 29 Sep"
+        connectivity={SYNCED}
+        height={768}
+        master={<Dock embedded dockLabel="Kandy dock" nowLabel="04:30" connectivity={SYNCED} state="ready" alert={l17Alert} vehicles={l17Vehicles} />}
+        detail={
+          <LoadPlan
+            embedded
+            trip={1}
+            vehicleId="VEH039"
+            dockLabel="Kandy dock"
+            departsAt="05:10"
+            planVersion={4}
+            connectivity={SYNCED}
+            phase="ready"
+            checked={{ done: 2, total: 3 }}
+            chilledZone
+            rows={veh039Rows({ ord2003: 9, ord2002: 8 })}
+            onRecordUnits={noopUnits}
+            onFlagShort={noopUnits}
+            onFlagIssue={noop}
+            onConfirmGate={noop}
+            onBack={noop}
+          />
+        }
+      />
+    ),
   },
   {
     frameId: "L1.S-1",

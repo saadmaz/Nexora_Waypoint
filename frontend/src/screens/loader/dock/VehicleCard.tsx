@@ -13,6 +13,8 @@ export type VehicleCardProps = {
   orderCount: number;
   departsAt: string;
   inLabel: string;
+  /** The active trip's order IDs, listed under the meta line on the tablet master card (L1.7). */
+  orderIds?: string[];
   /** Locked until the dock acknowledges the current plan version. */
   locked: boolean;
   status: VehicleCardStatus;
@@ -26,6 +28,10 @@ export type VehicleCardProps = {
   action?: { label: string; primary: boolean; icon?: "truck" };
   /** The held card's "Go to VEH0xx" shortcut to the next vehicle to load. */
   goTo?: { label: string; onClick: () => void };
+  /** L1.7: the card is the master list item whose load plan fills the detail pane. */
+  selected?: boolean;
+  /** L1.7: selecting a card opens its load plan in the detail pane; the card then has no action button of its own. */
+  onSelect?: () => void;
   onPress: () => void;
 };
 
@@ -37,6 +43,7 @@ export function VehicleCard({
   orderCount,
   departsAt,
   inLabel,
+  orderIds,
   locked,
   status,
   checked,
@@ -45,6 +52,8 @@ export function VehicleCard({
   lockedVersion,
   action,
   goTo,
+  selected,
+  onSelect,
   onPress,
 }: VehicleCardProps) {
   const held = status === "held";
@@ -80,7 +89,7 @@ export function VehicleCard({
             </Tag>
           )}
         </div>
-        {!held && <Icon name={locked ? "lock" : "chevron-right"} size={20} color="ink-muted" />}
+        {!held && !selected && <Icon name={locked ? "lock" : "chevron-right"} size={20} color="ink-muted" />}
       </div>
 
       <div className={styles.meta}>
@@ -94,6 +103,12 @@ export function VehicleCard({
           <p className={[styles.inTime, held && styles.inTimeUrgent].filter(Boolean).join(" ")}>{inLabel}</p>
         </div>
       </div>
+
+      {onSelect && orderIds && orderIds.length > 0 && (
+        <p className={styles.orderIds}>
+          <Mono>{orderIds.join(" · ")}</Mono>
+        </p>
+      )}
 
       {held && heldReason && (
         <div className={styles.heldBox}>
@@ -143,5 +158,12 @@ export function VehicleCard({
     </>
   );
 
-  return <article className={[styles.card, held && styles.heldCard].filter(Boolean).join(" ")}>{body}</article>;
+  return (
+    <article className={[styles.card, held && styles.heldCard, selected && styles.selected, onSelect && styles.selectable].filter(Boolean).join(" ")}>
+      {onSelect && (
+        <button type="button" className={styles.hit} aria-label={`Open ${id}`} aria-pressed={!!selected} disabled={locked || held} onClick={onSelect} />
+      )}
+      {body}
+    </article>
+  );
 }

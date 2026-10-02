@@ -831,9 +831,9 @@ Import from `field/offline`. One IndexedDB, `waypoint-field`: `outbox`, `cache`,
 
 ## 🏭 Waypoint Load (Loader)
 
-L1 Dock, L2 Load plan, L3 Flag exception and L4 Plan changed, built in `frontend/`, branch `feature/loader` from `feature/field-foundation`. Binding rules: [`docs/build/field-conventions.md`](docs/build/field-conventions.md) and the loader prompt. The tablet layout of the dock (L1.7) is the last screen still to come.
+L1 Dock, L2 Load plan, L3 Flag exception and L4 Plan changed, built in `frontend/`, branch `feature/loader` from `feature/field-foundation`. Binding rules: [`docs/build/field-conventions.md`](docs/build/field-conventions.md) and the loader prompt. The tablet layout (L1.7) is built; what remains is the Playwright run of both stories (L6).
 
-**Status:** L0 (types, fixtures, `LoaderApi`, mock server), L1 (Dock: every state, PIN acknowledgement, countdowns, held vehicle, plan-changed banner, offline cache, empty, loading, error) and L2 (Load plan: checks, count confirm, short units, the gate, loaded, held, the VEH003 → VEH036 swap reload), L3 (flag exception sheet, the outbox-driven sent, saved and failed states) and L4 (what changed between plan versions, acknowledge, begin loading) built, checked and compared against Figma. L1.7 (tablet master-detail) is phase L5.
+**Status:** L0 (types, fixtures, `LoaderApi`, mock server), L1 (Dock: every state, PIN acknowledgement, countdowns, held vehicle, plan-changed banner, offline cache, empty, loading, error) and L2 (Load plan: checks, count confirm, short units, the gate, loaded, held, the VEH003 → VEH036 swap reload), L3 (flag exception sheet, the outbox-driven sent, saved and failed states) and L4 (what changed between plan versions, acknowledge, begin loading) built, checked and compared against Figma. L1.7 (tablet master-detail at 1024 px and wider) is built as L5.
 
 ### How to run
 
@@ -887,9 +887,13 @@ An optional photo (Vehicle check failed, Damaged item, Wrong item, Other) uses t
 
 `PlanChanged.tsx` is presentational: the diff in the order the prompt asks for (Removed, loudest; Changed; Unchanged; the new trip 1 capacity; the vehicles with no change, collapsed), the pinned **Acknowledge and load** with its "You'll enter your PIN" helper, and the states around it: **acknowledged** (L4.2), **no change for this dock** (L4.3, still needs acknowledging), **up to date** (L4.S 1), **loading** (L4.S 2), **offline, may be missing a newer version** (L4.S 3) and **couldn't load, Retry** (L4.S 4). `ChangesContainer.tsx` wires it to `getDock` and `getPlanDiff` at `/loader/changes`. The diff runs from the version the dock last acknowledged to the current one; once this screen acknowledges, it keeps showing that same diff (L4.2) instead of reading the new version as the old one. **Begin loading** goes to the first changed vehicle's load plan.
 
+### L5 Tablet master-detail (`src/screens/loader/tablet/`)
+
+At 1024 px and wider the dock and load plan share one screen (frame L1.7, 1024 x 768). `TabletShell.tsx` draws the app bar (Waypoint Load, tabs, date line, sync chip), a 360 px master pane and the detail pane. `TabletDock.tsx` owns the dock query and passes it to `DockContainer` (`embedded`, so a card selects its vehicle and has no action button); the detail pane is `LoadPlanContainer` in `embedded` mode. The selected vehicle comes from the URL (`/loader/vehicles/:id/trips/:n[/flag]`); on `/loader/dock` it is the next vehicle to load once the dock is acknowledged, and a placeholder while the dock is locked. `LoaderApp.tsx` uses a layout route (`DockRoutes`) that renders `TabletDock` on wide screens and an `Outlet` on phones, so the phone screens are unchanged. `WideColumn.tsx` centres L4 at 720 px.
+
 ### State gallery
 
-`/loader/_states` registers 13 of L1's 15 frames (L1.1 to L1.6 B, the four L1.S states; L1.7 tablet is L5) and all 13 of L2's frames (L2.1 A to L2.6 B, the four L2.S states). It also registers all 8 of L3's frames (L3.1, L3.2 A and B, L3.3 A and B, L3.4 A to C) and all 7 of L4's (L4.1 to L4.3, L4.S 1 to 4). `npm run compare -- loader <id>` matches each against its Figma screenshot; `PinSheet`'s `demoPhase`/`demoDigits` props and `LoadPlan`'s `demoExpanded` prop freeze a sheet or a row open for the frames that need it (L1.2 B/C, L2.1 B, L2.2, L2.3 B).
+`/loader/_states` registers 14 of L1's 15 frames (L1.1 to L1.7, the four L1.S states; the 15th is not registered yet) and all 13 of L2's frames (L2.1 A to L2.6 B, the four L2.S states). It also registers all 8 of L3's frames (L3.1, L3.2 A and B, L3.3 A and B, L3.4 A to C) and all 7 of L4's (L4.1 to L4.3, L4.S 1 to 4): 42 frames in all. `npm run compare -- loader <id>` matches each against its Figma screenshot; `PinSheet`'s `demoPhase`/`demoDigits` props and `LoadPlan`'s `demoExpanded` prop freeze a sheet or a row open for the frames that need it (L1.2 B/C, L2.1 B, L2.2, L2.3 B).
 
 ### Departures from the Designathon design (loader)
 
@@ -907,12 +911,18 @@ An optional photo (Vehicle check failed, Damaged item, Wrong item, Other) uses t
 - **L4's deferral pill icon.** The Removed card's "Deferred · policy → Wed" pill is drawn with a curved arrow; the shared icon set has no matching glyph, so it uses `calendar-clock`, which says the same thing (moved to a later day).
 - **L4 titles are links to the dock.** The screens have no back chevron, as drawn, so the title ("Plan v3 → v4") is the way back.
 - **Wording the L4 frames do not give.** The v3-to-v4 case of "no change" for a dock other than Kandy reads "v4 did not change your vehicles."; the acknowledged-but-no-diff case returns to the dock instead of showing an empty diff; the expanded "no change" list reads "VEH035: same trips, same orders as v3".
+- **The tablet's Issues tab is drawn but inert.** L1.7 shows it; the loader has no designed Issues screen, so it does nothing.
+- **No visible gate helper in the tablet detail pane.** L1.7 draws the pinned gate row without the helper line; it stays in the page for screen readers.
+- **Compact checked rows.** On L1.7 a loaded row drops its brand tag and zone line; `LoaderCheckCard` takes `compact` for it.
+- **L4 on a wide screen.** There is no tablet frame for L4, so it is centred in a 720 px column.
+- **Long order-ID lines wrap** with a trailing dot on a long list, rather than being cut.
+- **Sheets stay a centred bottom sheet at tablet width**; no tablet frame draws one.
 - **The dev control is a tab on the top edge.** It used to sit in a corner and covered the pinned action on L4 and the dock; no loader screen puts anything on the top edge, centre.
 
 ### Shared files this role has changed
 
 - `field/components/PinSheet.tsx`: two new optional props, `demoPhase` and `demoDigits`, so the state gallery can freeze the sheet on its success or wrong-PIN frame without a fake timer. No existing prop or behaviour changed.
-- `field/components/LoaderCheckCard.tsx`: a `planned` state (L2.5's read-only pill), a `protectedOrder` flag (a lock tag in place of the brand tag), and a `"{n} short"` tag next to the position tag when `state` is `short`. No existing prop or behaviour changed.
+- `field/components/LoaderCheckCard.tsx`: a `compact` prop (L1.7's loaded row), a `planned` state (L2.5's read-only pill), a `protectedOrder` flag (a lock tag in place of the brand tag), and a `"{n} short"` tag next to the position tag when `state` is `short`. No existing prop or behaviour changed.
 - `field/format.ts`: added `formatCountdown(minutes)` ("in 3 h 45 min", "in 56 min").
 - `field/offline/query.ts` (new) and `field/offline/index.ts`: `useFieldQuery`, the cache-then-network read hook every field screen's offline state needs. Exported alongside the rest of `field/offline`.
 - `vite.config.ts`: `server.fs.allow` now adds the real parent of `node_modules` only when it resolves outside the project directory (a worktree with a symlinked `node_modules`); a normal checkout is unaffected.
@@ -929,7 +939,7 @@ An optional photo (Vehicle check failed, Damaged item, Wrong item, Other) uses t
 - [x] L2 Load plan: checks, count confirm, short units, gate + PIN, loaded, held, swap reload
 - [x] L3 Flag exception sheet
 - [x] L4 Plan changed
-- [ ] L5 L1.7 tablet master-detail
+- [x] L5 L1.7 tablet master-detail
 - [ ] L6 Playwright run of both stories, final README pass
 
 ---
