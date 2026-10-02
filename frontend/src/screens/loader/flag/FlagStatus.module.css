@@ -1,0 +1,169 @@
+/* L3.4 A (queued offline) and L3.4 B (couldn't send): full screens that replace the sheet. */
+
+.screen {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-0);
+  color: var(--ink);
+}
+
+/* In a gallery frame the screen fills the frame's box, not the window. */
+.contained {
+  position: absolute;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px var(--space-4);
+  border-top: 1px solid var(--line);
+  font: var(--text-body-sm);
+  color: var(--on-chrome);
+}
+
+.barOffline {
+  background: var(--chrome);
+}
+
+.barFailed {
+  background: var(--danger-soft);
+  color: var(--ink);
+}
+
+.barIcon {
+  display: inline-flex;
+  flex: 0 0 20px;
+  color: var(--on-chrome);
+}
+
+.barIconFailed {
+  color: var(--danger);
+}
+
+.barText {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.retry {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 0 0 auto;
+  height: 40px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  color: var(--ink);
+  font: var(--text-button-md);
+}
+
+.content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-6) var(--space-4) var(--space-6);
+  overflow-y: auto;
+}
+
+.failedContent {
+  padding-top: var(--space-4);
+}
+
+.tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-lg);
+  background: var(--offline-soft);
+  color: var(--offline);
+}
+
+.title {
+  margin: 0;
+  font: var(--text-h2);
+}
+
+.lead {
+  margin: 0;
+  font: var(--text-h3);
+  font-weight: 400;
+  color: var(--ink-muted);
+}
+
+.fact {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font: var(--text-data);
+  font-family: var(--font-sans);
+  color: var(--danger);
+}
+
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+}
+
+.failedSummary {
+  gap: var(--space-2);
+}
+
+.summaryRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font: var(--text-h3);
+  font-weight: 600;
+}
+
+.flagIcon {
+  display: inline-flex;
+  color: var(--danger);
+}
+
+.detail {
+  margin: 0;
+  font: var(--text-body);
+  color: var(--ink-muted);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 6px;
+  padding: var(--space-1) 10px var(--space-1) var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--offline-soft);
+  color: var(--offline);
+  font: var(--text-pill);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.desk {
+  margin: 0;
+  text-align: center;
+  font: var(--text-body-sm);
+  color: var(--ink-muted);
+}
+
+.helper {
+  margin: 0;
+  font: var(--text-body);
+  color: var(--ink-muted);
+}

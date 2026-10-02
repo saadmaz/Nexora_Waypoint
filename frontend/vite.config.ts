@@ -1,7 +1,19 @@
+import { existsSync, realpathSync } from "node:fs";
 import basicSsl from "@vitejs/plugin-basic-ssl";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import { defineConfig } from "vitest/config";
+
+// Some worktrees symlink node_modules into a sibling checkout (so loader and driver share one
+// install); Vite's dev server otherwise 403s on files reached through the symlink. Only add the
+// allow entry when node_modules actually resolves outside this directory, so the config stays
+// correct for a normal checkout too.
+function extraFsAllow(): string[] {
+  if (!existsSync("node_modules")) return [];
+  const real = realpathSync("node_modules");
+  const here = realpathSync(".");
+  return real.startsWith(here) ? [] : [realpathSync(real + "/..")];
+}
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -54,7 +66,7 @@ export default defineConfig(({ mode }) => ({
     // and GPS need a secure context on a phone.
     ...(mode === "https" ? [basicSsl()] : []),
   ],
-  server: mode === "https" ? { host: true } : undefined,
+  server: { fs: { allow: [".", ...extraFsAllow()] }, ...(mode === "https" ? { host: true } : {}) },
   test: {
     environment: "node",
     include: ["src/**/*.test.ts"],

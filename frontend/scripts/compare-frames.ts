@@ -74,6 +74,8 @@ for (const id of frameIds) {
     continue;
   }
   await page.evaluate("document.fonts.ready");
+  // Sheets slide in over 220 ms and the scrim fades in; wait so the capture shows them settled.
+  await page.waitForTimeout(500);
   const appPath = join(outDir, `${id}.app.png`);
   await frame.screenshot({ path: appPath });
   const figmaPath = join(figmaDir, `${id}.png`);

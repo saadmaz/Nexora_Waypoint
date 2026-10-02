@@ -10,14 +10,24 @@ Add a line to the table below when an AI tool does a meaningful part of your pul
 |---|---|---|---|---|
 | 29 Sep to 1 Oct | Store manager screens (S1 to S4) | Claude | Screen components, fixtures and the `StoreApi` mock from the Figma frames and PRD §3 | Frames compared side by side, copy read against Figma, lint, typecheck and build |
 | 1 Oct | Field apps foundation (`frontend/src/field/**`, shared field components, offline core, scenario clock, state gallery harness, PWA setup) | Claude | The shared base the loader and driver sit on: themes, components, Dexie outbox and sync engine, clock, gallery, compare script | 21 unit tests written and run; the production build opened offline after one visit; lint, typecheck and build clean. The components were not yet compared pixel by pixel with Figma, which the role branches do per screen |
+| 1 Oct | Backend foundation (`feature/backend-foundation`, PR #5) | Claude Code (Claude Sonnet 5.5) | The FastAPI app core, SQLAlchemy models, the initial Alembic migration, the section 19 route contract, the seed, Docker and CI files, and the API tests | The brief was set by a person, who reviewed the generated migration and owns the merge |
 | 1 to 2 Oct | Loader screens (L1 to L4) | Claude | Screens, states, `LoaderApi` and fixtures from the Figma frames | See the loader PR |
 | 1 to 2 Oct | Driver screens (R1 to R3 so far) | Claude Code | Types, fixtures, `DriverApi` and mock, sync handlers, the shell and Me tab, Route, Stop detail and Record outcome, state gallery and a Playwright hero-path walkthrough, built against `claude/field-build/03-driver-core.md` and the field conventions | HH reviewed and directed each phase; lint, typecheck and build run on every commit |
 | 2 to 3 Oct | Driver offline and recovery (R4 Outbox, R5 Sync result, R8 Notifications, the conflict and its resolution) | Claude Code | The mock server's v5 conflict rule and resolution, the Outbox sheet, the sync result states, photo upload ordering and the WP-SYNC-409 branch, the notifications list, unit tests and the Playwright walkthrough, built against `claude/field-build/04-driver-offline.md` | HH directed each phase. 55 unit tests, a 64-check Playwright run of the hero path (and a partial-resolution variant), an offline production-build check, and a side-by-side comparison with Figma for the R4, R5, R8 and touched R1 and R3 frames. The real-device check (a phone in airplane mode) was not done by the tool |
 | 2 Oct | PRD v3.1 and central context (`waypoint-prd-v3.md`, `waypoint-central-context-v3.md`) | Claude | Changes V32 to V42: the planned-distance basis, the dock setting, PIN rules, R10 in API mode, the mock-to-real switch, Dispatch handling of non-vehicle flags, R6 problem threads, assumptions A55 to A58, departures DP-17 to DP-23, open decisions O-8 to O-11 | Register numbering checked against the existing rows so nothing was overwritten; A55 on frame L1.2 A is still to be confirmed against Figma and says so in the row |
+| 2 Oct | App shell (`frontend/src/screens/auth`, `frontend/src/app/App.tsx`): sign-in, role picker, per-role sessions, presenter control | Claude | `AuthApi` and its mock, per-role sessions, the router change, the sign-in screen for frames G1.1 to G1.5 and its state gallery | Sessions and the mock covered by 18 unit tests; sign-in driven in a real browser (retry, offline, four roles in one browser); frames diffed against Figma at 1x. Role picker, presenter control and avatar menu follow in later phases and will be added to this row |
 
 ## Invented data
 
 PRD §4d is the full register. Every figure, time and name the Day 5 design did not give us was invented or inferred and is listed there (A1 to A58). The competition CSVs supply the real reference data: outlets, vehicles, the calendar, district travel, service allowances and traffic speeds.
+
+Invented or inferred, and registered in §4d:
+
+- The hero-day orders, times, history, plan versions and live-board rows.
+- The four demo accounts, the loader PINs (Priya 1234, Ruwan 5678) and all driver names other than those named in the PRD.
+- The scripted background events (`backend/seed/scenario_events.yaml`), which the README says are simulated.
+- The fallback reference set in `backend/seed/` used when `data/*.csv` is absent (PRD §4c figures and a generated calendar).
+- Generated orders (A41), once the generator lands.
 
 ## Machine-translated strings
 
