@@ -884,6 +884,7 @@ There are five G1 and four G2 frames, as PRD v3 section 3 says. The conventions 
 
 - **The sign-in frames already read "Waypoint".** The brief expected "Waypoint Dispatch" and a departure to fix it. G1.3 prints the neutral wordmark already, which is what PRD v3 section 6 asks for, so no departure was needed. Each role's own app name still appears in its chrome.
 - **G1.4 and G1.5 are drawn.** The brief expected no retry and no offline frame. Both exist, taller than the base phone frame because they carry extra content, so they are copied as drawn. The retry behaviour (inline error, password cleared, focus back on it, email kept, no attempt counting) is still built, and only where the frames stop short.
+- **G1.5's offline text, in full.** The warning alert reads "You're offline" (Archivo SemiBold 14) over "Sign-in needs a connection once. After that, field screens work offline." (Archivo Regular 13, line height 18). That is the whole string; the earlier metadata dump cut it at "After t...". The rest of the frame: the Sign in button at 40% opacity, the email field showing the placeholder "name@waypoint.lk", the password field empty, and below a divider the "Demo accounts" helper with a "Prototype" tag and four rows ("Kumari · Dispatcher", "Dock tablet · Loader", "Nimal · Driver", "Anusha · Store manager", each over its `@waypoint.demo` address in Plex Mono 12). The brief suggested "Your orders and deliveries are safe. Nothing was changed." for offline sign-in; Figma wins, so that line is not used.
 - **PRD section 3's G2 card copy is abbreviated against the frames.** The frames add "· synced" to the Loader and Driver cards, plus a context line above and a target line below each card (for example "Peliyagoda dock · enter PIN per action" above and "Opens L1 Dock board" below). The frames are what gets built.
 - **The G2 corner labels** (`DISPATCHER · LIGHT`, `LOADER · DARK`, `DRIVER · DARK`, `STORE · LIGHT`) name the theme of the role app each card opens, which is the per-role table in PRD v3 section 6. `/start` itself stays Light · office, and `/sign-in` is Light on desktop and Dark at phone width.
 - **G2.1 names two screens** ("Opens D1 Queue / D6 Operations") but the card goes to `/dispatcher/queue`. The line is kept as drawn because it is descriptive text.
@@ -913,7 +914,6 @@ There are five G1 and four G2 frames, as PRD v3 section 3 says. The conventions 
 
 ### Still to check
 
-- G1.5's full offline string is truncated in the Figma metadata ("Sign-in needs a connection once. After t..."). Pull it in A1.
 - The Store keeps `app/scenarioClock.ts` and the field apps keep `field/clock/clock.ts`. Two clocks, not unified here; whoever wires the real API should merge them.
 - The vitest session tests stub `window.localStorage` because the test environment is `node`. A browser-level check of the four-tab sign-in comes with the Playwright script in A6.
 
