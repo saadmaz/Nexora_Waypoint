@@ -826,6 +826,94 @@ Import from `field/offline`. One IndexedDB, `waypoint-field`: `outbox`, `cache`,
 - `Mono` renders at the surrounding weight; the frames use Plex Mono Medium (500) for IDs. Compare when the first screens land and set it if it differs.
 - Sign-in: no sign-in exists on this branch, so `loader@waypoint.demo` and `driver@waypoint.demo` do not land anywhere yet.
 
+## 🔐 App shell (sign-in, role picker, sessions, presenter control)
+
+The frames every role passes through before its own screens: sign-in (G1), the role picker (G2), per-role sessions and the one presenter control the judge walkthrough drives. Branch: `feature/auth`, cut from `develop`, frontend only. There is no backend yet, so everything runs against a mock. The brief is [`claude/field-build/06-app-shell.md`](claude/field-build/06-app-shell.md).
+
+**Status:** A0 built and pushed (`tsc -b`, `oxlint`, `vitest run`, `vite build` all clean; 31 tests, 10 of them new). A1 to A6 are not started. No screen exists yet, so there is nothing to compare against Figma.
+
+### Accounts
+
+One demo password for all four accounts. PRD v3 section 4c leaves passwords to A40 and the README; the environment variable that replaces this one is the backend branch's to add, so there is no `.env.example` change here.
+
+| Role | Email | Shown as | Lands on |
+|---|---|---|---|
+| Dispatcher | `dispatcher@waypoint.demo` | Kumari | `/dispatcher/queue` |
+| Loader | `loader@waypoint.demo` | Dock tablet (a shared device, not a person) | `/loader/dock` |
+| Driver | `driver@waypoint.demo` | Nimal | `/driver/run` |
+| Store | `store@waypoint.demo` | Anusha | `/store/orders` |
+
+Password for all four: `waypoint`. The loader still enters a PIN per action after signing in; `PinSheet` from the field foundation does that and is not rebuilt here.
+
+### Sessions (`src/screens/auth/session.ts`)
+
+Stored per role under `wp.session.dispatcher`, `wp.session.loader`, `wp.session.driver` and `wp.session.store`, so one browser holds all four roles in four tabs. Signing out clears one role only. A session holds the role, email, display name, an opaque token and the sign-in time; the token is a demo string in mock mode and is shaped so a real JWT is a swap.
+
+- Every read and write is wrapped. A blocked or cleared `localStorage`, or a quota error, never breaks sign-in: a failed read means "not signed in", a failed write leaves a session that lasts the tab.
+- The tab-lifetime fallback answers only for a role whose write failed. A role that saved normally is dropped from it, so a session cleared in another tab or by clearing site data reads as signed out.
+- Nothing clears a session on a failed network call, so the driver token survives going offline and the outbox can sync later (PRD v3 section 15).
+- `readAnySession()` backs the `/` redirect and returns the first role in picker order (dispatcher, loader, driver, store); `readAllSessions()` backs the signed-in state on the `/start` cards.
+
+### Sign-in API (`AuthApi.ts`, `mockAuthApi.ts`)
+
+`signIn(email, password)`, `signOut(role)` and `getSession(role)`. A wrong password returns `{ ok: false, reason: "invalid_credentials" }` and being offline returns `{ ok: false, reason: "offline" }`; neither throws. An unknown email and a wrong password give the same answer. The mock answers in 300 to 600 ms like the field transport, and at once under vitest.
+
+`VITE_AUTH_API=mock|api` picks the implementation, defaulting to the mock. PRD v3 section 9 principle 7 names the pattern `VITE_<ROLE>_API` for the four roles only, so this is a small extension of it, not something the PRD already says.
+
+### Figma nodes
+
+File `0qCle1zCrSImSou4lVlvmL`, page "Nexora (main)" `0:1`. The G frames are one contiguous block at `442:67xxx`.
+
+| Node | Frame |
+|---|---|
+| `442:67261` | G1.1 Sign-in, desktop (1440 x 900) |
+| `442:67336` | G1.2 Sign-in, phone, Light (390 x 844) |
+| `442:67411` | G1.3 Sign-in, phone, Dark · pre-dawn (390 x 844) |
+| `442:67486` | G1.4 Sign-in, wrong password (390 x 844) |
+| `442:67568` | G1.5 Sign-in, offline (390 x 844) |
+| `442:67656` | G2.1 Role landing, Dispatcher (480 x 560) |
+| `442:67672` | G2.2 Role landing, Loader (480 x 560) |
+| `442:67688` | G2.3 Role landing, Driver (480 x 560) |
+| `442:67704` | G2.4 Role landing, Store (480 x 560) |
+| `442:67720` | G3 Presenter mode over D6.4 (1440 x 900) |
+| `442:68072` | G4 "Why this screen" over D7.1 (1440 x 900) |
+
+There are five G1 and four G2 frames, as PRD v3 section 3 says. The conventions table once listed `175:2174`, `175:2456` and `175:2472`. They render the same frames as their `442:67xxx` counterparts but are an older copy outside this block; build from the table above.
+
+### Notes from reading the frames
+
+- **The sign-in frames already read "Waypoint".** The brief expected "Waypoint Dispatch" and a departure to fix it. G1.3 prints the neutral wordmark already, which is what PRD v3 section 6 asks for, so no departure was needed. Each role's own app name still appears in its chrome.
+- **G1.4 and G1.5 are drawn.** The brief expected no retry and no offline frame. Both exist, taller than the base phone frame because they carry extra content, so they are copied as drawn. The retry behaviour (inline error, password cleared, focus back on it, email kept, no attempt counting) is still built, and only where the frames stop short.
+- **PRD section 3's G2 card copy is abbreviated against the frames.** The frames add "· synced" to the Loader and Driver cards, plus a context line above and a target line below each card (for example "Peliyagoda dock · enter PIN per action" above and "Opens L1 Dock board" below). The frames are what gets built.
+- **The G2 corner labels** (`DISPATCHER · LIGHT`, `LOADER · DARK`, `DRIVER · DARK`, `STORE · LIGHT`) name the theme of the role app each card opens, which is the per-role table in PRD v3 section 6. `/start` itself stays Light · office, and `/sign-in` is Light on desktop and Dark at phone width.
+- **G2.1 names two screens** ("Opens D1 Queue / D6 Operations") but the card goes to `/dispatcher/queue`. The line is kept as drawn because it is descriptive text.
+
+### Departures from the brief
+
+- **Offline detection** reads the field `connectivity` object, not `navigator.onLine` directly. It wraps the browser's online state and adds "Simulate offline", which the walkthrough uses, so sign-in agrees with the rest of the app about being offline.
+- **The API pattern** follows `api/StoreApi.ts` and `mockStoreApi.ts`. The brief points at `LoaderApi` and `mockLoaderApi.ts`, which live on the unmerged `feature/loader`.
+- **`Role`** is the existing union in `domain/status.ts`; no second one was declared.
+
+### Shared files this role has changed
+
+None so far. A0 only adds `src/screens/auth/`. The router (`app/App.tsx`), the presenter control (`app/PresenterControl.tsx`) and the Store top bar are changed in A3 to A5 and will be listed here, each in its own commit.
+
+### Phases
+
+- [x] A0 `AuthApi`, mock, `session.ts`, types (10 tests)
+- [ ] A1 G1 sign-in, five states, desktop and phone, retry, offline
+- [ ] A2 G2 `/start`, four role cards
+- [ ] A3 router: `/sign-in`, `/start`, `/` redirect, `/auth/_states`
+- [ ] A4 one shared presenter panel in `app/presenter/`, replacing the Store's copy
+- [ ] A5 avatar menu, mounted in the Store top bar
+- [ ] A6 gallery, Figma compare, Playwright four-role sign-in, this section completed, `docs/ai-disclosure.md` line
+
+### Still to check
+
+- G1.5's full offline string is truncated in the Figma metadata ("Sign-in needs a connection once. After t..."). Pull it in A1.
+- The Store keeps `app/scenarioClock.ts` and the field apps keep `field/clock/clock.ts`. Two clocks, not unified here; whoever wires the real API should merge them.
+- The vitest session tests stub `window.localStorage` because the test environment is `node`. A browser-level check of the four-tab sign-in comes with the Playwright script in A6.
+
 ---
 
 ## 🏆 Tech-Triathlon 2026
