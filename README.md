@@ -900,6 +900,8 @@ There are five G1 and four G2 frames, as PRD v3 section 3 says. The conventions 
 - **Loading.** The form is a disabled `fieldset` and the button is busy. The button keeps its box, so nothing moves.
 - **Demo accounts.** Tapping a row signs in at once with the demo password. Offline it only fills the fields.
 
+**Decisions confirmed (2 Oct).** Demo rows sign in at once; desktop controls are 40 px as drawn and 44 px on touch; the wrong-password message names what to do. Where Figma is silent or contradicts the brief on a UX point, the stronger experience is chosen and any visible difference from a frame is recorded under "Departures from the brief".
+
 **How it was checked.** Each frame was captured at 1x and diffed against its Figma PNG: every frame has the exact Figma size, every box edge (card, inputs, button, rows, notice) is within 1 px, and what remains is text and icon anti-aliasing plus a 1 px offset on the Prototype tag. The behaviour was driven in Chromium: wrong password then retry, no lockout, unknown email, no layout shift while loading, the four demo rows, four roles in four tabs of one browser, `/` redirecting a signed-in browser, the Dark phone theme and offline blocking and recovery. That script is scratch; the permanent four-role Playwright check comes in A6.
 
 ### Departures from the brief
@@ -927,7 +929,7 @@ There are five G1 and four G2 frames, as PRD v3 section 3 says. The conventions 
 - [x] A0 `AuthApi`, mock, `session.ts`, types (10 tests)
 - [x] A1 G1 sign-in, five states, desktop and phone, retry, offline (8 new tests)
 - [ ] A2 G2 `/start`, four role cards
-- [x] A3 router: `/sign-in`, `/start`, `/` redirect, `/auth/_states` (placeholders until A1, A2 and A6)
+- [x] A3 router: `/sign-in`, `/start`, `/` redirect, `/auth/_states` (`/start` and `/auth/_states` are placeholders until A2 and A6)
 - [ ] A4 one shared presenter panel in `app/presenter/`, replacing the Store's copy
 - [ ] A5 avatar menu, mounted in the Store top bar
 - [ ] A6 gallery, Figma compare, Playwright four-role sign-in, this section completed, `docs/ai-disclosure.md` line
@@ -938,7 +940,8 @@ There are five G1 and four G2 frames, as PRD v3 section 3 says. The conventions 
 - The vitest session tests stub `window.localStorage` because the test environment is `node`. A browser-level check of the four-tab sign-in comes with the Playwright script in A6.
 - **Real client, wire format.** Over the wire the backend sends camelCase (`accessToken`, `expiresAt`, `displayName`), because its `ApiModel` has a camelCase alias generator. The real `AuthApi` maps those to `Session`; the field names in `types.ts` already match.
 - **A server error has no frame.** `SignInFailureReason` is `invalid_credentials` or `offline`. A `5xx`, or a `429` if the backend adds rate limiting, would need a third reason and copy, and Figma draws neither. Decide with the real client.
-- **Generic sign-in weight.** The sign-in button label renders at the shared token's 600; the Figma dump names it Bold. Check it against the Store's buttons in the A6 compare pass.
+- **Sign-in button weight and disabled opacity.** The label renders at the shared token's 600 where the Figma dump says Bold, and the disabled button is the shared 50% where G1.5 draws 40%. Check both against the Store's buttons in the A6 compare pass.
+- **G1.4 compare.** The live message is longer than the frame's by design, so the G1.4 compare will differ on that one line.
 
 ---
 
