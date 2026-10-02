@@ -1,12 +1,25 @@
-# AI tool disclosure
+# AI disclosure
 
-Waypoint was built with AI coding tools. This file is where we say so, once, as the booklet and PRD v3 §4d ask
-(no per-screen "Mock data" chips). Add a line to the log when an AI tool does a meaningful part of a PR.
+Waypoint was built with AI coding assistants. This file is the single place we say where and how, as the Challenge Booklet asks and as `Contributing.md` §19 and §24 require. There are no "Mock data" chips or AI badges on any screen; the disclosure lives here, in the Figma AI disclosure page (F17), in the README and in the submission video.
+
+Add a line to the table below when an AI tool does a meaningful part of your pull request. Keep it factual: what it wrote, what you checked.
+
+## What AI did, and what a person checked
+
+| Date | Area | Tool | What the tool produced | What a person checked |
+|---|---|---|---|---|
+| 29 Sep to 1 Oct | Store manager screens (S1 to S4) | Claude | Screen components, fixtures and the `StoreApi` mock from the Figma frames and PRD §3 | Frames compared side by side, copy read against Figma, lint, typecheck and build |
+| 1 Oct | Field apps foundation (`frontend/src/field/**`, shared field components, offline core, scenario clock, state gallery harness, PWA setup) | Claude | The shared base the loader and driver sit on: themes, components, Dexie outbox and sync engine, clock, gallery, compare script | 21 unit tests written and run; the production build opened offline after one visit; lint, typecheck and build clean. The components were not yet compared pixel by pixel with Figma, which the role branches do per screen |
+| 1 Oct | Backend foundation (`feature/backend-foundation`, PR #5) | Claude Code (Claude Sonnet 5.5) | The FastAPI app core, SQLAlchemy models, the initial Alembic migration, the section 19 route contract, the seed, Docker and CI files, and the API tests | The brief was set by a person, who reviewed the generated migration and owns the merge |
+| 1 to 2 Oct | Loader screens (L1 to L4) | Claude | Screens, states, `LoaderApi` and fixtures from the Figma frames | See the loader PR |
+| 1 to 2 Oct | Driver screens (R1 to R10) | Claude | Screens, states, `DriverApi`, fixtures and sync handlers from the Figma frames | See the driver PRs |
+| 2 Oct | PRD v3.1 and central context (`waypoint-prd-v3.md`, `waypoint-central-context-v3.md`) | Claude | Changes V32 to V42: the planned-distance basis, the dock setting, PIN rules, R10 in API mode, the mock-to-real switch, Dispatch handling of non-vehicle flags, R6 problem threads, assumptions A55 to A58, departures DP-17 to DP-23, open decisions O-8 to O-11 | Register numbering checked against the existing rows so nothing was overwritten; A55 on frame L1.2 A is still to be confirmed against Figma and says so in the row |
 
 ## Invented data
 
-The competition CSVs are the only real data. Everything below was invented or inferred, and is registered in
-PRD v3 §4d (the assumption register, A1 to A43):
+PRD §4d is the full register. Every figure, time and name the Day 5 design did not give us was invented or inferred and is listed there (A1 to A58). The competition CSVs supply the real reference data: outlets, vehicles, the calendar, district travel, service allowances and traffic speeds.
+
+Invented or inferred, and registered in §4d:
 
 - The hero-day orders, times, history, plan versions and live-board rows.
 - The four demo accounts, the loader PINs (Priya 1234, Ruwan 5678) and all driver names other than those named in the PRD.
@@ -14,13 +27,12 @@ PRD v3 §4d (the assumption register, A1 to A43):
 - The fallback reference set in `backend/seed/` used when `data/*.csv` is absent (PRD §4c figures and a generated calendar).
 - Generated orders (A41), once the generator lands.
 
-No competition CSV row was given to any AI tool.
+## Machine-translated strings
 
-## Log
+The driver app offers Sinhala and Tamil (R1.9). Those strings are a machine draft and have not been reviewed by a native speaker. Open decision O-8 tracks who reviews them. If they ship unreviewed, the README says so on the driver section.
 
-| Date | Branch / PR | Tool | What the AI did | What a person did |
-| --- | --- | --- | --- | --- |
-| 2026-10-01 | `feature/backend-foundation` (PR #5) | Claude Code (Claude Sonnet 5.5) | Wrote the FastAPI app core, SQLAlchemy models, the initial Alembic migration, the section 19 route contract, the seed, Docker and CI files, and the API tests | Set the brief, reviewed the generated migration, and owns the merge |
+## What AI did not do
 
-Work merged before this file existed (for example the rules package and the frontend base) is not recorded here.
-Its owners: please add your rows.
+- No rule, constraint or refusal message was invented by a tool. They come from the Challenge Booklet and live in `backend/waypoint_rules`.
+- No competition CSV row was pasted into an AI tool (`Contributing.md` §19).
+- Nothing in the Figma file was created, moved, renamed or edited; it is read-only to us now.
