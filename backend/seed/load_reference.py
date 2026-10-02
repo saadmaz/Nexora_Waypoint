@@ -1,9 +1,7 @@
 """Reference tables from ``data/*.csv`` (PRD §14 step 1).
 
-Nobody on the team opens or pastes rows from the competition CSVs into AI tools, so the header names are
-not known here. Fill in ``COLUMNS`` with the exact header of each column (the value on the right) and
-this module does the rest. Until a file's mapping is filled in, loading it fails loudly and names every
-missing header, rather than guessing.
+``COLUMNS`` maps each of our fields to the exact CSV header (the value on the right); this module does the
+rest. If a header is missing from a file, loading fails loudly and names it, rather than guessing.
 
 ``data/README.md`` lists the files. Keys on the left are our field names; do not change them.
 """
@@ -26,57 +24,57 @@ TODO = "TODO"
 #: file name -> {our field: the CSV header}. Fill the right-hand side; leave the keys alone.
 COLUMNS: dict[str, dict[str, str]] = {
     "outlets.csv": {
-        "id": TODO,
+        "id": "outlet_id",
         "name": TODO,  # optional: leave as TODO if the file has no name column
-        "brand": TODO,
-        "district": TODO,
-        "depot": TODO,
-        "dock_type": TODO,
-        "parking_constraint": TODO,
-        "mall_window_open": TODO,
-        "mall_window_close": TODO,
-        "window_open": TODO,
-        "window_close": TODO,
+        "brand": "brand",
+        "district": "district",
+        "depot": "depot",
+        "dock_type": "dock_type",
+        "parking_constraint": "parking_constraint",
+        "mall_window_open": "mall_window",
+        "mall_window_close": "mall_window",
+        "window_open": "window_open_time",
+        "window_close": "window_close_time",
     },
     "vehicles.csv": {
-        "id": TODO,
-        "type": TODO,
-        "temp": TODO,
-        "weight_cap_kg": TODO,
-        "volume_cap_m3": TODO,
-        "fuel_type": TODO,
-        "km_per_l": TODO,
-        "weekly_fuel_quota_l": TODO,
-        "depot": TODO,
+        "id": "vehicle_id",
+        "type": "type",
+        "temp": "temp",
+        "weight_cap_kg": "weight_cap_kg",
+        "volume_cap_m3": "volume_cap_m3",
+        "fuel_type": "fuel_type",
+        "km_per_l": "km_per_l",
+        "weekly_fuel_quota_l": "weekly_fuel_quota_l",
+        "depot": "depot",
     },
     "calendar.csv": {
-        "date": TODO,
-        "dow": TODO,
-        "dow_name": TODO,
-        "is_weekend": TODO,
-        "iso_year": TODO,
-        "iso_week": TODO,
-        "is_payday": TODO,
-        "festival": TODO,
-        "festival_ramp": TODO,
-        "is_holiday": TODO,
-        "monsoon": TODO,
-        "is_operating": TODO,
+        "date": "date",
+        "dow": "dow",
+        "dow_name": "dow_name",
+        "is_weekend": "is_weekend",
+        "iso_year": "iso_year",
+        "iso_week": "iso_week",
+        "is_payday": "is_payday",
+        "festival": "festival",
+        "festival_ramp": "festival_ramp",
+        "is_holiday": "is_holiday",
+        "monsoon": "monsoon",
+        "is_operating": "is_operating",
     },
     "district_travel.csv": {
-        "name": TODO,
-        "depot": TODO,
-        "road_class": TODO,
-        "free_flow_kmh": TODO,
-        "depot_to_district_km": TODO,
-        "depot_to_district_freeflow_min": TODO,
-        "inter_stop_km": TODO,
-        "inter_stop_freeflow_min": TODO,
+        "name": "district",
+        "depot": "depot",
+        "road_class": "road_class",
+        "free_flow_kmh": "free_flow_kmh",
+        "depot_to_district_km": "depot_to_district_km",
+        "depot_to_district_freeflow_min": "depot_to_district_freeflow_min",
+        "inter_stop_km": "inter_stop_km",
+        "inter_stop_freeflow_min": "inter_stop_freeflow_min",
     },
     "service_allowance.csv": {
-        "brand": TODO,
-        "dock_type": TODO,
-        "minutes": TODO,
+        "brand": "brand",
+        "dock_type": "dock_type",
+        "minutes": "service_allowance_min",
     },
     "traffic_speed.csv": {
         "date": TODO,  # optional: every row is kept whole in ``raw``; this only fills ``service_date``
@@ -128,6 +126,14 @@ def to_time(v: str | None) -> time | None:
         return None
     parts = [int(p) for p in v.strip().split(":")]  # type: ignore[union-attr]
     return time(parts[0], parts[1], parts[2] if len(parts) > 2 else 0)
+
+
+def range_end(v: str | None, index: int) -> time | None:
+    """One end of an ``HH:MM-HH:MM`` range (0 open, -1 close). A single time is both ends."""
+    if _blank(v):
+        return None
+    ends = v.strip().split("-")  # type: ignore[union-attr]
+    return to_time(ends[index])
 
 
 def to_date(v: str | None) -> date | None:
@@ -262,8 +268,9 @@ def _outlet(row: dict[str, str], name: str) -> Outlet:
         depot_id=to_depot(g("depot")),
         dock_type=to_dock(g("dock_type")),
         parking_constraint=_key(g("parking_constraint")) or "normal",
-        mall_window_open=to_time(g("mall_window_open")),
-        mall_window_close=to_time(g("mall_window_close")),
+        # outlets.csv has one ``mall_window`` column ("10:30-12:30"); both fields map to it.
+        mall_window_open=range_end(g("mall_window_open"), 0),
+        mall_window_close=range_end(g("mall_window_close"), -1),
         window_open=to_time(g("window_open")) or time(0, 0),
         window_close=to_time(g("window_close")) or time(23, 59),
     )
