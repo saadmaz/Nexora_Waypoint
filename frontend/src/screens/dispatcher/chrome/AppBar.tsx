@@ -28,11 +28,7 @@ export type AppBarProps = {
 };
 
 function Diamond() {
-  return (
-    <svg className={styles.diamond} viewBox="0 0 17 17" aria-hidden="true">
-      <rect x="3.5" y="3.5" width="10" height="10" rx="1.2" transform="rotate(45 8.5 8.5)" fill="var(--signal)" />
-    </svg>
-  );
+  return <img className={styles.diamond} src="/nexora-logo.svg" alt="" aria-hidden="true" />;
 }
 
 /** The Deferrals badge counts what the current plan defers at the depot. */
