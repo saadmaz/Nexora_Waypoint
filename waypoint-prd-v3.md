@@ -1,6 +1,6 @@
 # Waypoint: Product Requirements and Build Spec (v3)
 
-Version 3.0 · Wed 30 Sep 2026, 16:00 · Team Nexora · owner: HH (spec owner: ________)
+Version 3.1 · Thu 1 Oct 2026 · Team Nexora · owner: HH (spec owner: ________)
 
 This is the single source of truth for the **Hackathon build** of Waypoint. One order record moves through four roles, the system drafts tomorrow's plan, and every deferral is typed and explained.
 
@@ -38,6 +38,24 @@ Where Figma breaks a booklet rule, or is plainly wrong (a Sunday delivery, two f
 | V29 | **Aligned with the field-build prompts** (`claude/field-build/00` to `05`, 30 Sep): Figma wins on UI and copy (source ranking above); the Figma file now has only two pages, "Nexora (main)" `0:1` and "Shared Library Framing" `158:2`; routes are `/dispatcher/*`, `/store/*`, `/loader/*`, `/driver/*`; outbox record types and sync results are fixed (section 15, 19); demo PINs Priya `1234`, Ruwan `5678` (A36) | Teammates' prompts are already in use | 3, 4d, 15, 19 |
 | V30 | **R6 problem choices follow the frame:** Can't reach the store · Vehicle problem · Goods damaged on the truck · Running late · Something else (v2.1 listed road blocked, breakdown and others) | Figma wins on copy | 3 (R6) |
 | V31 | **Driver theme rule** from the R1.9 copy: sunlight switch on → Field; otherwise Dark when the phone prefers dark or states no preference, Light · office when the phone prefers light | R1.9 says "Dark mode follows your phone's setting." | 3 (R1), 6 |
+
+### v3 to v3.1 (1 Oct, field build)
+
+v3 was read against the field-build prompts 00 to 05 and the foundation build. These are the findings, applied here.
+
+| # | Change | Why | Sections |
+|---|---|---|---|
+| V32 | **Two planned distances, both correct.** `planned_fuel` stays per order (22 km for VEH039 trip 1, used by D2, D3, R-FUEL); a new `planned_run_legs` counts legs per stop (19 km, used by R9, the GPS gap fill and R7). R9 is removed from `planned_fuel`'s "Used by" | The R9 frame reads "Planned 19 km" while 4c's fuel figure needs 22 km. Both frames are right | 4a, 7 (G-15), 11 |
+| V33 | **The dock is a device setting.** `?dock=kandy\|peliyagoda` works in the live app, not only in the gallery, is remembered, and presenter mode adds "Change dock" to the loader top bar menu. Walkthrough step 10 says so | Step 7 uses the Peliyagoda dock and step 10 the Kandy dock; judges had no way to get from one to the other | 9, 16, 18 (DP-19) |
+| V34 | **"Other…" has a PIN.** A typed name plus the dock guest PIN `0000`; the record stores the typed name as the actor. The tablet caches salted hashes for every PIN person and the guest PIN, not only its own dock's people. Priya and Ruwan are offered at both docks, pending a check on L1.2 A | A36 gave "Other…" a name field but no PIN, and the dock-scoped cache contradicted the Kandy frame the prompts were built from | 4d (A55), 9, 18 (DP-24) |
+| V35 | **R10 in API mode.** `GET /driver/runs/{date}` returns a run, a `no_run` reason, or a run plus the monsoon calendar block. The three R10 dates have no plan in the seeded database, so in API mode they serve the driver fixture | R10.1 to R10.3 keep June and April dates; the seed holds a plan only for Tue 29 Sep | 15, 18 (DP-23), 19 |
+| V36 | **App shell has a stage of its own (2b).** `/sign-in`, `/start`, per-role sessions, the avatar menu, the presenter panel, Change dock. Owner still unassigned (O-11) | No prompt covered it, yet every walkthrough step needs the presenter control | 19 |
+| V37 | **Mock to real is `VITE_<ROLE>_API`** (principle 7), and the field transport has a mock and a `fetch` implementation behind one function with the same connectivity behaviour. In API mode each sync handler posts its record to `POST /sync` as a batch of one | The swap is per role but nothing said how | 9 |
+| V38 | **Mock-only dev controls get an API-mode answer**, including "Fail next photo upload" staying as a transport setting shown only under `?presenter=1` | In API mode the walkthrough must still work, and the photo-failure branch has no natural trigger | 13 |
+| V39 | **Non-vehicle flags and driver problems** reach D6, are listed, and are marked seen when opened; no plan version is created (G-14, O-9) | D8 covers only a failed vehicle check, but L3 has five more flag types plus L2.2 short units and R6 problems | 7, 18 (DP-25), 19 |
+| V40 | **R6 updates are a thread.** `driver.problem` gains `updatesClientId`, `exceptions` gains `parent_id` and `seen_at`, and the Issues tab lists one thread per parent with a badge counting unseen threads | Prompt 05 reopens R6.2 for an existing record, which the data model could not express | 10, 15 |
+| V41 | **Two kinds of driver notification** on R8: server notices from the `notices` table and device-made sync notices held only on the phone | Only server notices were modelled | 15 |
+| V42 | Four assumptions added for the field build: A55 "Other…" guest PIN, A56 text size Large 1.15 ×, A57 photo compression, A58 camera fallback. Departures DP-19 to DP-25 and open decisions O-8 to O-11 added | Gaps the prompts had to fill | 4d, 18, 19 |
 
 Earlier change logs (v1 to v2, V1 to V14; v2 to v2.1, V15 to V22) are in `waypoint-prd-v2.1.md`. Their decisions are all applied below.
 
@@ -329,6 +347,8 @@ Count stops per **order**, not per outlet (OUT084's two orders are two allowance
 - **Planned:** km = 2 × depot_to_district_km + inter_stop_km × (orders − 1); litres = km ÷ km_per_l. The return leg counts for fuel only [ASSUMPTION A7].
 - **Actual (R9):** distance from the phone's GPS during the run, recorded offline. If GPS drops out for a stretch, the planned distance for that leg fills the gap. The driver enters nothing. Litres = distance ÷ km_per_l (estimate), with the planned distance shown beside it. GPS positions are never sent to Dispatch.
 
+**Two planned distances exist and both are correct.** Budget and quota planning (D2, D3, R-FUEL) use the booklet formula per order: VEH039 trip 1 is 22 km, 4.4 L, which is why 4c reads "fuel 75.4 / 370 L". The driver's run figures (R9 "Planned" and the GPS gap fill) use legs per stop, where an outlet with two orders is one stop: 2 × outbound + inter_stop × (stops − 1), so VEH039 is 8 + 3 + 8 = 19 km. Both come from the rules module; see `planned_run_legs` in section 11 and gap G-15.
+
 ### What the store sees as arrival time
 
 Shown arrival = the later of predicted arrival and window open, as a range, for example "from 05:30 (truck may arrive 05:26 and wait)".
@@ -582,7 +602,7 @@ Everything below was invented or inferred. **Disclosure rule:** no per-screen "M
 | A29 | Sync failure reference "WP-SYNC-409" | R8.3 |
 | A30 | Release notes line on D5 version history | D5 |
 
-### A31 to A43
+### A31 to A58
 
 | # | Assumption | Used in |
 |---|---|---|
@@ -610,6 +630,10 @@ Everything below was invented or inferred. **Disclosure rule:** no per-screen "M
 | A52 | **New (30 Sep, store build).** A receipt confirmed offline is saved on the phone with the phone's time and sent on reconnect (S3.S C); reporting an issue needs a connection. The Issues tab lists reported issues: order IDs, issue tag, "2 units short", "Dispatch will follow up." (S3.7 draws only the empty tab) | S3.S C, S3.7 |
 | A53 | **New (30 Sep, store build).** What the store has read of its S4 feed: everything sent by 05:20 on the hero morning (H10), and the deferral once Got it is tapped. So S2.6 at 05:22 has one unread and S4.1 at 06:45 has the two of A37 (the 06:40 review and the 06:44 resolution) when Got it was tapped; without it, three. Mark all read reads everything up to now | S4.1, bell |
 | A54 | **New (30 Sep, store build).** For a day other than the hero's, the feed has only Order received, Confirmed and "Arrival from 05:30. Have receivers ready by 05:30." History lists the current day once it is delivered (or Partial) with its order IDs and tags; a day still under review or deferred is not listed yet. S4.S C shows the saved feed under the offline bar, worded "You are offline. Showing updates saved on this phone. Last updated HH:MM." | S4.2, S4.S C |
+| A55 | **New (1 Oct, field build).** "Other…" in "Who's acknowledging?" takes a typed name and the dock guest PIN `0000` (extends A36). The record stores the typed name as the actor. Priya and Ruwan are offered at **both** docks, as drawn on L1.2 A; `pin_people.dock` is their home dock and is informational. **To confirm on L1.2 A (`442:27454`):** if only Ruwan and Other… appear on that Kandy frame, drop Priya from Kandy and keep the rest of this row | L1 to L4 |
+| A56 | **New (1 Oct, field build).** Driver text size Large is 1.15 ×; Standard is 1 × | R1.9 |
+| A57 | **New (1 Oct, field build).** Photo compression: JPEG, longest edge 1600 px, quality 0.7 | R3, L3 |
+| A58 | **New (1 Oct, field build).** Camera permission refused or no camera falls back to the phone's file picker with rear camera capture | R3.2 |
 
 ### Corrections to app.html
 
@@ -696,7 +720,7 @@ These stay in the frozen Figma file. The build implements the spec's behaviour; 
 
 | # | Gap in Figma (30 Sep) | Status | Build does |
 |---|---|---|---|
-| G-1 | Loader handoffs: L1.1 "Acknowledge plan v3" goes straight to L1.3 without a PIN sheet; L1.3 "Load VEH003" opens L3.1; L2.5 "Go to VEH035" opens L1.4; L2.2 "Flag shortage" opens L3.2 B; L2.6 A title and L2.6 B "Back to load lists" return to the 00:10 dock L1.3 | Still open | Every acknowledgement and gate confirm asks for a PIN; "Load" opens L2; back goes to the current dock state (DP-03) |
+| G-1 | Loader handoffs: L1.1 "Acknowledge plan v3" goes straight to L1.3 without a PIN sheet; L1.3 "Load VEH003" opens L3.1; L2.5 "Go to VEH035" opens L1.4; L2.2 "Flag shortage" opens L3.2 B; L2.6 A title and L2.6 B "Back to load lists" return to the 00:10 dock L1.3; L4.1 "Acknowledge and load VEH036" opens L4.2 with no PIN; on L1.2 A and L2.3 B any digit succeeds (only `0` fails) | Still open | Every acknowledgement and gate confirm asks for a PIN; "Load" opens L2; back goes to the current dock state (DP-03) |
 | G-2 | "Waypoint Load" and "Waypoint Store" not printed; all five sign-in frames read "Waypoint Dispatch"; no retry on wrong-password and offline sign-in | Still open | App names printed; neutral sign-in; retry shown (DP-02) |
 | G-3 | 13 state frames have no inbound link (S1.5 B, S1.5 D, S2.S A, S2.S C, S3.S A, S3.S C, R1.S, R2.S 2, R2.S 3, R3.6, R5.S 1, R5.S 3, R8.4) | Still open | States appear when data or connectivity causes them; all reachable in the `/_states` galleries |
 | G-4 | Counts disagree: Deferrals badge 2 on D1.1 and D1.2, 19 on D4.1 and D5.1, 20 on D6.1 and D6.6, 0 on D7.4 B (Kandy); D5 "36 trips · 11 drivers" (Priya 8, Ruwan 3) vs D6 "38 trips today" | Still open | Every count computed (Q14). Badge = deferred orders in the latest plan version for the selected depot, hidden before the first draft (DP-04) |
@@ -709,6 +733,8 @@ These stay in the frozen Figma file. The build implements the spec's behaviour; 
 | G-11 | **New.** Flow start "Flow 1" (G1.1) is unnamed; "Store · 7 · Deliveries: load error and retry 1" duplicates Store · 7 and opens S4.S D | New | n/a (Figma only) |
 | G-12 | **New.** The Updates bell is on S1.1, S1.1 B, S1.3, S2.1 to S2.8 and S2.10 only; not on S1.2, S1.4, S1.5, S1.6, S2.9, S2.11, S3 or S4 frames. Desktop frames have no bell | New | Bell on every store screen, phone and desktop (DP-06) |
 | G-13 | **New.** Hidden "Mock data" tag layers remain inside X2 to X13 (not visible) | Harmless | n/a |
+| G-14 | **New (1 Oct).** Only "Vehicle check failed" has a Dispatch screen (D8). The other five L3 flag types, L2.2 short units and R6 driver problems reach D6 "Needs a decision" with no designed resolution | New, open (O-9) | The server stores the exception and D6 lists it; opening it marks it "seen"; L3.3 A keeps "Kumari reviewing" until seen, then stays as sent; the driver's R6.4 row leaves "Waiting for Dispatch" when seen; a loader shortfall also travels to the driver's stop with `loader.confirmLoaded` (handoff 6, R2.3 B). No plan version is created (DP-25) |
+| G-15 | **New (1 Oct).** R9 "Planned 19 km" and D3 planned fuel use different bases | New, documented | Both frames are right. Two rules functions, `planned_run_legs` (per stop, R9) and `planned_fuel` (per order, D2/D3/R-FUEL); see 4a |
 
 ---
 
@@ -785,10 +811,13 @@ Nexora_Waypoint/
 4. **Idempotent writes from devices.** Every device record has a client UUID; replays are harmless.
 5. **Typed contract, mock first.** Each role has a typed API interface (`DispatcherApi`, `StoreApi`, `LoaderApi`, `DriverApi`) with a mock implementation over a small transport, seeded from that role's `fixtures.ts`. Screens call only the interface, never `fetch` or fixtures directly. FastAPI generates OpenAPI; `openapi-typescript` generates `frontend/src/api/schema.ts`; the real client implements the same interface, so wiring the backend is a swap per role (section 19). The backend seed mirrors the role fixtures.
 6. **Role-scoped access.** Every endpoint checks role and scope (depot, outlet, vehicle, dock) from the token.
+7. **Mode switch.** Each role's API factory reads `VITE_<ROLE>_API=mock|api` (`VITE_LOADER_API`, `VITE_DRIVER_API`, and so on). The Docker build sets `api` for all four. The field `transport.ts` has two implementations behind one function: the mock one (latency 300 to 600 ms, mock server) and a `fetch` one (no artificial latency, the same `NetworkError` on failure, the same connectivity marking). In API mode every sync handler wraps its record in `POST /sync` as a batch of one, in outbox order, and stops at the first network error. Blobs go to `POST /attachments` after their record, one at a time.
 
 **Live updates** [BUILD]: TanStack Query polling (dispatcher live board and inbox 5 s; store deliveries and feed 10 s; loader dock 10 s; driver on sync). No websockets needed for the walkthrough; SSE is optional later.
 
-**Auth** [BUILD]: email + password → JWT (bearer, 12 h). Sessions are stored **per role** in `localStorage` (`wp.session.dispatcher`, `wp.session.loader`, …) so one browser can hold all four roles in four tabs, which the walkthrough needs. The driver token survives offline so the outbox can sync later. Loader actions additionally need a **PIN person** chosen in the PIN sheet ("Who's acknowledging?" Priya, Ruwan, Other…): the dock tablet caches salted PIN hashes for its dock's people so PIN actions can queue offline; the server re-verifies on sync. The tablet's dock is a device setting (`?dock=kandy|peliyagoda` in the gallery).
+**Auth** [BUILD]: email + password → JWT (bearer, 12 h). Sessions are stored **per role** in `localStorage` (`wp.session.dispatcher`, `wp.session.loader`, …) so one browser can hold all four roles in four tabs, which the walkthrough needs. The driver token survives offline so the outbox can sync later. Loader actions additionally need a **PIN person** chosen in the PIN sheet ("Who's acknowledging?" Priya, Ruwan, Other…): the tablet caches salted hashes for every PIN person and the guest PIN so PIN actions can queue offline; the server re-verifies on sync.
+
+The tablet's dock is a device setting stored in `settings`. `?dock=kandy|peliyagoda` works in the live app, not only in the gallery, and is remembered. When presenter mode is on, the loader top bar's menu shows "Change dock" (DP-19).
 
 ## 10. Data model (PostgreSQL) [BUILD]
 
@@ -842,7 +871,7 @@ Times are `timestamptz` stored in UTC and shown in Asia/Colombo. `service_date` 
 | `runs` | id, vehicle_id, trip_id, driver_id, plan_version_seen, departed_at, finished_at, gps_km, gps_gap_filled_km, fuel_l_est, last_heard_at |
 | `device_records` | client_id uuid PK (the idempotency key), device_id, user_id, actor (driver or PIN person), type (`driver.ack`, `driver.startRoute`, `driver.arrival`, `driver.outcome`, `driver.problem`, `driver.finishRun`, `loader.ack`, `loader.check`, `loader.confirmLoaded`, `loader.exception`), order_ids text[], outlet_id, vehicle_id, trip_no, payload jsonb, device_time, plan_version_on_device, received_at, result (`accepted`, `duplicate`, `conflict`, `error`), result_reason, conflict_id |
 | `attachments` | id uuid, device_record_id, kind (`photo`, `signature`), path, mime, bytes |
-| `exceptions` | id, kind (`loader_flag`, `driver_problem`, `store_issue`), type, vehicle_id, trip_id, order_ids, units_short jsonb, detail, raised_by, raised_at, device_time, status (`open`, `decided`), decision jsonb, decided_by, decided_at |
+| `exceptions` | id, kind (`loader_flag`, `driver_problem`, `store_issue`), type, vehicle_id, trip_id, order_ids, units_short jsonb, detail, raised_by, raised_at, device_time, status (`open`, `decided`), decision jsonb, decided_by, decided_at, parent_id (the first problem record when this one is an update, R6), seen_at (set when Dispatch opens it in D6, G-14) |
 | `conflicts` | id, order_ids, device_record_ids, server_snapshot jsonb, device_snapshot jsonb, recommendation (`keep_delivery`, `keep_partial`, `keep_deferral`), reasons text[], status (`open`, `awaiting_store`, `resolved`), resolution, resolved_by, resolved_at |
 | `receipts` | order_id PK, units_received, shortfall_reason, confirmed_at, confirmed_by |
 
@@ -879,7 +908,8 @@ Pure Python 3.12, standard library plus `dataclasses`; no framework imports. Use
 | `service_day_for(placed_at, calendar)` | Next operating day, After cutoff flag, editable_until | S1, R-CUTOFF, R-OPDAY, R-EDIT |
 | `trip_minutes(trip)` | Minutes by the booklet formula | D2, D3, planner, Task 2B |
 | `planned_clock(trip, depart_at)` | Per stop: arrival, wait, handling start and end; last end; return-leg time | D3, R1, S2, L2 load numbers |
-| `planned_fuel(trip, vehicle)` | km, litres | D3, R-FUEL, R9 |
+| `planned_fuel(trip, vehicle)` | km, litres (per order, booklet formula) | D3, R-FUEL |
+| `planned_run_legs(trip)` | Legs per stop in km: depot to stop 1, stop to stop, last stop to depot | R9 "Planned", the GPS gap fill, R7 mileage |
 | `check_trip(trip, vehicle, day_state)` | List of `Violation(rule_id, message, figures)`, empty if legal | planner, validate |
 | `validate_move(plan, move)` | `ok`, **every** violation, consequence preview (before / after for the source and target trips, deferral changes) | D3.2 to D3.6 |
 | `why_this_vehicle(plan, order)` | Checklist of rules passed with figures | D3.7 |
@@ -924,6 +954,16 @@ Runs at 16:05 on the scenario clock (H3) and on "Redraft" in D2. Deterministic: 
 - **Reset.** `POST /api/v1/demo/reset` (presenter only) truncates operational tables and reruns the seed; takes under 5 seconds.
 - **Simulate offline** (the R4 "Prototype" switch). Sets the field foundation's `simulatedOffline`: the transport throws `NetworkError` as if the network were down, records stay in the outbox, the chip turns Offline. Real offline (airplane mode, DevTools "Offline") behaves the same. It is stored in the field `settings` table of that browser, so run the driver in a different browser profile or on a phone if the loader tab must stay online at the same time; the dispatcher and store apps do not read it.
 - **Coverage profile** (driver dev setting "Kandy corridor coverage gap", on for the walkthrough): between 05:17 and 06:40 on the scenario clock the driver app treats itself as offline. Real connectivity and Simulate offline still apply on top. This is what makes H9 and H15 happen at the designed times without anyone touching a switch.
+
+**Mock-only controls and their API-mode answer.** The field prompts add gallery controls that only make sense against a mock server. In API mode the walkthrough must still work, and one branch (photo failure) has no natural trigger.
+
+| Mock-only control (prompts 02 to 05) | In API mode |
+|---|---|
+| Loader "Dispatch decides now" | The real dispatcher decides at D8 (walkthrough step 8) |
+| Driver "Dispatch resolves now: Keep delivery / Keep as Partial" | The real dispatcher resolves at D7 (step 16) |
+| Driver "Dispatch acknowledges problem" | Opening the item in D6 marks it seen (G-14) |
+| "Fail next photo upload" | Stays, as a field setting in the transport (`settings.failNextUpload`), shown in the outbox sheet only when `?presenter=1`. It makes the upload return 409 with reference WP-SYNC-409 once, in both modes |
+| Kandy corridor coverage gap | Stays in both modes (above) |
 
 ## 14. Seed and demo data [BUILD]
 
@@ -989,9 +1029,12 @@ One SPA. `/` sends a signed-in user to their role home; `/sign-in` is G1 (deskto
 | App shell | `vite-plugin-pwa` precaches JS, CSS, HTML, fonts and icons; GET data is network-first with cache fallback; the app opens with no network after one visit |
 | Route package | Acknowledging the plan (R1.3 A → R1.2 A/B) downloads the run into `cache`; R1 reads the cache first |
 | Outbox record | `clientId` (UUID, idempotency key), `type`, `payload`, `deviceTime`, `planVersionOnDevice`, `actor`, `status` (`waiting`, `sending`, `accepted`, `conflict`, `error`), `attempts`, `blobIds`. Accepted records are kept so screens can show history |
-| Record types | Driver: `driver.ack`, `driver.startRoute`, `driver.arrival`, `driver.outcome` (one per order), `driver.problem`, `driver.finishRun`. Loader: `loader.ack`, `loader.check`, `loader.confirmLoaded`, `loader.exception` |
+| Record types | Driver: `driver.ack`, `driver.startRoute`, `driver.arrival`, `driver.outcome` (one per order), `driver.problem`, `driver.finishRun`. Loader: `loader.ack`, `loader.check`, `loader.confirmLoaded`, `loader.exception`. `driver.problem` payload is `{type, stopId, orderIds, note, blobIds, updatesClientId?}`, where `updatesClientId` points at the problem record this one updates |
 | Sync engine | Runs on the `online` event, every 30 s while records wait, and on Send now / Retry now; sends in order through per-type handlers; each record returns `accepted`, `duplicate` (counts as accepted), `conflict` (not retried) or `error` (retried). No Background Sync API (iOS lacks it). Blobs upload after their records, one at a time; a failed upload leaves the record Synced and raises R8.2 / R8.3 (WP-SYNC-409) |
 | Conflict display | Grouped by stop: "1 conflict (2 orders)". The phone learns about a newer plan only through sync (handoff 7) and polls notices every 30 s while a conflict is open |
+| Notifications (R8) | Two sources, both read from `cache`: **server notices** (`getNotices`, for example "Dispatch kept your delivery") and **device-made sync notices** ("3 records synced", "Delivery sent for review", "Sync failed WP-SYNC-409"). Only server notices exist in the `notices` table |
+| Problem threads (R6) | The Issues tab lists one thread per parent problem record; an update is a new record carrying `updatesClientId`. The tab badge counts threads not yet seen by Dispatch |
+| Runs for other dates | `GET /driver/runs/{date}` returns one of: a run (with the current plan version and per-order server state); `{state: "no_run", reason: "sunday" \| "holiday", nextPlanAt}`; or a run plus `{calendar: {monsoon: true, speedIndex: 63, normalIndex: 77}}`. Reasons and speed indexes come from `calendar_days` and `traffic_speed`. The three R10 dates (Sat 27 Jun, Sun 28 Jun, Tue 14 Apr) have no plan in the seeded database, so in API mode those dates serve the driver fixture for the route, as the state gallery does, and the README says so (DP-23) |
 | Connectivity | `online`, `offline`, `syncing`, `failed` from `navigator.onLine`, Simulate offline, the coverage profile and the last request's result; "Last sync HH:MM" is the last successful sync |
 | Loader | Checks, flags and the gate confirmation queue in the outbox (L2.S 3, L3.4 A); an acknowledgement of a version older than the server's current one returns `conflict`, and the dock shows L1.5 "Plan changed, review change" |
 | Store | S1 orders queue (S1.5 A) and count only when the server returns Received; a queued order that lands after 16:00 comes back After cutoff and the screen says so. S4 keeps the last feed for S4.S C |
@@ -1012,7 +1055,7 @@ Open four tabs (or phone + laptop): `/start` lets you sign in as each role. Turn
 | 7 | Go to 00:10, then 02:55 | Loader (Peliyagoda, Priya PIN) | At 00:10 acknowledge v3 with PIN. At 02:55 open VEH003 trip 1, Flag issue → Vehicle check failed | L1.3 acknowledged; then VEH003 Held and D6.7 needs a decision |
 | 8 | 03:00 | Dispatcher | Open the exception, accept "Defer ORD1002, load VEH036" | Plan v4; D4 20 deferrals; OUT009's store sees S2.9 |
 | 9 | 03:04 | Loader (Priya) | Review changes, acknowledge v4 with PIN, load VEH036, confirm gate | L4.1 diff with "Don't load ORD1002"; L2.6 B loaded |
-| 10 | Go to 04:15 | Loader (Kandy, Ruwan PIN) | Acknowledge v4 ("No change to your vehicle"), load VEH039 in reverse order, confirm gate at 04:50 | L1.6 B, L2.4; R1.3 B "Confirmed by Ruwan · 04:50" |
+| 10 | Go to 04:15 | Loader (Kandy, Ruwan PIN) | Open `/loader/dock?dock=kandy` (or Change dock in the top bar menu), then acknowledge v4 ("No change to your vehicle"), load VEH039 in reverse order, confirm gate at 04:50 | L1.6 B, L2.4; R1.3 B "Confirmed by Ruwan · 04:50" |
 | 11 | 04:55 → 05:10 | Driver (phone width) | Acknowledge v4, download route, Start route | R1.5 departed; S2.4 on the way |
 | 12 | Go to 05:17 | Driver | Nothing: the coverage profile drops the phone offline at 05:17. (Or turn on Simulate offline in the outbox sheet, or airplane mode on a real phone) | R1.6 "Offline · last sync 05:17"; D6.2 Unknown · offline |
 | 13 | 05:21 | Dispatcher | Live board: Defer stop OUT084, reason store request | Dialog warns the driver is offline; v5; S2.6 deferred at your request; driver still on v4 |
@@ -1060,6 +1103,15 @@ Start with these. Add a row the day a visible difference from the Day 5 frames i
 | DP-14 | GPS permission prompt and the permission-refused case have no frame | A short plain explanation at Start route; refused → R9.2 layout with planned distances | Driver prompt 05 |
 | DP-15 | Driver shows Dark in every frame | Light · office when the phone prefers light, as the R1.9 copy says | V31 |
 | DP-16 | S1.3 B (15:42) and S1.3 D (15:45) both read "20 min left" on the cutoff alert | The countdown is computed from the scenario clock: 18 min at 15:42 and 15 min at 15:45 | Q14: every number is computed; a live countdown cannot match two static frames |
+| DP-19 | No dock picker or dock switch | A dock setting: `?dock=`, a first-run picker, and "Change dock" in presenter mode | One tablet account serves two docks; judges must reach both |
+| DP-20 | Language labels are drawn in three scripts; every other screen is English only | Sinhala and Tamil for every driver string, machine drafted, not reviewed by a native speaker | R1.9 offers the choice; a switch with no effect would be worse (O-8) |
+| DP-21 | R3.2 assumes camera permission is granted | Refused or missing camera falls back to the file picker | Judges may open the app on a laptop (A58) |
+| DP-22 | R1.9 shows "Offline storage · 3.2 MB used" | The real figure from the browser | The frame's number is a sample |
+| DP-23 | R10 frames show routes and states for June and April dates | In API mode these three dates use the driver fixture | No plan exists for them in the seeded database |
+| DP-24 | "Other…" has no PIN | A typed name plus the guest PIN `0000` (extends DP-09) | A55 |
+| DP-25 | No Dispatch handling drawn for loader flags other than a failed vehicle check, or for driver problems | Stored, listed in D6, marked seen on open | G-14 |
+
+**How departures reach the README.** Each role prompt writes its own README section and lists its departures there. Role branches do not number DP rows (they would collide). HH merges every role's list into this register on Sat 3 Oct, numbering at that point.
 
 ## 19. Build order, deliverables and open decisions
 
@@ -1068,7 +1120,8 @@ Start with these. Add a row the day a visible difference from the Day 5 frames i
 | Stage | What lands | Depends on |
 |---|---|---|
 | 1 | Dispatcher and Store screens continue against typed mock APIs | none |
-| 2 | Loader and Driver screens start on the same mock pattern | none |
+| 2 | Loader and Driver screens start on the same mock pattern. Prompts ready; order: foundation (01) merges first, then loader (02) and driver core (03) in parallel, then 04, then 05 | none |
+| 2b | App shell: `/sign-in`, `/start`, per-role session storage, avatar menu, presenter panel calling `/demo/advance` and `/demo/reset` (in mock mode a local clock stepper), Change dock, optional G4 "Why this screen". **Owner: unassigned (O-11)**; about half a day, and it blocks stage 7 | none |
 | 3 | Backend foundation: schema + Alembic, seed + checks, auth, clock, OpenAPI contract published early, Compose skeleton | none |
 | 4 | `waypoint_rules` + planner + validate + golden tests | 3 |
 | 5 | Wire roles to the real API, Store first, then Dispatcher, Loader, Driver | 3, 4 |
@@ -1094,7 +1147,7 @@ All under `/api/v1`, JSON, bearer auth, role-checked. Full schema at `/api/docs`
 | `getLoadPlan(vehicleId, trip)` | `GET /loader/vehicles/{vehicleId}/trips/{trip}` |
 | `getException(id)` · `getPlanDiff({dockId, from, to})` | `GET /loader/exceptions/{id}` · `GET /loader/docks/{dock}/diff?from=&to=` |
 | `acknowledgePlan` · `recordCheck` · `confirmLoaded` · `flagException` | Outbox records `loader.ack` · `loader.check` · `loader.confirmLoaded` · `loader.exception` via `POST /sync` |
-| **DriverApi** `getRun(date)` · `downloadRun(date)` | `GET /driver/runs/{date}` (the route package, with current plan version and per-order server state after sync) |
+| **DriverApi** `getRun(date)` · `downloadRun(date)` | `GET /driver/runs/{date}` (the route package, with current plan version and per-order server state after sync; or `no_run` with a reason, or a run plus the monsoon calendar block: section 15) |
 | `getNotices(since)` | `GET /driver/notices?since=` |
 | History (R7) | `GET /driver/history` |
 | `acknowledgePlan` · `startRoute` · `recordArrival` · `recordOutcome` · problem · finish | Outbox records `driver.ack` · `driver.startRoute` · `driver.arrival` · `driver.outcome` · `driver.problem` · `driver.finishRun` via `POST /sync` |
@@ -1130,3 +1183,7 @@ All under `/api/v1`, JSON, bearer auth, role-checked. Full schema at `/api/docs`
 | O-5 | Presenter control visible by default for judges | On for the dispatcher avatar menu; hidden elsewhere |
 | O-6 | DispatcherApi operation names | The proposal in the API table unless the dispatcher owner has already fixed them |
 | O-7 | Spec owner name (header) | HH |
+| O-8 | Who reviews the Sinhala and Tamil driver strings (prompt 05 §6 lists the ten that matter most) | Ship the machine draft, say so in the README and `docs/ai-disclosure.md` |
+| O-9 | Dispatch handling of non-vehicle loader flags and driver problems | The default in G-14. Owner: dispatcher owner |
+| O-10 | The "Other…" guest PIN value (A55) | `0000`, listed in the README. Owner: HH |
+| O-11 | Owner of the app shell (stage 2b) | HH until someone takes it |
