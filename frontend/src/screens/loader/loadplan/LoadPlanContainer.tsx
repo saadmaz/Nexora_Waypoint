@@ -7,6 +7,7 @@ import { useConnectivity, useFieldQuery, type ConnectivityStatus } from "../../.
 import { peopleFor } from "../fixtures";
 import { useLoader } from "../LoaderContext";
 import type { LoadPlanOrderRow } from "../types";
+import { FlagContainer } from "../flag/FlagContainer";
 import { LoadPlan, type CapacityStat, type LoadPlanRow, type SwapBanner } from "./LoadPlan";
 import type { ChipStatus } from "../../../field/components";
 
@@ -37,7 +38,8 @@ function buildRows(orders: LoadPlanOrderRow[]): LoadPlanRow[] {
   }));
 }
 
-export function LoadPlanContainer() {
+/** `flagOpen` is the `/flag` route: the same load plan with the L3 flag sheet over it. */
+export function LoadPlanContainer({ flagOpen = false }: { flagOpen?: boolean }) {
   const { vehicleId = "", trip: tripParam = "1" } = useParams();
   const trip = tripParam === "2" ? 2 : 1;
   const { api, dockId, currentPerson, setCurrentPerson } = useLoader();
@@ -51,10 +53,10 @@ export function LoadPlanContainer() {
 
   useEffect(() => {
     if (clock.fixed) return;
-    const id = window.setInterval(() => query.retry(), 15_000);
+    const id = window.setInterval(() => query.refresh(), 15_000);
     return () => window.clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clock.fixed, query.retry]);
+  }, [clock.fixed, query.refresh]);
 
   const chip = {
     status: chipStatus(connectivity.status),
@@ -65,6 +67,7 @@ export function LoadPlanContainer() {
   const onBack = () => navigate("/loader/dock");
   const goFlag = (prefill?: { type: string; orderId?: string; unitsShort?: number }) =>
     navigate(`/loader/vehicles/${vehicleId}/trips/${trip}/flag`, { state: prefill });
+  const closeFlag = () => navigate(`/loader/vehicles/${vehicleId}/trips/${trip}`, { replace: true });
 
   if (query.status === "loading") {
     return (
@@ -128,7 +131,7 @@ export function LoadPlanContainer() {
 
   const recordUnits = (orderId: string, units: number) => {
     void api.recordCheck({ vehicleId, trip, orderId, unitsLoaded: units, personId: currentPerson?.id ?? "unknown" });
-    query.retry();
+    query.refresh();
   };
 
   return (
@@ -153,8 +156,8 @@ export function LoadPlanContainer() {
           : [`The driver's phone shows ${rows.length} orders on board`, "Dispatch sees Loaded"]
       }
       onRecordUnits={recordUnits}
-      onFlagShort={(orderId, units) => goFlag({ type: "Warehouse shortage", orderId, unitsShort: rows.find((r) => r.orderId === orderId)!.unitsExpected - units })}
-      onFlagIssue={() => goFlag({ type: "Vehicle check failed" })}
+      onFlagShort={(orderId, units) => goFlag({ type: "Missing item", orderId, unitsShort: rows.find((r) => r.orderId === orderId)!.unitsExpected - units })}
+      onFlagIssue={() => goFlag()}
       onConfirmGate={() => setGateOpen(true)}
       onCallDispatch={() => undefined}
       onBack={onBack}
@@ -171,11 +174,21 @@ export function LoadPlanContainer() {
           setCurrentPerson({ id: personId, name });
           void api.confirmLoaded({ vehicleId, trip, personId, personName: name }).then(() => {
             setGateOpen(false);
-            query.retry();
+            query.refresh();
           });
         }}
         confirmedText={(name) => `Loaded by ${name}`}
       />
+      {flagOpen && (
+        <FlagContainer
+          vehicleId={vehicleId}
+          trip={trip}
+          view={view}
+          dockName={dockLabel.replace(" dock", "")}
+          chip={chip}
+          onClose={closeFlag}
+        />
+      )}
     </LoadPlan>
   );
 }

@@ -17,7 +17,11 @@ export type FlagExceptionInput = {
   orderIds: string[];
   unitsShort?: number;
   note?: string;
+  reason?: string;
+  /** Ids of photos already saved on the tablet (`saveBlob`); they upload after the record. */
+  blobIds?: string[];
   personId: string;
+  personName: string;
 };
 
 /**

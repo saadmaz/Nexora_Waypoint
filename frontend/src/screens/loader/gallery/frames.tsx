@@ -3,6 +3,9 @@ import { PinSheet } from "../../../field/components";
 import { HERO_DATE, HERO_EVENING_DATE } from "../../../field/clock/clock";
 import { Dock, type DockAlertModel } from "../dock/Dock";
 import type { VehicleCardProps } from "../dock/VehicleCard";
+import { Mono } from "../../../shared/ui/Mono";
+import { FlagSheet, type FlagOrder, type FlagPrefill, type FlagSentModel } from "../flag/FlagSheet";
+import { FlagStatus } from "../flag/FlagStatus";
 import { LoadPlan, type LoadPlanRow } from "../loadplan/LoadPlan";
 
 const noop = () => undefined;
@@ -195,6 +198,112 @@ function veh003HeldRows(): LoadPlanRow[] {
 const VEH036_CAPACITY = { weightKg: 950, weightCapKg: 1040, volumeM3: 6.3, volumeCapM3: 7.0 };
 const VEH036_SWAP = { replacesVehicleId: "VEH003", note: "OUT009 removed in v4" };
 const noopUnits = () => undefined;
+
+// --- L3 · Flag exception: the VEH003 load plan behind the sheet, plan v3, 0 of 5 checked -----------
+/** The three orders L3.2 B lists (the live sheet lists every order on the trip). ORD1011 is drawn without its Chilled tag. */
+const L3_ORDERS: FlagOrder[] = [
+  { orderId: "ORD1001", outletId: "OUT012", units: 37, chilled: true },
+  { orderId: "ORD1011", outletId: "OUT005", units: 43, chilled: false },
+  { orderId: "ORD1014", outletId: "OUT011", units: 40, chilled: true },
+];
+const L3_SCOPE = { orders: 9, trips: 2 };
+const L3_SENT: FlagSentModel = {
+  at: "02:55",
+  summary: "Priya · Vehicle check failed · Reefer not holding temperature",
+  held: true,
+  vehicleId: "VEH003",
+  reviewer: "Kumari",
+};
+
+function l3Backdrop(chip: { status: "synced" | "syncing" | "offline"; time: undefined; count: number }) {
+  return (
+    <LoadPlan
+      vehicleId="VEH003"
+      dockLabel="Peliyagoda"
+      departsAt="03:30"
+      planVersion={3}
+      connectivity={chip}
+      phase="ready"
+      checked={{ done: 0, total: 5 }}
+      chilledZone
+      rows={veh003HeldRows()}
+      onRecordUnits={noopUnits}
+      onFlagShort={noopUnits}
+      onFlagIssue={noop}
+      onConfirmGate={noop}
+      onBack={noop}
+    />
+  );
+}
+
+function l3Sheet(props: { phase: "form" | "sending" | "sent" | "decided"; prefill?: FlagPrefill; sent?: FlagSentModel }) {
+  return (
+    <FlagSheet
+      open
+      onOpenChange={noop}
+      vehicleId="VEH003"
+      trip={1}
+      time="02:55"
+      orders={L3_ORDERS}
+      scope={L3_SCOPE}
+      prefill={props.prefill}
+      phase={props.phase}
+      sent={props.sent}
+      onSend={noop}
+      onCancel={noop}
+      onBackToList={noop}
+      onReview={noop}
+    />
+  );
+}
+
+function l3Frame(
+  id: string,
+  node: string,
+  title: string,
+  time: string,
+  chip: { status: "synced" | "syncing" | "offline"; time: undefined; count: number },
+  sheet: Parameters<typeof l3Sheet>[0],
+): GalleryFrame {
+  return {
+    frameId: id,
+    figmaNodeId: node,
+    name: title,
+    width: 390,
+    height: 844,
+    clock: { date: HERO_DATE, time },
+    render: () => (
+      <div>
+        {/* Figma clips the dimmed load plan at the frame's 844 px; the real screen scrolls past it. */}
+        <div style={{ height: 844, overflow: "hidden" }}>{l3Backdrop(chip)}</div>
+        {l3Sheet(sheet)}
+      </div>
+    ),
+  };
+}
+
+function l3Status(kind: "queued" | "failed", chip: { status: "synced" | "syncing" | "offline"; time: undefined; count: number }) {
+  return (
+    <FlagStatus
+      kind={kind}
+      vehicleId="VEH003"
+      dockName="Peliyagoda"
+      departsAt="03:30"
+      planVersion={3}
+      connectivity={chip}
+      minutesToDeparture={34}
+      typeLabel="Vehicle check failed"
+      detail={
+        <>
+          Reefer not holding temperature · All 9 orders on <Mono>VEH003</Mono> (2 trips)
+        </>
+      }
+      onRetry={noop}
+      onCallDispatch={noop}
+      onKeepWaiting={noop}
+    />
+  );
+}
 
 export const LOADER_FRAMES: GalleryFrame[] = [
   {
@@ -765,4 +874,40 @@ export const LOADER_FRAMES: GalleryFrame[] = [
       />
     ),
   },
+  l3Frame("L3.1", "442:29884", "L3.1 · 02:55 · Flag exception: choose type", "02:55", SYNCED, { phase: "form" }),
+  l3Frame("L3.2-A", "442:30012", "L3.2 · A · 02:55 · Flag exception: details (Vehicle check failed)", "02:55", SYNCED, {
+    phase: "form",
+    prefill: { type: "Vehicle check failed" },
+  }),
+  l3Frame("L3.2-B", "442:30131", "L3.2 · B · 02:55 · Flag exception: details (Missing item)", "02:55", SYNCED, {
+    phase: "form",
+    prefill: { type: "Missing item", orderId: "ORD1014", unitsShort: 4 },
+  }),
+  l3Frame("L3.3-A", "442:30276", "L3.3 · A · 02:55 · Flag sent: Kumari reviewing", "02:55", SYNCED, { phase: "sent", sent: L3_SENT }),
+  l3Frame("L3.3-B", "442:30384", "L3.3 · B · 03:02 · Flag sent: decision made, plan v4", "03:02", SYNCED, {
+    phase: "decided",
+    sent: { ...L3_SENT, decidedVersion: 4 },
+  }),
+  {
+    frameId: "L3.4-A",
+    figmaNodeId: "442:30494",
+    name: "L3.4 · A · 02:56 · Flag queued offline",
+    width: 390,
+    height: 844,
+    clock: { date: HERO_DATE, time: "02:56" },
+    render: () => l3Status("queued", OFFLINE_CHIP),
+  },
+  {
+    frameId: "L3.4-B",
+    figmaNodeId: "442:30547",
+    name: "L3.4 · B · Flag: error, couldn't send",
+    width: 390,
+    height: 844,
+    clock: { date: HERO_DATE, time: "02:56" },
+    render: () => l3Status("failed", SYNCED),
+  },
+  l3Frame("L3.4-C", "442:30582", "L3.4 · C · Flag: sending to Dispatch", "02:55", SYNCING_CHIP, {
+    phase: "sending",
+    prefill: { type: "Vehicle check failed" },
+  }),
 ];

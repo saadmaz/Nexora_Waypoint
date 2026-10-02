@@ -7,6 +7,7 @@ import { RoleRoot } from "../../shared/RoleRoot";
 import { DockContainer } from "./dock/DockContainer";
 import { LoaderGallery } from "./gallery/LoaderGallery";
 import { LoadPlanContainer } from "./loadplan/LoadPlanContainer";
+import { LoaderDevControls } from "./LoaderDevControls";
 import { LoaderProvider } from "./LoaderProvider";
 
 /** Waypoint Load always works in the dark (field conventions section 1): a shared dock tablet at night. */
@@ -32,6 +33,7 @@ export function LoaderApp() {
               <RoleRoot theme={LOADER_THEME}>
                 <LoaderProvider>
                   <LoaderRoutes />
+                  <LoaderDevControls />
                 </LoaderProvider>
               </RoleRoot>
             </FieldRuntime>
@@ -48,17 +50,7 @@ function LoaderRoutes() {
       <Route index element={<Navigate to="dock" replace />} />
       <Route path="dock" element={<DockContainer />} />
       <Route path="vehicles/:vehicleId/trips/:trip" element={<LoadPlanContainer />} />
-      <Route
-        path="vehicles/:vehicleId/trips/:trip/flag"
-        element={
-          <PlaceholderScreen
-            id="L3"
-            title="Flag exception"
-            back="/loader/dock"
-            note="Six types, details, send to Dispatch, reviewing, decided. Built in the loader prompt (L3)."
-          />
-        }
-      />
+      <Route path="vehicles/:vehicleId/trips/:trip/flag" element={<LoadPlanContainer flagOpen />} />
       <Route
         path="changes"
         element={

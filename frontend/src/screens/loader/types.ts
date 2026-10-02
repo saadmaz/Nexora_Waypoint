@@ -87,10 +87,20 @@ export type ExceptionView = {
   orderIds: string[];
   unitsShort?: number;
   note?: string;
+  /** For a vehicle check: "Reefer not holding temperature", "Won't start", "Door or seal fault" or the typed "Other". */
+  reason?: string;
+  /** Who flagged it and when (scenario HH:MM), for the "Sent to Dispatch" sheet. */
+  raisedBy?: string;
+  raisedAt?: string;
   status: ExceptionStatus;
   decidedVersion?: number;
   decidedBy?: string;
   decidedAt?: string;
+  /**
+   * PRD v3.1 G-14: only a failed vehicle check has a Dispatch decision (D8). Every other flag reaches
+   * D6 and is marked seen when Dispatch opens it; it stays as sent and no plan version follows.
+   */
+  seenAt?: string;
 };
 
 export type PlanDiffRemoved = { orderId: string; outletId: string; deferralType: DeferralType; nextRunShort: string };

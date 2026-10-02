@@ -843,6 +843,7 @@ npm install
 npm run dev
 # http://localhost:5173/loader/dock?dock=peliyagoda        Priya's dock
 # http://localhost:5173/loader/dock?dock=kandy&at=04:14     Ruwan's dock, v4 no change
+# http://localhost:5173/loader/vehicles/VEH003/trips/1/flag?dock=peliyagoda&date=2026-09-29&at=02:55&dev=1   Priya's flag
 npm run compare -- loader L1.1 L1.3 L2.1-A L2.3-A L2.4 L2.5 L2.6-A L2.6-B --base http://localhost:5173
 ```
 
@@ -872,9 +873,19 @@ Priya `1234`, Ruwan `5678` (PRD v3 assumption A36). Both are offered at both doc
 
 `LoadPlan.tsx` is presentational and covers every L2 phase: the in-progress checklist with each order's inline count-confirm (no sheet: the row itself expands, matching L2.1 B's taller frame), the gate, two different "loaded" layouts (L2.4's plain summary with "Who already knows" for a normal vehicle, L2.6 B's capacity bars and full order list for the swap), the held/frozen read-only list (L2.5), and the empty, loading, offline and error states. `LoadPlanContainer.tsx` wires it to `LoaderApi`. The reverse-stop-order check row reuses `LoaderCheckCard` (field conventions LIB1), extended this phase with a `planned` state (the held list's read-only pill) and a `protectedOrder` flag (OUT012's lock tag in place of its brand tag).
 
+### L3 Flag exception (`src/screens/loader/flag/`)
+
+`FlagSheet.tsx` is the bottom sheet over the load plan: **What's wrong?** (L3.1, the six types), the details for the chosen type (L3.2 A for a failed vehicle check, L3.2 B for an order), then it follows the flag: **sending** (L3.4 C), **sent, Kumari reviewing** (L3.3 A) and **decision made, plan v4** (L3.3 B). `FlagStatus.tsx` draws the two full screens that replace the sheet: **saved on this tablet** (L3.4 A, offline) and **couldn't send** (L3.4 B). `FlagContainer.tsx` wires them to `LoaderApi` and the outbox.
+
+The flow runs at `/loader/vehicles/:vehicleId/trips/:trip/flag` (the load plan stays behind the sheet). "Flag issue" opens the type chooser; "Flag shortage" on L2.2 opens Missing item with that order and the units short already filled in. **Send to Dispatch** asks for a PIN (`PinSheet`), then saves the flag in the outbox. What the sheet shows comes from that outbox record, not a timer: waiting while online is "sending", waiting while offline is "saved on this tablet", an error is "couldn't send" (Retry runs `runSync({ force: true })`), accepted is "sent". A failed vehicle check holds the vehicle at once (L1.4, L2.5) and Dispatch decides it into plan v4 at 03:00 on the scenario clock; **Review change** then opens L4.
+
+**Every other flag only reaches Dispatch** (PRD v3.1 G-14, no designed resolution): the sheet stays at "sent", the status line becomes "Kumari has seen this" once Dispatch opens it, and no plan version follows. Add `?dev=1` (or `?presenter=1`) to show a **Dispatch decides now** button, which decides the VEH003 check or marks any other flag seen, so the flow can be played without waiting for 03:00. In API mode the real dispatcher does this at D8 (PRD v3.1 section 13).
+
+An optional photo (Vehicle check failed, Damaged item, Wrong item, Other) uses the device camera where there is one and the file picker where there is not (A58), compressed to JPEG at 1600 px and quality 0.7 (A57), and uploads after its record.
+
 ### State gallery
 
-`/loader/_states` registers 13 of L1's 15 frames (L1.1 to L1.6 B, the four L1.S states; L1.7 tablet is L5) and all 13 of L2's frames (L2.1 A to L2.6 B, the four L2.S states). `npm run compare -- loader <id>` matches each against its Figma screenshot; `PinSheet`'s `demoPhase`/`demoDigits` props and `LoadPlan`'s `demoExpanded` prop freeze a sheet or a row open for the frames that need it (L1.2 B/C, L2.1 B, L2.2, L2.3 B).
+`/loader/_states` registers 13 of L1's 15 frames (L1.1 to L1.6 B, the four L1.S states; L1.7 tablet is L5) and all 13 of L2's frames (L2.1 A to L2.6 B, the four L2.S states). It also registers all 8 of L3's frames (L3.1, L3.2 A and B, L3.3 A and B, L3.4 A to C). `npm run compare -- loader <id>` matches each against its Figma screenshot; `PinSheet`'s `demoPhase`/`demoDigits` props and `LoadPlan`'s `demoExpanded` prop freeze a sheet or a row open for the frames that need it (L1.2 B/C, L2.1 B, L2.2, L2.3 B).
 
 ### Departures from the Designathon design (loader)
 
@@ -882,7 +893,13 @@ Priya `1234`, Ruwan `5678` (PRD v3 assumption A36). Both are offered at both doc
 - **VEH035's checked count.** L1.3 reads "3 of 4 orders checked" at 00:10, L1.4 reads "3 of 5" at 02:56, with no event between them that checks a 5th order. The state gallery keeps both numbers verbatim (literal per-frame fixtures); the live dock computes VEH035's progress for real, starting at 0, since it is not part of either hero story and the two frame numbers are not reconcilable with one running total.
 - **L2.4 vs L2.6 B's "loaded" layout.** The frames draw two different confirmations: L2.4 is a plain icon-tile summary with a "Who already knows" reassurance list, L2.6 B is a green banner with capacity bars and the full checked order list. The build keeps both, switching on whether the vehicle is a swap (`swap` prop present).
 - **Per-order checks carry no PIN step**, matching L2.1 B exactly (stepper, then "Confirm N units", no keypad); the record's actor is the last person who entered a PIN this session (`currentPerson`), falling back to `"unknown"` if nobody has yet. Only the dock acknowledgement and the L2 gate ask for a PIN, as drawn.
-- **"Flag issue" and "Flag shortage"** currently navigate to the not-yet-built L3 route (`/loader/vehicles/:id/trips/:trip/flag`), carrying the type and any prefilled order/shortfall as router state, ready for L3 to read when it lands.
+- **L3's four types with no details frame** (Damaged item, Wrong item, Warehouse shortage, Other). Figma draws details only for Vehicle check failed (L3.2 A) and Missing item (L3.2 B). The first three reuse the Missing item layout with their own heading, icon and "Units damaged / wrong / short" label; Damaged item and Wrong item also offer the photo tile as evidence. Other asks "What happened?" with a typed note. Wording the frames do not give: "Tell Dispatch in a sentence.", the PIN sheet title "Send flag for VEH003", "Who's flagging?" and "Flag from Priya", the sent line for a non-vehicle flag ("Dispatch has your flag. You can keep loading the other orders.") and "Kumari has seen this".
+- **L3.2 B lists three orders; the live sheet lists every order on the trip.** The frame shows ORD1001, ORD1011 and ORD1014 of VEH003 trip 1's five. The gallery frame keeps those three, with ORD1011 drawn without its Chilled tag; the live sheet draws the tag on every chilled order, as PRD 4c has them.
+- **"Flag shortage" opens Missing item.** The Figma link from L2.2 goes to L3.2 B (Missing item), so that is the type prefilled, not Warehouse shortage.
+- **Type labels.** Figma draws "Warehouse shortage" and "Vehicle check failed" on one line, running into the tile's padding. That is what 390 px and wider does; on a narrower screen the label wraps instead of leaving its tile.
+- **No phone number.** "Call Dispatch" (L3.4 A) has no number to dial and does nothing yet: the app holds no phone numbers (field conventions section 12), only "Peliyagoda dispatch desk" as drawn.
+- **L3.4 A and B have no back chevron**, as drawn; "Keep waiting" returns to the dock. Their top bar reads "Peliyagoda", without "dock", as the frames do.
+- **Esc or a scrim tap on the details step returns to the type list** rather than closing the sheet, so a wrong type is one step to undo; Cancel on the type list closes it.
 
 ### Shared files this role has changed
 
@@ -891,6 +908,10 @@ Priya `1234`, Ruwan `5678` (PRD v3 assumption A36). Both are offered at both doc
 - `field/format.ts`: added `formatCountdown(minutes)` ("in 3 h 45 min", "in 56 min").
 - `field/offline/query.ts` (new) and `field/offline/index.ts`: `useFieldQuery`, the cache-then-network read hook every field screen's offline state needs. Exported alongside the rest of `field/offline`.
 - `vite.config.ts`: `server.fs.allow` now adds the real parent of `node_modules` only when it resolves outside the project directory (a worktree with a symlinked `node_modules`); a normal checkout is unaffected.
+- `shared/ui/Icon.tsx`: two new names, `archive` and `wrench`, which L3.1 draws. Additive.
+- `field/components/BottomSheet.tsx`: a gallery (non-modal) sheet now draws the 60 percent scrim Radix leaves out and no longer pulls focus into its frame, so the L1.2, L2.3 B and L3 frames dim their screen as Figma does; a tap on anything carrying `data-keeps-sheet-open` (the dev controls, and the presenter control when it lands) no longer dismisses an open sheet. The live modal behaviour is otherwise unchanged.
+- `field/offline/query.ts`: `useFieldQuery` also returns `refresh()`, a background re-read that keeps the current screen, alongside `retry()`, which resets to loading. Polling and refreshing after a write used `retry`, which blanked the whole screen and unmounted an open sheet every 15 seconds; they use `refresh` now.
+- `scripts/compare-frames.ts`: waits 500 ms before capturing, so a sheet is shown settled rather than sliding in.
 - `docs/ai-disclosure.md` (new): the table Contributing.md section 29 asks for, with this branch's row.
 
 ### Phases
@@ -898,7 +919,7 @@ Priya `1234`, Ruwan `5678` (PRD v3 assumption A36). Both are offered at both doc
 - [x] L0 types, fixtures, `LoaderApi` and mock server
 - [x] L1 Dock: every state, PIN acknowledgement, countdowns, offline cache
 - [x] L2 Load plan: checks, count confirm, short units, gate + PIN, loaded, held, swap reload
-- [ ] L3 Flag exception sheet
+- [x] L3 Flag exception sheet
 - [ ] L4 Plan changed
 - [ ] L5 L1.7 tablet master-detail
 - [ ] L6 Playwright run of both stories, final README pass

@@ -1,0 +1,12 @@
+.panel {
+  position: fixed;
+  left: var(--space-3);
+  bottom: var(--space-3);
+  z-index: 60;
+  /* A modal sheet makes everything outside it inert; the presenter needs this while a sheet is open. */
+  pointer-events: auto;
+  padding: var(--space-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+}
