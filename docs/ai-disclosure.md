@@ -14,6 +14,7 @@ Add a line to the table below when an AI tool does a meaningful part of your pul
 | 1 to 2 Oct | Loader screens (L1 to L4) | Claude | Screens, states, `LoaderApi` and fixtures from the Figma frames | See the loader PR |
 | 1 to 2 Oct | Driver screens (R1 to R10) | Claude | Screens, states, `DriverApi`, fixtures and sync handlers from the Figma frames | See the driver PRs |
 | 2 Oct | PRD v3.1 and central context (`waypoint-prd-v3.md`, `waypoint-central-context-v3.md`) | Claude | Changes V32 to V42: the planned-distance basis, the dock setting, PIN rules, R10 in API mode, the mock-to-real switch, Dispatch handling of non-vehicle flags, R6 problem threads, assumptions A55 to A58, departures DP-17 to DP-23, open decisions O-8 to O-11 | Register numbering checked against the existing rows so nothing was overwritten; A55 on frame L1.2 A is still to be confirmed against Figma and says so in the row |
+| 2 Oct | App shell (`frontend/src/screens/auth`, `frontend/src/app/App.tsx`): sign-in, role picker, per-role sessions, presenter control | Claude | `AuthApi` and its mock, per-role sessions, the router change, the sign-in screen for frames G1.1 to G1.5 and its state gallery | Sessions and the mock covered by 18 unit tests; sign-in driven in a real browser (retry, offline, four roles in one browser); frames diffed against Figma at 1x. Role picker, presenter control and avatar menu follow in later phases and will be added to this row |
 
 ## Invented data
 

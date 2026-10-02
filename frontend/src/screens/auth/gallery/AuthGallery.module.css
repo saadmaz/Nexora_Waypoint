@@ -1,0 +1,69 @@
+/* The app shell gallery. Same look as the field galleries so the dev tools read alike. */
+.page {
+  padding: var(--space-6);
+  background: var(--surface-2);
+  color: var(--ink);
+  min-height: 100dvh;
+}
+
+.title {
+  font: var(--text-h1);
+}
+
+.lede {
+  margin: var(--space-2) 0 var(--space-6);
+  font: var(--text-body);
+  color: var(--ink-muted);
+}
+
+.grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  align-items: flex-start;
+}
+
+.cell {
+  margin: 0;
+}
+
+.caption {
+  max-width: 420px;
+  margin-bottom: var(--space-2);
+  font: var(--text-body-sm);
+}
+
+.link {
+  font: 600 13px / 18px var(--font-mono);
+  color: var(--route);
+}
+
+.node {
+  display: block;
+  font: var(--text-caption);
+  color: var(--ink-muted);
+}
+
+/* Each frame is isolated and stretches its screen to the frame's height, as the real route fills the viewport. */
+.frame,
+.single {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.frame {
+  border: 1px solid var(--line-strong);
+  transform: translateZ(0);
+}
+
+.root {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.missing {
+  padding: var(--space-6);
+}
