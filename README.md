@@ -830,7 +830,7 @@ Import from `field/offline`. One IndexedDB, `waypoint-field`: `outbox`, `cache`,
 
 The frames every role passes through before its own screens: sign-in (G1), the role picker (G2), per-role sessions and the one presenter control the judge walkthrough drives. Branch: `feature/auth`, cut from `develop`, frontend only. There is no backend yet, so everything runs against a mock. The brief is [`claude/field-build/06-app-shell.md`](claude/field-build/06-app-shell.md).
 
-**Status:** A0 built and pushed (`tsc -b`, `oxlint`, `vitest run`, `vite build` all clean; 31 tests, 10 of them new). A1 to A6 are not started. No screen exists yet, so there is nothing to compare against Figma.
+**Status:** A0 and A3 built (`tsc -b`, `oxlint`, `vitest run`, `vite build` all clean; 31 tests, 10 of them new). A3 landed before A1 and A2 because the Figma connection was down; its routes answer with placeholders until those phases replace them. A1, A2 and A4 to A6 are not started, so there is nothing to compare against Figma yet.
 
 ### Accounts
 
@@ -896,14 +896,17 @@ There are five G1 and four G2 frames, as PRD v3 section 3 says. The conventions 
 
 ### Shared files this role has changed
 
-None so far. A0 only adds `src/screens/auth/`. The router (`app/App.tsx`), the presenter control (`app/PresenterControl.tsx`) and the Store top bar are changed in A3 to A5 and will be listed here, each in its own commit.
+- **`frontend/src/app/App.tsx`** (A3, its own commit; a shared contract under Contributing section 18). It now routes `/` (a redirect), `/sign-in`, `/start`, `/auth/_states`, `/loader/*`, `/driver/*`, `/dispatcher/*`, `/field/_components` and `/store/*`. The route components live in `screens/auth/` under their final names, so sign-in, the role picker and the gallery replace their placeholders without touching this file again.
+  - **The Store is no longer the catch-all.** Unknown paths go back to `/`, which sends a signed-in person to their role home and everyone else to `/sign-in`. The Store keeps every `/store/...` URL it had. It cannot sit under a `/store/*` parent, because `StoreRoutes` uses absolute `/store/...` paths and React Router would resolve them relative to `/store`, so it stays at the catch-all and answers only for its own prefix.
+  - **Dispatcher slot.** `feature/dispatch-planning` is not merged, so `/dispatcher/*` renders a placeholder. The route has to exist: a signed-in dispatcher is sent from `/` to `/dispatcher/queue`, and without it that path would bounce back to `/` forever. The slot is marked in `App.tsx`. When the dispatcher branch merges, replace that line with `<Route path="/dispatcher/*" element={<DispatcherApp />} />` and delete `DispatcherSlot`.
+- The presenter control (`app/PresenterControl.tsx`) and the Store top bar change in A4 and A5, each in its own commit, and will be listed here.
 
 ### Phases
 
 - [x] A0 `AuthApi`, mock, `session.ts`, types (10 tests)
 - [ ] A1 G1 sign-in, five states, desktop and phone, retry, offline
 - [ ] A2 G2 `/start`, four role cards
-- [ ] A3 router: `/sign-in`, `/start`, `/` redirect, `/auth/_states`
+- [x] A3 router: `/sign-in`, `/start`, `/` redirect, `/auth/_states` (placeholders until A1, A2 and A6)
 - [ ] A4 one shared presenter panel in `app/presenter/`, replacing the Store's copy
 - [ ] A5 avatar menu, mounted in the Store top bar
 - [ ] A6 gallery, Figma compare, Playwright four-role sign-in, this section completed, `docs/ai-disclosure.md` line
