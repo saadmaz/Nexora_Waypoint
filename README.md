@@ -834,7 +834,7 @@ The frames every role passes through before its own screens: sign-in (G1), the r
 
 ### Accounts
 
-One demo password for all four accounts. PRD v3 section 4c leaves passwords to A40 and the README; the environment variable that replaces this one is the backend branch's to add, so there is no `.env.example` change here.
+One demo password for all four accounts. PRD v3 section 4c leaves passwords to A40 and the README. The password is the backend's `DEMO_PASSWORD` (`.env.example`, seeded by `backend/seed/accounts.py`); the mock uses the same value so signing in behaves the same in mock and API mode. There is no `.env.example` change here.
 
 | Role | Email | Shown as | Lands on |
 |---|---|---|---|
@@ -843,7 +843,7 @@ One demo password for all four accounts. PRD v3 section 4c leaves passwords to A
 | Driver | `driver@waypoint.demo` | Nimal | `/driver/run` |
 | Store | `store@waypoint.demo` | Anusha | `/store/orders` |
 
-Password for all four: `waypoint`. The loader still enters a PIN per action after signing in; `PinSheet` from the field foundation does that and is not rebuilt here.
+Password for all four: `waypoint-demo`. The loader still enters a PIN per action after signing in; `PinSheet` from the field foundation does that and is not rebuilt here.
 
 ### Sessions (`src/screens/auth/session.ts`)
 
