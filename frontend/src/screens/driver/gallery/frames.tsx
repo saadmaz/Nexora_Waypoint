@@ -2,6 +2,7 @@ import { HERO_DATE, HERO_EVENING_DATE } from "../../../field/clock/clock";
 import type { GalleryFrame } from "../../../field/gallery/StateGallery";
 import { GALLERY_SHORTFALL } from "../fixtures";
 import { MeScreen } from "../me/MeScreen";
+import { OutcomeScreen } from "../outcome/OutcomeScreen";
 import { RunScreen } from "../run/RunScreen";
 import { StopScreen } from "../stop/StopScreen";
 import { fakeConnectivity } from "./fakeConnectivity";
@@ -10,7 +11,19 @@ import { renderDriverFrame } from "./renderFrame";
 const ONLINE = fakeConnectivity({ status: "online" });
 const OFFLINE_1 = fakeConnectivity({ status: "offline", waitingCount: 1, lastSyncAt: Date.parse(`${HERO_DATE}T05:17:00+05:30`) });
 const OFFLINE_3 = fakeConnectivity({ status: "offline", waitingCount: 3, lastSyncAt: Date.parse(`${HERO_DATE}T05:17:00+05:30`) });
+const OFFLINE_4 = fakeConnectivity({ status: "offline", waitingCount: 4, lastSyncAt: Date.parse(`${HERO_DATE}T05:17:00+05:30`) });
+const OFFLINE_5 = fakeConnectivity({ status: "offline", waitingCount: 5, lastSyncAt: Date.parse(`${HERO_DATE}T05:17:00+05:30`) });
 const OFFLINE_0 = fakeConnectivity({ status: "offline", waitingCount: 0, lastSyncAt: Date.parse(`${HERO_DATE}T05:17:00+05:30`) });
+
+/** A 1x1 grey square, standing in for a captured photo in the gallery (no real camera there). */
+const PLACEHOLDER_PHOTO = `data:image/svg+xml;utf8,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56"><rect width="56" height="56" fill="#8b8b8b"/></svg>',
+)}`;
+
+const OUT084_OUTCOMES = {
+  ORD2001: { orderId: "ORD2001", outcome: "Delivered" as const, unitsDelivered: 12, receiverName: "S. Fernando", savedAt: "05:42" },
+  ORD2002: { orderId: "ORD2002", outcome: "Delivered" as const, unitsDelivered: 8, receiverName: "S. Fernando", savedAt: "05:42" },
+};
 
 /**
  * Every Driver frame (`/driver/_states`), registered as its screens land (field conventions
@@ -290,5 +303,285 @@ export const DRIVER_FRAMES: GalleryFrame[] = [
         theme: "dark",
         apiOptions: { seed: {}, stuckLoading: true },
       }),
+  },
+  {
+    frameId: "R3.1",
+    figmaNodeId: "442:57326",
+    name: "R3.1 · Same outcome for the stop (default)",
+    width: 390,
+    height: 844,
+    clock: { date: HERO_DATE, time: "05:42" },
+    render: () =>
+      renderDriverFrame(
+        <OutcomeScreen
+          connectivityOverride={OFFLINE_1}
+          stopIdOverride="OUT084"
+          initial={{ photo: { blobId: "gallery", url: PLACEHOLDER_PHOTO, time: "05:42" }, receiverName: "S. Fernando" }}
+        />,
+        {
+          theme: "dark",
+          apiOptions: {
+            seed: { downloadedVersion: 4, acknowledgedVersion: 4, departedAt: "05:10", stops: { OUT084: { arrivalAt: "05:26", outcomes: {} } } },
+          },
+        },
+      ),
+  },
+  {
+    frameId: "R3.2-A",
+    figmaNodeId: "442:57461",
+    name: "R3.2 · A · Camera viewfinder (no camera in this browser: file-input fallback shown)",
+    width: 390,
+    height: 844,
+    clock: { date: HERO_DATE, time: "05:42" },
+    render: () =>
+      renderDriverFrame(<OutcomeScreen connectivityOverride={OFFLINE_1} stopIdOverride="OUT084" subviewOverride="camera" />, {
+        theme: "dark",
+        apiOptions: {
+          seed: { downloadedVersion: 4, acknowledgedVersion: 4, departedAt: "05:10", stops: { OUT084: { arrivalAt: "05:26", outcomes: {} } } },
+        },
+      }),
+  },
+  {
+    frameId: "R3.3",
+    figmaNodeId: "442:57522",
+    name: "R3.3 · Receiver name entry",
+    width: 390,
+    height: 844,
+    clock: { date: HERO_DATE, time: "05:42" },
+    render: () =>
+      renderDriverFrame(
+        <OutcomeScreen connectivityOverride={OFFLINE_1} stopIdOverride="OUT084" subviewOverride="receiver" initial={{ receiverName: "S. F" }} />,
+        {
+          theme: "dark",
+          apiOptions: {
+            seed: { downloadedVersion: 4, acknowledgedVersion: 4, departedAt: "05:10", stops: { OUT084: { arrivalAt: "05:26", outcomes: {} } } },
+          },
+        },
+      ),
+  },
+  {
+    frameId: "R3.4",
+    figmaNodeId: "442:57635",
+    name: "R3.4 · Damaged goods with units (per-order grid)",
+    width: 390,
+    height: 844,
+    clock: { date: HERO_DATE, time: "05:42" },
+    render: () =>
+      renderDriverFrame(
+        <OutcomeScreen
+          connectivityOverride={OFFLINE_1}
+          stopIdOverride="OUT084"
+          initial={{
+            sameOutcome: false,
+            perOrder: { ORD2001: { outcome: "Damaged", units: 10 }, ORD2002: { outcome: "Delivered", units: 8 } },
+            photo: { blobId: "gallery", url: PLACEHOLDER_PHOTO, time: "05:42" },
+            receiverName: "S. Fernando",
+          }}
+        />,
+        {
+          theme: "dark",
+          apiOptions: {
+            seed: { downloadedVersion: 4, acknowledgedVersion: 4, departedAt: "05:10", stops: { OUT084: { arrivalAt: "05:26", outcomes: {} } } },
+          },
+        },
+      ),
+  },
+  {
+    frameId: "R3.5-A",
+    figmaNodeId: "442:57767",
+    name: "R3.5 · A · Store closed",
+    width: 390,
+    height: 844,
+    clock: { date: HERO_DATE, time: "05:42" },
+    render: () =>
+      renderDriverFrame(
+        <OutcomeScreen
+          connectivityOverride={OFFLINE_1}
+          stopIdOverride="OUT084"
+          initial={{ stopOutcome: "Store closed", photo: { blobId: "gallery", url: PLACEHOLDER_PHOTO, time: "05:42" } }}
+        />,
+        {
+          theme: "dark",
+          apiOptions: {
+            seed: { downloadedVersion: 4, acknowledgedVersion: 4, departedAt: "05:10", stops: { OUT084: { arrivalAt: "05:26", outcomes: {} } } },
+          },
+        },
+      ),
+  },
+  {
+    frameId: "R3.5-B",
+    figmaNodeId: "442:57856",
+    name: "R3.5 · B · Refused, with reason",
+    width: 390,
+    height: 844,
+    clock: { date: HERO_DATE, time: "05:42" },
+    render: () =>
+      renderDriverFrame(
+        <OutcomeScreen
+          connectivityOverride={OFFLINE_1}
+          stopIdOverride="OUT084"
+          initial={{ stopOutcome: "Refused", refusedReason: "Other", receiverName: "S. Fernando" }}
+        />,
+        {
+          theme: "dark",
+          apiOptions: {
+            seed: { downloadedVersion: 4, acknowledgedVersion: 4, departedAt: "05:10", stops: { OUT084: { arrivalAt: "05:26", outcomes: {} } } },
+          },
+        },
+      ),
+  },
+  {
+    frameId: "R3.5-C",
+    figmaNodeId: "442:58109",
+    name: "R3.5 · C · Run afterwards: failed stop card",
+    width: 390,
+    height: 844,
+    clock: { date: HERO_DATE, time: "05:44" },
+    render: () =>
+      renderDriverFrame(<RunScreen connectivityOverride={OFFLINE_1} />, {
+        theme: "dark",
+        apiOptions: {
+          seed: {
+            downloadedVersion: 4,
+            acknowledgedVersion: 4,
+            departedAt: "05:10",
+            stops: {
+              OUT084: {
+                arrivalAt: "05:26",
+                outcomes: {
+                  ORD2001: { orderId: "ORD2001", outcome: "Store closed", unitsDelivered: 0, savedAt: "05:44" },
+                  ORD2002: { orderId: "ORD2002", outcome: "Store closed", unitsDelivered: 0, savedAt: "05:44" },
+                },
+              },
+            },
+          },
+        },
+      }),
+  },
+  {
+    frameId: "R3.6",
+    figmaNodeId: "442:57953",
+    name: "R3.6 · Validation: missing photo or name (scrolled to proof)",
+    width: 390,
+    height: 844,
+    clock: { date: HERO_DATE, time: "05:42" },
+    render: () =>
+      renderDriverFrame(<OutcomeScreen connectivityOverride={OFFLINE_1} stopIdOverride="OUT084" initial={{ showValidation: true }} />, {
+        theme: "dark",
+        apiOptions: {
+          seed: { downloadedVersion: 4, acknowledgedVersion: 4, departedAt: "05:10", stops: { OUT084: { arrivalAt: "05:26", outcomes: {} } } },
+        },
+      }),
+  },
+  {
+    frameId: "R3.7",
+    figmaNodeId: "442:58033",
+    name: "R3.7 · Saved to phone confirmation",
+    width: 390,
+    height: 844,
+    clock: { date: HERO_DATE, time: "05:43" },
+    render: () =>
+      renderDriverFrame(<RunScreen connectivityOverride={OFFLINE_3} />, {
+        theme: "dark",
+        apiOptions: {
+          seed: { downloadedVersion: 4, acknowledgedVersion: 4, departedAt: "05:10", stops: { OUT084: { arrivalAt: "05:26", outcomes: OUT084_OUTCOMES } } },
+        },
+      }),
+  },
+  {
+    frameId: "R3.8",
+    figmaNodeId: "442:58199",
+    name: "R3.8 · Record outcome, OUT087",
+    width: 390,
+    height: 844,
+    clock: { date: HERO_DATE, time: "05:58" },
+    render: () =>
+      renderDriverFrame(
+        <OutcomeScreen
+          connectivityOverride={OFFLINE_4}
+          stopIdOverride="OUT087"
+          initial={{ photo: { blobId: "gallery", url: PLACEHOLDER_PHOTO, time: "05:58" }, receiverName: "Anusha" }}
+        />,
+        {
+          theme: "dark",
+          apiOptions: {
+            seed: {
+              downloadedVersion: 4,
+              acknowledgedVersion: 4,
+              departedAt: "05:10",
+              stops: { OUT084: { arrivalAt: "05:26", outcomes: OUT084_OUTCOMES }, OUT087: { arrivalAt: "05:48", outcomes: {} } },
+            },
+          },
+        },
+      ),
+  },
+  {
+    frameId: "R3.9",
+    figmaNodeId: "442:58311",
+    name: "R3.9 · OUT087 saved, all stops recorded (offline)",
+    width: 390,
+    height: 844,
+    clock: { date: HERO_DATE, time: "05:59" },
+    render: () =>
+      renderDriverFrame(<RunScreen connectivityOverride={OFFLINE_5} forceJustSaved />, {
+        theme: "dark",
+        apiOptions: {
+          seed: {
+            downloadedVersion: 4,
+            acknowledgedVersion: 4,
+            departedAt: "05:10",
+            stops: {
+              OUT084: { arrivalAt: "05:26", outcomes: OUT084_OUTCOMES },
+              OUT087: { arrivalAt: "05:48", outcomes: { ORD2003: { orderId: "ORD2003", outcome: "Delivered", unitsDelivered: 9, savedAt: "05:58" } } },
+            },
+          },
+        },
+      }),
+  },
+  {
+    frameId: "R3.10",
+    figmaNodeId: "442:58399",
+    name: "R3.10 · 05:59 · All stops recorded, waiting for signal",
+    width: 390,
+    height: 844,
+    clock: { date: HERO_DATE, time: "05:59" },
+    render: () =>
+      renderDriverFrame(<RunScreen connectivityOverride={OFFLINE_5} forceJustSaved={false} />, {
+        theme: "dark",
+        apiOptions: {
+          seed: {
+            downloadedVersion: 4,
+            acknowledgedVersion: 4,
+            departedAt: "05:10",
+            stops: {
+              OUT084: { arrivalAt: "05:26", outcomes: OUT084_OUTCOMES },
+              OUT087: { arrivalAt: "05:48", outcomes: { ORD2003: { orderId: "ORD2003", outcome: "Delivered", unitsDelivered: 9, savedAt: "05:58" } } },
+            },
+          },
+        },
+      }),
+  },
+  {
+    frameId: "R3.11",
+    figmaNodeId: "442:58483",
+    name: "R3.11 · Signature pad (optional)",
+    width: 390,
+    height: 844,
+    clock: { date: HERO_DATE, time: "05:42" },
+    render: () =>
+      renderDriverFrame(
+        <OutcomeScreen
+          connectivityOverride={OFFLINE_1}
+          stopIdOverride="OUT084"
+          subviewOverride="signature"
+          initial={{ receiverName: "S. Fernando", photo: { blobId: "gallery", url: PLACEHOLDER_PHOTO, time: "05:42" } }}
+        />,
+        {
+          theme: "dark",
+          apiOptions: {
+            seed: { downloadedVersion: 4, acknowledgedVersion: 4, departedAt: "05:10", stops: { OUT084: { arrivalAt: "05:26", outcomes: {} } } },
+          },
+        },
+      ),
   },
 ];

@@ -13,11 +13,11 @@ import { Tag } from "../../../shared/ui/Tag";
 import { useDriverApi, useT } from "../context/DriverContext";
 import { useDriverRun } from "../context/useDriverRun";
 import { RUN_DATE } from "../fixtures";
-import { DriverShell } from "../shell/DriverShell";
 import { buildOfflineBanner } from "../offlineBanner";
+import { DriverShell } from "../shell/DriverShell";
+import { CompletedStopRow } from "../stop/CompletedStopRow";
 import { StopOrdersSummary, StopSchedule } from "../stopComponents";
 import { isChilled, openMapsFor, primaryStopIndex, stopDone, stopPlace, willWaitMinutes } from "../stopFormat";
-import type { RecordedOutcome } from "../types";
 import styles from "./RunScreen.module.css";
 
 function depotLabel(depot: string): string {
@@ -31,6 +31,9 @@ export type RunScreenProps = {
   forcedProgress?: { done: number; total: number };
   /** The state gallery only: shows R1.S without a real failed download. */
   forceDownloadError?: boolean;
+  /** The state gallery only: R3.9 (true, the just-saved toast) vs R3.10 (false, settled) when every
+   * stop is already seeded done on mount, which the real app never does in one render. */
+  forceJustSaved?: boolean;
 };
 
 /**
@@ -38,7 +41,7 @@ export type RunScreenProps = {
  * comes from the run data, connectivity and the clock. Covers R1.1 to R1.6 and the merged
  * R1.3 B / R1.4 "ready to depart" view; R1.10 is this same screen in the Field theme.
  */
-export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadError }: RunScreenProps = {}) {
+export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadError, forceJustSaved }: RunScreenProps = {}) {
   const t = useT();
   const api = useDriverApi();
   const navigate = useNavigate();
@@ -50,8 +53,6 @@ export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadE
   const [downloading, setDownloading] = useState(Boolean(forcedProgress));
   const [progress, setProgress] = useState(forcedProgress ?? { done: 0, total: 0 });
   const [downloadError, setDownloadError] = useState(Boolean(forceDownloadError));
-  const [justSaved, setJustSaved] = useState(false);
-  const wasAllDone = useRef(false);
 
   const version = run?.currentVersion?.v;
   const downloaded = run !== null && version !== undefined && run?.downloadedVersion === version;
@@ -59,7 +60,13 @@ export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadE
   const departed = run?.departedAt != null;
   const allDone = run ? primaryStopIndex(run.stops) === -1 : false;
 
+  // The gallery seeds both stops done on the very first render, which the real app never does in
+  // one frame; `forceJustSaved` picks R3.9 (toast) or R3.10 (settled) for that case directly.
+  const [justSaved, setJustSaved] = useState(forceJustSaved ?? false);
+  const wasAllDone = useRef(forceJustSaved !== undefined ? allDone : false);
+
   useEffect(() => {
+    if (forceJustSaved !== undefined) return undefined;
     if (allDone && !wasAllDone.current) {
       wasAllDone.current = true;
       setJustSaved(true);
@@ -68,7 +75,7 @@ export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadE
     }
     if (!allDone) wasAllDone.current = false;
     return undefined;
-  }, [allDone]);
+  }, [allDone, forceJustSaved]);
 
   async function handlePlanAction() {
     if (!run || version === undefined) return;
@@ -337,29 +344,9 @@ export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadE
         )}
         <p className={styles.caption}>{t("run.inTripHistory")}</p>
         <div className={styles.stopsList}>
-          {run.stops.map((stop) => {
-            const outcomes = Object.values(stop.outcomes).filter((o): o is RecordedOutcome => Boolean(o));
-            const first = outcomes[0];
-            const signedBy = outcomes.find((o) => o.receiverName)?.receiverName;
-            const meta =
-              first?.outcome === "Delivered" ? `${t("outcome.delivered")} ${first.savedAt}` : (first?.outcome ?? "");
-            return (
-              <div key={stop.outletId} className={styles.completedRow}>
-                <div>
-                  <p className={styles.completedTitle}>
-                    <Mono>{stop.outletId}</Mono> · {stop.outletName}
-                  </p>
-                  <p className={styles.completedMeta}>
-                    {meta}
-                    {signedBy && ` · signed ${signedBy}`}
-                  </p>
-                </div>
-                <Tag kind="success" icon="check">
-                  {t("stop.savedOnPhone")}
-                </Tag>
-              </div>
-            );
-          })}
+          {run.stops.map((stop) => (
+            <CompletedStopRow key={stop.outletId} stop={stop} variant="allDone" />
+          ))}
         </div>
       </DriverShell>
     );
@@ -380,6 +367,7 @@ export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadE
   const stopCardsDeparted = run.stops.map((stop, index) => {
     const isPrimary = index === primaryIndex;
     const done = stopDone(stop);
+    if (done) return <CompletedStopRow key={stop.outletId} stop={stop} variant="midRun" />;
     const wait = willWaitMinutes(stop);
     const tags = (
       <>

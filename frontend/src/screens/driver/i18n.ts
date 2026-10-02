@@ -117,6 +117,7 @@ const en: Dict = {
   "outcome.title": "Deliver · Stop {number}",
   "outcome.sameOutcome": "Same outcome for both orders",
   "outcome.outcome": "Outcome",
+  "outcome.result": "Result",
   "outcome.delivered": "Delivered",
   "outcome.damaged": "Damaged",
   "outcome.refused": "Refused",
@@ -141,6 +142,7 @@ const en: Dict = {
   "outcome.closedNoReceiver": "Receiver name isn't needed when the store is closed.",
   "outcome.whatHappensNext": "What happens next",
   "outcome.dispatchWillDecide": "Dispatch will decide what happens next.",
+  "outcome.refusedOtherNote": "Store refused for another reason.",
   "outcome.refusedReason": "Why was it refused?",
   "outcome.refusedBy": "Refused by",
   "outcome.validationMissing": "Add a photo and the receiver's name to save.",
@@ -148,6 +150,8 @@ const en: Dict = {
   "outcome.nextStop": "Next stop: {outletId}",
   "outcome.movedToHistory": "{outletId} moved to trip history",
   "outcome.issueSent": "{outcome} · issue sent to Dispatch when you reconnect",
+  "outcome.savedSyncsLater": "{outcome} {time} · saved on phone, syncs later",
+  "outcome.deliveredSignedBy": "{outcome} {time} · signed {name}",
 
   "camera.title": "Photo of goods at the store door",
   "camera.subtitle": "{outletId} · proof of delivery",
@@ -164,6 +168,7 @@ const en: Dict = {
   "signature.helper": "Optional. Use a finger inside the box. The name and photo are enough on their own.",
   "signature.clear": "Clear",
   "signature.save": "Save signature",
+  "signature.stamp": "{name} · device time {time}",
 
   "me.title": "Me",
   "me.sunlight": "Screen for bright sunlight",
