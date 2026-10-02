@@ -205,7 +205,7 @@ function PinAck({
   version: number;
   onDone: () => void;
 }) {
-  const { api } = useLoader();
+  const { api, setCurrentPerson } = useLoader();
   return (
     <PinSheet
       open={open}
@@ -213,8 +213,9 @@ function PinAck({
       title={`Acknowledge plan v${version} at ${dockId === "peliyagoda" ? "Peliyagoda" : "Kandy"} dock`}
       whoLabel="Who's acknowledging?"
       people={peopleFor(dockId)}
-      verify={(personId, pin) => api.verifyPin(personId, pin)}
+      verify={(personId, pin, otherName) => api.verifyPin(personId, pin, otherName)}
       onConfirmed={(personId, name) => {
+        setCurrentPerson({ id: personId, name });
         void api.acknowledgePlan({ dockId, version, personId, personName: name }).then(onDone);
       }}
       confirmedText={(name) => `Acknowledged by ${name}`}

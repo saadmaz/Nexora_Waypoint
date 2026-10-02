@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import type { DepotId } from "../../domain/field";
 import { useFieldClock } from "../../field/clock/useClock";
 import { getSetting, setSetting } from "../../field/offline";
-import { LoaderContext } from "./LoaderContext";
+import { LoaderContext, type LoaderPerson } from "./LoaderContext";
 import { createMockLoaderApi } from "./mockLoaderApi";
 
 const DOCK_SETTING_KEY = "dock";
@@ -23,6 +23,7 @@ export function LoaderProvider({ children }: { children: ReactNode }) {
   const [api] = useState(() => createMockLoaderApi(clock.nowMs));
   const urlDock = useMemo(() => dockFromUrl(), []);
   const [dockId, setDockId] = useState<DepotId | null | undefined>(urlDock ?? undefined);
+  const [currentPerson, setCurrentPerson] = useState<LoaderPerson | null>(null);
 
   useEffect(() => {
     if (urlDock) {
@@ -44,7 +45,7 @@ export function LoaderProvider({ children }: { children: ReactNode }) {
     );
   }
 
-  return <LoaderContext.Provider value={{ api, dockId }}>{children}</LoaderContext.Provider>;
+  return <LoaderContext.Provider value={{ api, dockId, currentPerson, setCurrentPerson }}>{children}</LoaderContext.Provider>;
 }
 
 /** First-run only: which dock this shared tablet sits at. Not part of the designed screens. */

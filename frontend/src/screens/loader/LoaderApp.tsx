@@ -6,6 +6,7 @@ import { PlaceholderScreen } from "../../field/PlaceholderScreen";
 import { RoleRoot } from "../../shared/RoleRoot";
 import { DockContainer } from "./dock/DockContainer";
 import { LoaderGallery } from "./gallery/LoaderGallery";
+import { LoadPlanContainer } from "./loadplan/LoadPlanContainer";
 import { LoaderProvider } from "./LoaderProvider";
 
 /** Waypoint Load always works in the dark (field conventions section 1): a shared dock tablet at night. */
@@ -46,14 +47,15 @@ function LoaderRoutes() {
     <Routes>
       <Route index element={<Navigate to="dock" replace />} />
       <Route path="dock" element={<DockContainer />} />
+      <Route path="vehicles/:vehicleId/trips/:trip" element={<LoadPlanContainer />} />
       <Route
-        path="vehicles/:vehicleId/trips/:trip"
+        path="vehicles/:vehicleId/trips/:trip/flag"
         element={
           <PlaceholderScreen
-            id="L2"
-            title="Load plan"
+            id="L3"
+            title="Flag exception"
             back="/loader/dock"
-            note="Load in reverse stop order and pass the gate. Built in the loader prompt (L2, with the L3 flag sheet over it)."
+            note="Six types, details, send to Dispatch, reviewing, decided. Built in the loader prompt (L3)."
           />
         }
       />

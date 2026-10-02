@@ -111,7 +111,8 @@
 }
 
 .loadedPill,
-.shortPill {
+.shortPill,
+.plannedPill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -130,4 +131,9 @@
 .shortPill {
   background: var(--danger-soft);
   color: var(--danger);
+}
+
+.plannedPill {
+  background: var(--route-soft);
+  color: var(--route);
 }

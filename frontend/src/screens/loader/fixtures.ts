@@ -18,9 +18,15 @@ export const LOADER_PEOPLE = [
   { id: "ruwan", name: "Ruwan", dock: "kandy" as DepotId, pin: "5678" },
 ];
 
-/** Docked people for a given dock, "Other…" is added by the PinSheet itself. */
-export function peopleFor(dockId: DepotId) {
-  return LOADER_PEOPLE.filter((p) => p.dock === dockId).map((p) => ({ id: p.id, name: p.name }));
+/** A62 (PRD v3.1 A55): the guest PIN for "Other…", the same at both docks. */
+export const GUEST_PIN = "0000";
+
+/**
+ * Priya and Ruwan are offered at both docks (L1.2 A, PRD v3.1 A55): `dock` on `LOADER_PEOPLE` is
+ * their home dock and is informational only. "Other…" is added by the PinSheet itself.
+ */
+export function peopleFor(_dockId: DepotId) {
+  return LOADER_PEOPLE.map((p) => ({ id: p.id, name: p.name }));
 }
 
 export function pinFor(personId: string): string | undefined {

@@ -1,0 +1,318 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--gutter-phone) var(--space-6);
+}
+
+.sectionLabel {
+  font: var(--text-label);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+/* Progress header */
+
+.progressHeader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.progressRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.progressLabel {
+  font: var(--text-h3);
+  color: var(--ink);
+}
+
+.progressTrack {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--route);
+  border-radius: var(--radius-pill);
+  transition: width var(--duration-colour) ease;
+}
+
+/* Swap banner */
+
+.swapRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.swapNote {
+  font: var(--text-body-sm);
+  color: var(--ink-muted);
+}
+
+/* Capacity */
+
+.capacity {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.capacityCol {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.capacityLabel {
+  font: var(--text-label);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.capacityValue {
+  font: var(--text-h3);
+  color: var(--ink);
+}
+
+.capacityTrack {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.capacityFill {
+  height: 100%;
+  background: var(--route);
+  border-radius: var(--radius-pill);
+}
+
+.capacityFillWarn {
+  background: var(--signal);
+}
+
+.capacityWarn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font: var(--text-caption);
+  color: var(--warning);
+}
+
+/* Count confirm (inline row expansion) */
+
+.countConfirm {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding-top: var(--space-2);
+}
+
+.countLabel {
+  align-self: flex-start;
+  font: var(--text-label);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.shortWarn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: var(--text-body-sm);
+  color: var(--warning);
+}
+
+/* Row notes (offline / error) */
+
+.savedChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--offline-soft);
+  color: var(--offline);
+  font: var(--text-label);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.rowError {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: var(--text-body-sm);
+  color: var(--danger);
+}
+
+/* Gate */
+
+.gate {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.gateHelper {
+  font: var(--text-caption);
+  color: var(--ink-muted);
+  text-align: center;
+}
+
+/* Held */
+
+.heldBanner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+  padding: var(--space-4);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-lg);
+}
+
+.heldHeading {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font: var(--text-h3);
+  color: var(--ink);
+}
+
+.heldBody {
+  font: var(--text-body);
+  color: var(--ink-muted);
+}
+
+.heldNext {
+  font: var(--text-body-sm);
+  color: var(--ink-muted);
+}
+
+/* Loading */
+
+.loadingLine {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--ink-muted);
+  font: var(--text-body);
+}
+
+.skeletonCards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.skeletonCard {
+  padding: var(--space-3);
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+
+.skeletonRow {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.skeletonDisc {
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+}
+
+.skeletonBars {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Empty */
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-3);
+  padding: 40px var(--gutter-phone) var(--space-8);
+}
+
+.emptyIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+
+.emptyTitle {
+  font: var(--text-h2);
+  color: var(--ink);
+}
+
+.errorAction {
+  margin-top: var(--space-3);
+}
+
+/* Who already knows (L2.4) */
+
+.whoKnows {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  text-align: left;
+  width: 100%;
+}
+
+.whoKnowsLine {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font: var(--text-body-sm);
+  color: var(--ink-muted);
+}
+
+/* Pinned (plain, like R3's thumb zone) */
+
+.pinnedPlain {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.pinnedHelper {
+  font: var(--text-caption);
+  color: var(--ink-muted);
+  text-align: center;
+}
