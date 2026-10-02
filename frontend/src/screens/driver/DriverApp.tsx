@@ -9,6 +9,7 @@ import { DriverProvider } from "./context/DriverProvider";
 import { useDriverSettings } from "./context/DriverContext";
 import { DriverGallery } from "./gallery/DriverGallery";
 import { MeScreen } from "./me/MeScreen";
+import { RunScreen } from "./run/RunScreen";
 
 /** Where the driver's clock starts without `?at=`: the first frame, R1.3 A at 04:45 on the hero day. */
 const DRIVER_START = { date: HERO_DATE, time: "04:45" };
@@ -49,10 +50,7 @@ function DriverRoutes() {
   return (
     <Routes>
       <Route index element={<Navigate to="run" replace />} />
-      <Route
-        path="run"
-        element={<PlaceholderScreen id="R1" title="Run" note="Today's stops, available offline. Built in driver prompt 3 (R1)." />}
-      />
+      <Route path="run" element={<RunScreen />} />
       <Route
         path="stops/:stopId"
         element={

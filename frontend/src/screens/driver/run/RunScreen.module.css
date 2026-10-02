@@ -1,0 +1,97 @@
+.heading {
+  font: var(--text-h2);
+  color: var(--ink);
+}
+
+.body {
+  font: var(--text-body);
+  color: var(--ink-muted);
+}
+
+.caption {
+  font: var(--text-body-sm);
+  color: var(--ink-muted);
+}
+
+.cardStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.progressTrack {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--route);
+  transition: width var(--duration-colour) ease;
+}
+
+.statusLine {
+  font: var(--text-body-sm);
+  color: var(--ink-muted);
+}
+
+.departedHeading {
+  font: var(--text-label);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--route);
+}
+
+.departedLine {
+  font: var(--text-body);
+  color: var(--ink);
+}
+
+.stopsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.actionRow {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.actionRow > * {
+  flex: 1 1 0;
+}
+
+.completedRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+
+.completedTitle {
+  font: var(--text-h3);
+  color: var(--ink);
+}
+
+.completedMeta {
+  font: var(--text-body-sm);
+  color: var(--ink-muted);
+}
+
+.savedBanner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--success-soft);
+  color: var(--success);
+  border-radius: var(--radius-md);
+  font: var(--text-body-sm);
+}

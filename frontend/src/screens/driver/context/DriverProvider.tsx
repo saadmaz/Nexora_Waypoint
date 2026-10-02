@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useFieldClock } from "../../../field/clock/useClock";
-import { getSetting, setSetting } from "../../../field/offline";
+import { connectivity, getSetting, setSetting } from "../../../field/offline";
 import type { Theme } from "../../../shared/theme";
 import { createMockDriverApi, registerDriverHandlers, type MockDriverApiOptions } from "../api/mockDriverApi";
+import { RUN_DATE } from "../fixtures";
 import type { DriverSettings, Language, TextSize } from "../types";
 import { DriverContext, type DriverContextValue } from "./DriverContext";
+
+/** Tue 29 Sep 05:17: the Kandy corridor loses coverage (PRD H9). A real gate, not a UI timer: it
+ * never reopens within this prompt's scope (driver prompt 4 adds the reconnect at 06:40). */
+const CORRIDOR_GATE = "kandy-corridor";
+const CORRIDOR_DROPS_AT = new Date(`${RUN_DATE}T05:17:00+05:30`).getTime();
 
 const SETTINGS_KEYS = {
   sunlight: "driver.sunlight",
@@ -49,6 +55,15 @@ export function DriverProvider({ children, apiOptions, initialSettings }: Driver
   useEffect(() => {
     registerDriverHandlers();
   }, []);
+
+  useEffect(() => {
+    // The state gallery fakes its own connectivity per frame on a fixed clock; never fight it.
+    if (clock.fixed) return;
+    const update = () => connectivity.setGate(CORRIDOR_GATE, clock.nowMs() < CORRIDOR_DROPS_AT);
+    update();
+    const id = window.setInterval(update, 1000);
+    return () => window.clearInterval(id);
+  }, [clock]);
 
   useEffect(() => {
     if (initialSettings) return; // the state gallery fixes its own settings; never read or persist them.
