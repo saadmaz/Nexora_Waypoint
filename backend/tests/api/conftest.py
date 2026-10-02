@@ -17,7 +17,7 @@ TEST_DATABASE_URL = os.environ.get(
 # Must be set before anything imports ``app`` (the engine is built at import).
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 os.environ["JWT_SECRET"] = "test-secret-not-for-production-0123456789"
-os.environ["DEMO_PASSWORD"] = "waypoint-demo"
+os.environ["DEMO_PASSWORD"] = "waypoint"
 os.environ["DATA_DIR"] = str(Path(__file__).parent / "_no_data")  # does not exist: forces the fallback set
 os.environ["SEED_ON_START"] = "false"
 
@@ -26,7 +26,7 @@ from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
-PASSWORD = "waypoint-demo"
+PASSWORD = "waypoint"
 ACCOUNTS = {
     "dispatcher": "dispatcher@waypoint.demo",
     "loader": "loader@waypoint.demo",
