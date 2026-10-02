@@ -285,11 +285,15 @@ function ReadyView(props: LoadPlanProps) {
   const list = rows.map((row) => (
     <Row key={row.orderId} row={row} demo={row.orderId === demoExpanded?.orderId ? demoExpanded : undefined} {...props} />
   ));
+  // L2.3 A draws the phone's gate with only the confirm button once every order is checked.
+  const showFlag = embedded || !allSettled;
   const gateButtons = (
     <>
-      <Button variant="dangerOutline" icon="flag" onClick={onFlagIssue}>
-        Flag issue
-      </Button>
+      {showFlag && (
+        <Button variant="dangerOutline" icon="flag" onClick={onFlagIssue}>
+          Flag issue
+        </Button>
+      )}
       <Button
         variant={allSettled ? "primary" : "secondary"}
         icon="check"
@@ -336,6 +340,7 @@ function ReadyView(props: LoadPlanProps) {
             Check {nextUnresolved.orderId} or flag an issue first
           </p>
         )}
+        {allSettled && <p className={styles.gateHelper}>You&apos;ll enter your PIN</p>}
       </div>
     </>
   );
