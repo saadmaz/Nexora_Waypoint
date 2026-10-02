@@ -905,6 +905,31 @@ Priya `1234`, Ruwan `5678` (PRD v3 assumption A36). Both are offered at both doc
 
 ---
 
+## 📋 Spec: PRD v3.1 (2 Oct)
+
+`waypoint-prd-v3.md` is the build spec and `waypoint-central-context-v3.md` is the team context. v3.1 settles ten contradictions and gaps the field build found when v3 was read against the loader and driver prompts. Changes are logged as V32 to V42 in the PRD change log. The ones other roles need to know about:
+
+| What changed | Who it affects |
+|---|---|
+| **Two planned distances, both correct.** `planned_fuel` stays per order (VEH039 trip 1 is 22 km, which is where 4c's "fuel 75.4 / 370 L" comes from) and belongs to D2, D3 and R-FUEL. A new `planned_run_legs` counts legs per stop, where an outlet with two orders is one stop, so R9 reads 19 km. R9 is no longer served by `planned_fuel` | Backend rules module, driver, dispatcher |
+| **The dock is a device setting.** `?dock=kandy\|peliyagoda` works in the live app, is remembered, and presenter mode adds "Change dock" to the loader top bar menu. Walkthrough step 10 now says to switch dock | Loader, app shell |
+| **"Other…" has a PIN:** a typed name plus the guest PIN `0000`, with the typed name stored as the actor. The tablet caches salted hashes for every PIN person and the guest PIN, not only its own dock's people | Loader, auth, backend |
+| **R10's three dates** have no plan in the seeded database, so in API mode they serve the driver fixture. `GET /driver/runs/{date}` returns a run, a `no_run` reason, or a run plus a monsoon calendar block | Driver, backend |
+| **Mock to real is `VITE_<ROLE>_API=mock\|api`** per role. The field transport has a mock and a `fetch` implementation behind one function with the same connectivity behaviour; in API mode each sync handler posts its record to `POST /sync` as a batch of one | Every frontend role |
+| **Non-vehicle loader flags and driver problems** reach D6, are listed, and are marked seen when opened. No plan version is created. Only "Vehicle check failed" has a Dispatch screen (D8) | Dispatcher, loader, driver |
+| **R6 problems are threads.** `driver.problem` gains `updatesClientId`; `exceptions` gains `parent_id` and `seen_at` | Driver, backend |
+| **The app shell has no owner.** Build stage 2b covers `/sign-in`, `/start`, per-role sessions, the avatar menu, the presenter panel and Change dock. It is about half a day and blocks stage 7 (open decision O-11) | Whoever takes it |
+
+Also added: assumptions A55 to A58 (the guest PIN, text size Large at 1.15 ×, photo compression at JPEG / 1600 px / 0.7, the camera fallback to the file picker), departures DP-19 to DP-25, known gaps G-14 and G-15, and open decisions O-8 to O-11.
+
+**One check is still open.** A55 says Priya and Ruwan are offered at both docks, as drawn on L1.2 A (`442:27454`). The Figma connection was unavailable when v3.1 was written, so the row says to confirm it: if only Ruwan and Other… appear on that Kandy frame, drop Priya from Kandy and keep the rest of the row.
+
+**Departure numbering.** Role branches list their departures in their own README section in prose and do not number DP rows, because parallel branches would collide. HH merges them into the PRD section 18 register on Sat 3 Oct.
+
+**AI disclosure.** `docs/ai-disclosure.md` records where AI assistants did a meaningful part of the work, the invented data register, and the machine-drafted Sinhala and Tamil driver strings. Add a line when AI does a meaningful part of your PR, as `Contributing.md` section 24 asks.
+
+---
+
 ## 🏆 Tech-Triathlon 2026
 
 Waypoint is built across the three stages of the challenge:
