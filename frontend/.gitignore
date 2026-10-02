@@ -1,0 +1,14 @@
+node_modules
+dist
+dist-ssr
+*.local
+.vite
+
+logs
+*.log
+npm-debug.log*
+
+.DS_Store
+
+.figma
+.compare
