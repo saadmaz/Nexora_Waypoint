@@ -831,9 +831,9 @@ Import from `field/offline`. One IndexedDB, `waypoint-field`: `outbox`, `cache`,
 
 ## 🏭 Waypoint Load (Loader)
 
-L1 Dock, L2 Load plan, L3 Flag exception and L4 Plan changed, built in `frontend/`, branch `feature/loader` from `feature/field-foundation`. Binding rules: [`docs/build/field-conventions.md`](docs/build/field-conventions.md) and the loader prompt. The tablet layout (L1.7) is built; what remains is the Playwright run of both stories (L6).
+L1 Dock, L2 Load plan, L3 Flag exception and L4 Plan changed, built in `frontend/`, branch `feature/loader` from `feature/field-foundation`. Binding rules: [`docs/build/field-conventions.md`](docs/build/field-conventions.md) and the loader prompt. The tablet layout (L1.7) is built and a Playwright run plays both stories (L6).
 
-**Status:** L0 (types, fixtures, `LoaderApi`, mock server), L1 (Dock: every state, PIN acknowledgement, countdowns, held vehicle, plan-changed banner, offline cache, empty, loading, error) and L2 (Load plan: checks, count confirm, short units, the gate, loaded, held, the VEH003 → VEH036 swap reload), L3 (flag exception sheet, the outbox-driven sent, saved and failed states) and L4 (what changed between plan versions, acknowledge, begin loading) built, checked and compared against Figma. L1.7 (tablet master-detail at 1024 px and wider) is built as L5.
+**Status:** L0 (types, fixtures, `LoaderApi`, mock server), L1 (Dock: every state, PIN acknowledgement, countdowns, held vehicle, plan-changed banner, offline cache, empty, loading, error) and L2 (Load plan: checks, count confirm, short units, the gate, loaded, held, the VEH003 → VEH036 swap reload), L3 (flag exception sheet, the outbox-driven sent, saved and failed states) and L4 (what changed between plan versions, acknowledge, begin loading) built, checked and compared against Figma. L1.7 (tablet master-detail at 1024 px and wider) is built as L5. The state gallery holds every frame the loader prompt lists (42), all compared against Figma, and `npm run test:loader-stories` plays both stories in a browser.
 
 ### How to run
 
@@ -891,9 +891,18 @@ An optional photo (Vehicle check failed, Damaged item, Wrong item, Other) uses t
 
 At 1024 px and wider the dock and load plan share one screen (frame L1.7, 1024 x 768). `TabletShell.tsx` draws the app bar (Waypoint Load, tabs, date line, sync chip), a 360 px master pane and the detail pane. `TabletDock.tsx` owns the dock query and passes it to `DockContainer` (`embedded`, so a card selects its vehicle and has no action button); the detail pane is `LoadPlanContainer` in `embedded` mode. The selected vehicle comes from the URL (`/loader/vehicles/:id/trips/:n[/flag]`); on `/loader/dock` it is the next vehicle to load once the dock is acknowledged, and a placeholder while the dock is locked. `LoaderApp.tsx` uses a layout route (`DockRoutes`) that renders `TabletDock` on wide screens and an `Outlet` on phones, so the phone screens are unchanged. `WideColumn.tsx` centres L4 at 720 px.
 
+### Playwright run of both stories
+
+`npm run test:loader-stories` (`scripts/loader-stories.ts`, needs the dev server; `-- --base http://localhost:5199` for another port, `-- --headed` to watch) plays both stories at 390 x 844 in Chromium. Mock state lives in memory, so each story stays in one page session after its first load and every later step is a tap.
+
+- **Priya, Peliyagoda, from 02:55:** acknowledge v3 (PIN 1234), open VEH003, flag Vehicle check failed, send with PIN, Kumari reviewing; the tablet goes offline (the chip says Offline) and back online; Dispatch decides, the sheet reads plan changed to v4; review the change (ORD1002, VEH036), acknowledge v4 with PIN, begin loading VEH036.
+- **Ruwan, Kandy, from 04:14:** acknowledge with PIN 5678, open VEH039, check ORD2003, ORD2002 and ORD2001 (the progress reads 1, 2, 3 of 3), confirm loaded with PIN, and see it cleared.
+
+It checks there is no horizontal overflow on the offline step and the change screen, fails on any uncaught page error, and saves `.compare/loader-stories-fail.png` when a step fails.
+
 ### State gallery
 
-`/loader/_states` registers 14 of L1's 15 frames (L1.1 to L1.7, the four L1.S states; the 15th is not registered yet) and all 13 of L2's frames (L2.1 A to L2.6 B, the four L2.S states). It also registers all 8 of L3's frames (L3.1, L3.2 A and B, L3.3 A and B, L3.4 A to C) and all 7 of L4's (L4.1 to L4.3, L4.S 1 to 4): 42 frames in all. `npm run compare -- loader <id>` matches each against its Figma screenshot; `PinSheet`'s `demoPhase`/`demoDigits` props and `LoadPlan`'s `demoExpanded` prop freeze a sheet or a row open for the frames that need it (L1.2 B/C, L2.1 B, L2.2, L2.3 B).
+`/loader/_states` registers all 14 of L1's frames (L1.1 to L1.7, the four L1.S states) and all 13 of L2's frames (L2.1 A to L2.6 B, the four L2.S states). It also registers all 8 of L3's frames (L3.1, L3.2 A and B, L3.3 A and B, L3.4 A to C) and all 7 of L4's (L4.1 to L4.3, L4.S 1 to 4): 42 frames in all. `npm run compare -- loader --all` renders every one beside its Figma screenshot. `npm run compare -- loader <id>` matches each against its Figma screenshot; `PinSheet`'s `demoPhase`/`demoDigits` props and `LoadPlan`'s `demoExpanded` prop freeze a sheet or a row open for the frames that need it (L1.2 B/C, L2.1 B, L2.2, L2.3 B).
 
 ### Departures from the Designathon design (loader)
 
@@ -911,6 +920,7 @@ At 1024 px and wider the dock and load plan share one screen (frame L1.7, 1024 x
 - **L4's deferral pill icon.** The Removed card's "Deferred · policy → Wed" pill is drawn with a curved arrow; the shared icon set has no matching glyph, so it uses `calendar-clock`, which says the same thing (moved to a later day).
 - **L4 titles are links to the dock.** The screens have no back chevron, as drawn, so the title ("Plan v3 → v4") is the way back.
 - **Wording the L4 frames do not give.** The v3-to-v4 case of "no change" for a dock other than Kandy reads "v4 did not change your vehicles."; the acknowledged-but-no-diff case returns to the dock instead of showing an empty diff; the expanded "no change" list reads "VEH035: same trips, same orders as v3".
+- **The phone's gate has only the confirm button once every order is checked.** L2.3 A draws no Flag issue button there, only "Confirm loaded: clear to depart" and "You'll enter your PIN". Flag issue returns if an order is unchecked again, and the tablet detail pane keeps it as L1.7 draws.
 - **The tablet's Issues tab is drawn but inert.** L1.7 shows it; the loader has no designed Issues screen, so it does nothing.
 - **No visible gate helper in the tablet detail pane.** L1.7 draws the pinned gate row without the helper line; it stays in the page for screen readers.
 - **Compact checked rows.** On L1.7 a loaded row drops its brand tag and zone line; `LoaderCheckCard` takes `compact` for it.
@@ -940,7 +950,7 @@ At 1024 px and wider the dock and load plan share one screen (frame L1.7, 1024 x
 - [x] L3 Flag exception sheet
 - [x] L4 Plan changed
 - [x] L5 L1.7 tablet master-detail
-- [ ] L6 Playwright run of both stories, final README pass
+- [x] L6 Playwright run of both stories, final README pass
 
 ---
 
