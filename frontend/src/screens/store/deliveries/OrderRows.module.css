@@ -1,0 +1,27 @@
+.list {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--line);
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font: var(--text-data);
+}
+
+.units {
+  margin-top: var(--space-1);
+  font: var(--text-body-sm);
+  color: var(--ink-muted);
+}

@@ -1,0 +1,5 @@
+# Scripted background events (PRD v3 §13, A39): other vehicles' load confirmations, departures, arrivals and
+# deliveries, applied through the same services as real actions. Empty for now; the README says they are simulated.
+#
+# Each event: {at: "2026-09-29T03:10:00+05:30", kind: driver.ack, payload: {...}}
+events: []

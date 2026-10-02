@@ -1,0 +1,61 @@
+.page {
+  padding: var(--space-6);
+  background: var(--surface-2);
+  color: var(--ink);
+  min-height: 100dvh;
+}
+
+.title {
+  font: var(--text-h1);
+}
+
+.lede {
+  margin: var(--space-2) 0 var(--space-6);
+  font: var(--text-body);
+  color: var(--ink-muted);
+}
+
+.grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  align-items: flex-start;
+}
+
+.cell {
+  margin: 0;
+}
+
+.caption {
+  max-width: 420px;
+  margin-bottom: var(--space-2);
+  font: var(--text-body-sm);
+}
+
+.link {
+  font: 600 13px / 18px var(--font-mono);
+  color: var(--route);
+}
+
+.node {
+  display: block;
+  font: var(--text-caption);
+  color: var(--ink-muted);
+}
+
+/* Each frame is isolated, so a fixed or portaled layer inside it stays within its box. */
+.frame {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  transform: translateZ(0);
+}
+
+.single {
+  position: relative;
+  overflow: hidden;
+}
+
+.missing {
+  padding: var(--space-6);
+}

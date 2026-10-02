@@ -1,0 +1,771 @@
+.page {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* The board is the left column; the deferred pool is the right one. Popovers are positioned against this box. */
+.body {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.board {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.stepperRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.legend {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  padding-top: 2px;
+}
+
+.legendChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  font: 400 12px / 16px var(--font-sans);
+}
+
+.legendHint {
+  color: var(--ink-muted);
+  font: 400 12px / 16px var(--font-sans);
+}
+
+/* A vehicle lane. */
+.lane {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+
+.laneHead {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 170px;
+  flex-shrink: 0;
+  padding-top: 4px;
+}
+
+.laneTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.vehicle {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.laneMeter {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font: 400 12px / 16px var(--font-sans);
+}
+
+.laneMeterTop {
+  display: flex;
+  justify-content: space-between;
+  color: var(--ink);
+}
+
+.laneMeterTop span {
+  color: var(--ink-muted);
+}
+
+.laneIdle {
+  align-items: center;
+  gap: 40px;
+  height: 56px;
+  padding: 0 12px;
+  background:
+    repeating-linear-gradient(135deg, transparent 0 13px, rgba(21, 25, 28, 0.05) 13px 14px),
+    var(--surface-2);
+  color: var(--ink-muted);
+}
+
+.laneIdle .vehicle {
+  color: var(--ink-muted);
+}
+
+.idleText {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font: 500 14px / 20px var(--font-sans);
+  color: var(--ink-muted);
+}
+
+.laneReplaced {
+  opacity: 0.7;
+}
+
+.replacedNote {
+  color: var(--danger);
+  font: 400 12px / 16px var(--font-sans);
+}
+
+.tripsRow {
+  display: flex;
+  flex: 1;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* A trip card. */
+.trip {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px 12px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-1);
+}
+
+.tripAccept {
+  border: 2px solid var(--success);
+  background: var(--success-soft);
+}
+
+.tripRefuse {
+  border: 2px solid var(--danger);
+}
+
+.tripTitle {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.tripChips {
+  display: flex;
+  gap: 6px;
+}
+
+.stops {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+  padding: 0 2px;
+  border-bottom: 1px solid var(--line);
+  font: 400 12px / 16px var(--font-sans);
+  cursor: pointer;
+}
+
+.stop:last-child {
+  border-bottom: 0;
+}
+
+.stopSelected {
+  background: var(--route-soft);
+}
+
+.stopGhost {
+  background: transparent;
+  border: 1px dashed var(--line-strong);
+  color: var(--ink-muted);
+  cursor: grabbing;
+}
+
+.ghostText {
+  padding-left: 22px;
+  color: var(--ink-muted);
+}
+
+.grip {
+  color: var(--line-strong);
+  flex-shrink: 0;
+  cursor: grab;
+}
+
+.gripHidden {
+  visibility: hidden;
+}
+
+.seq {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border: 1.5px solid var(--route);
+  border-radius: 50%;
+  background: var(--route-soft);
+  color: var(--ink);
+  font: 600 11px / 16px var(--font-mono);
+}
+
+.outlet {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.arrival {
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+
+.stopNote {
+  color: var(--ink-muted);
+}
+
+.stopActions {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.stop:hover .stopActions,
+.stop:focus-within .stopActions,
+.stopSelected .stopActions {
+  display: inline-flex;
+}
+
+.miniButton {
+  height: 20px;
+  padding: 0 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  color: var(--ink);
+  font: 500 12px / 16px var(--font-sans);
+}
+
+.miniButton:hover {
+  background: var(--surface-0);
+}
+
+.newStop {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  margin-top: 4px;
+  padding: 0 6px;
+  border: 1px dashed var(--success);
+  border-radius: var(--radius-sm);
+  color: var(--success);
+  font: 600 12px / 16px var(--font-sans);
+}
+
+.totals {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 0;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+
+.totals div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.totals dt {
+  color: var(--ink-muted);
+  font: 400 12px / 16px var(--font-sans);
+}
+
+.totals dd {
+  margin: 0;
+  font: 600 12px / 16px var(--font-mono);
+}
+
+.bar {
+  display: block;
+  height: 3px;
+  max-width: 100%;
+  border-radius: 2px;
+  background: var(--route);
+}
+
+/* The deferred pool. */
+.pool {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 340px;
+  flex-shrink: 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+}
+
+.poolRefuse {
+  border: 2px dashed var(--danger);
+}
+
+.poolTitle {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-muted);
+  font: 700 12px / 16px var(--font-sans);
+  text-transform: uppercase;
+}
+
+.poolCards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.deferred {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1.5px dashed var(--warning);
+  border-radius: var(--radius-md);
+  cursor: grab;
+}
+
+.deferredReturned {
+  background: var(--signal-soft);
+}
+
+.deferredTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.deferredTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.deferredTitle svg {
+  color: var(--warning);
+}
+
+.deferredChips {
+  display: flex;
+  gap: 6px;
+}
+
+.returnedLine {
+  color: var(--ink-muted);
+  font: 400 12px / 16px var(--font-sans);
+}
+
+.deferredBottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.binding {
+  color: var(--ink);
+  font: 400 12px / 16px var(--font-sans);
+}
+
+.serve {
+  position: absolute;
+  right: 8px;
+  top: 6px;
+  display: none;
+  height: 20px;
+  padding: 0 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  font: 500 12px / 16px var(--font-sans);
+}
+
+.deferred:hover .serve,
+.deferred:focus-within .serve {
+  display: block;
+}
+
+.more {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  color: var(--route);
+  font: 700 13px / 18px var(--font-sans);
+}
+
+/* Popovers sit beside the card they are about. */
+.popover {
+  position: absolute;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-2);
+}
+
+.popoverDanger {
+  border-color: var(--danger-soft);
+  background: var(--danger-soft);
+}
+
+.popHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.popHead h3,
+.refuseHead h3,
+.whyHead h3 {
+  font: 700 16px / 22px var(--font-sans);
+}
+
+.previewRows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 10px 0 0;
+  border-top: 1px solid var(--line);
+  list-style: none;
+  font: 400 13px / 18px var(--font-sans);
+}
+
+.previewRows li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.previewRows li > div {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.okIcon {
+  color: var(--success);
+  flex-shrink: 0;
+}
+
+.badIcon {
+  color: var(--danger);
+  flex-shrink: 0;
+}
+
+.previewBar {
+  position: relative;
+}
+
+.previewBarFrom {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--ink);
+  opacity: 0.35;
+}
+
+.previewSource {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font: 400 13px / 18px var(--font-sans);
+}
+
+.previewNote {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--success);
+  font: 600 13px / 18px var(--font-sans);
+}
+
+.plus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--success);
+  border-radius: 50%;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.verdict {
+  color: var(--success);
+  font: 700 14px / 20px var(--font-sans);
+}
+
+.refuseHead {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--danger);
+}
+
+.refuseHead h3 {
+  color: var(--ink);
+}
+
+.guardLine {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.guardText {
+  font: 400 14px / 20px var(--font-sans);
+}
+
+.orderLine {
+  padding-top: 8px;
+  border-top: 1px solid rgba(180, 35, 24, 0.25);
+  color: var(--ink-muted);
+  font: 400 13px / 18px var(--font-sans);
+}
+
+.violations {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: 400 13px / 18px var(--font-sans);
+}
+
+.violations li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.whySmall {
+  font: 700 13px / 18px var(--font-sans);
+}
+
+.whyGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  font: 500 13px / 18px var(--font-sans);
+}
+
+.whyGrid span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.whyOk svg {
+  color: var(--success);
+}
+
+.whyBad {
+  font-weight: 700;
+}
+
+.whyBad svg {
+  color: var(--danger);
+}
+
+.passBox {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+
+.passToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  font: 600 13px / 18px var(--font-sans);
+}
+
+.passToggle svg:last-child {
+  margin-left: auto;
+}
+
+.passShort {
+  color: var(--ink-muted);
+  font: 400 12px / 16px var(--font-sans);
+}
+
+.passList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ink-muted);
+  font: 400 12px / 18px var(--font-sans);
+}
+
+.passList b {
+  color: var(--ink);
+}
+
+.refuseActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Why this vehicle. */
+.whyHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.whyList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 0 0;
+  border-top: 1px solid var(--line);
+  list-style: none;
+}
+
+.whyList li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.whyList li div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font: 400 12px / 16px var(--font-sans);
+  color: var(--ink-muted);
+}
+
+.whyList li b {
+  color: var(--ink);
+  font: 600 14px / 18px var(--font-sans);
+}
+
+.whySmall + .whyGrid {
+  margin-top: 0;
+}
+
+.banner {
+  margin: 0;
+}
+
+/* Loading. */
+.skelLane {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+
+.skelHead {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 154px;
+  flex-shrink: 0;
+}
+
+.skelTrip {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-1);
+}
+
+.skelPoolCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-md);
+}
+
+.loadingLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-muted);
+  font: 500 14px / 20px var(--font-sans);
+}
+
+.loadingLine svg {
+  color: var(--route);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loadingLine svg {
+    animation: none;
+  }
+}

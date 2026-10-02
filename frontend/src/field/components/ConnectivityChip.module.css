@@ -1,0 +1,71 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--on-chrome);
+  white-space: nowrap;
+  transition: background var(--duration-colour) ease, color var(--duration-colour) ease;
+}
+
+/* L1 and L2: 12 px semibold, a 14 px icon, padding 6 / 10 / 6 / 8. */
+.tablet {
+  padding: 6px 10px 6px 8px;
+  font: var(--text-label);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* R1 to R9: 13 px, 32 px tall, padding 0 10. */
+.phone {
+  height: 32px;
+  padding: 0 10px;
+  font: var(--text-body-sm);
+  line-height: 16px;
+}
+
+button.chip {
+  cursor: pointer;
+}
+
+/* The driver's Online chip is outlined in the muted chrome ink (R1.9). */
+.online {
+  border-color: var(--on-chrome-muted);
+}
+
+.offline {
+  background: var(--signal);
+  border-color: var(--signal);
+  color: var(--on-signal);
+}
+
+.syncing {
+  border-color: var(--signal);
+  color: var(--signal);
+}
+
+/* A soft fill, so the text keeps its contrast on the always-dark chrome in all three themes. */
+.failed {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.spin {
+  display: inline-flex;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation: none;
+  }
+}
