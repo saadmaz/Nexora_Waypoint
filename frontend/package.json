@@ -14,6 +14,7 @@
     "compare": "node scripts/compare-frames.ts",
     "test:hero": "node scripts/driver-hero-walkthrough.ts",
     "test:offline": "node scripts/driver-offline-shell.ts",
+    "test:api-auth": "node scripts/api-auth-check.ts",
     "test:loader-stories": "node scripts/loader-stories.ts"
   },
   "dependencies": {

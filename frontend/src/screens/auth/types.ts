@@ -41,7 +41,9 @@ export type SignInFailureReason =
   /** The email is not one of the demo accounts, or the password is wrong. One message for both, so neither is confirmed separately. */
   | "invalid_credentials"
   /** The device has no connection. A new sign-in needs one; an existing session does not. */
-  | "offline";
+  | "offline"
+  /** The device is online but the server cannot be reached, took too long, or failed. Only the real API has this case. */
+  | "unavailable";
 
 export type SignInResult =
   | { ok: true; session: Session }

@@ -25,6 +25,11 @@ export type SignInScreenProps = {
   wrongPassword?: boolean;
   /** The device has no connection (G1.5). A new sign-in is blocked; nothing else changes. */
   offline?: boolean;
+  /**
+   * The device is online but the server did not answer (API mode only). Shows the same notice as G1.5, since no frame
+   * draws another, but the button stays enabled: there is nothing to wait for, so the person can simply try again.
+   */
+  serverDown?: boolean;
   /** Which field takes focus on mount. The gallery uses it to draw the focus ring the frames show. */
   focusOnMount?: "email" | "password";
   /** Fill the viewport height. The gallery draws frames at their own size and turns this off. */
@@ -54,6 +59,7 @@ export function SignInScreen({
   busy = false,
   wrongPassword = false,
   offline = false,
+  serverDown = false,
   focusOnMount,
   fill = true,
 }: SignInScreenProps) {
@@ -90,7 +96,7 @@ export function SignInScreen({
 
         <h1 className={styles.title}>{S.title}</h1>
 
-        {offline && (
+        {(offline || serverDown) && (
           <div className={styles.notice} role="status">
             <span className={styles.noticeIcon}>
               <Icon name="wifi-off" size={20} />

@@ -1,6 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { ComponentGallery } from "../field/gallery/ComponentGallery";
-import { AuthGallery, RootRedirect, ShellPlaceholder, SignInRoute, StartRoute } from "../screens/auth";
+import { AuthGallery, RootRedirect, SessionExpiryListener, ShellPlaceholder, SignInRoute, StartRoute } from "../screens/auth";
 import { DriverApp } from "../screens/driver/DriverApp";
 import { LoaderApp } from "../screens/loader/LoaderApp";
 import { Gallery } from "../screens/store/gallery/Gallery";
@@ -34,6 +34,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <SessionExpiryListener />
       <Routes>
         <Route path="/" element={<RootRedirect />} />
         <Route path="/sign-in" element={<SignInRoute />} />

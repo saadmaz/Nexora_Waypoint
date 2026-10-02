@@ -30,11 +30,14 @@ function SignInForm({ layout }: { layout: SignInLayout }) {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [wrongPassword, setWrongPassword] = useState(false);
+  // The server did not answer. The existing offline notice covers it (no frame draws another), the button stays enabled to retry.
+  const [unreachable, setUnreachable] = useState(false);
 
   async function attempt(emailValue: string, passwordValue: string) {
     // Offline blocks a new sign-in only. Nothing is cleared, so the person loses nothing.
     if (busy || !connected) return;
     setWrongPassword(false);
+    setUnreachable(false);
     if (!emailValue.trim() || !passwordValue) {
       setWrongPassword(true);
       return;
@@ -48,6 +51,8 @@ function SignInForm({ layout }: { layout: SignInLayout }) {
       // The email stays; the password is cleared and the screen puts focus back on it.
       setPassword("");
       setWrongPassword(true);
+    } else if (result.reason === "unavailable") {
+      setUnreachable(true);
     }
     // "offline": the notice is already showing, driven by the connectivity store.
   }
@@ -63,13 +68,20 @@ function SignInForm({ layout }: { layout: SignInLayout }) {
       layout={layout}
       email={email}
       password={password}
-      onEmailChange={setEmail}
-      onPasswordChange={setPassword}
+      onEmailChange={(value) => {
+        setUnreachable(false);
+        setEmail(value);
+      }}
+      onPasswordChange={(value) => {
+        setUnreachable(false);
+        setPassword(value);
+      }}
       onSubmit={() => void attempt(email, password)}
       onPickAccount={pickAccount}
       busy={busy}
       wrongPassword={wrongPassword}
       offline={!connected}
+      serverDown={unreachable}
       focusOnMount={layout === "desktop" ? "email" : undefined}
     />
   );
