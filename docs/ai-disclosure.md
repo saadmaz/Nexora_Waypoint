@@ -2,7 +2,7 @@
 
 Waypoint was built with AI coding assistants. This file is the single place we say where and how, as the Challenge Booklet asks and as `Contributing.md` §19 and §24 require. There are no "Mock data" chips or AI badges on any screen; the disclosure lives here, in the Figma AI disclosure page (F17), in the README and in the submission video.
 
-Add a line to the table below when an AI tool does a meaningful part of your pull request. Keep it factual: what it wrote, what you checked.
+Add a line to the table below when an AI tool does a meaningful part of your pull request. One row per branch; add to it, do not replace another branch's row. Keep it factual: what it wrote, what you checked.
 
 ## What AI did, and what a person checked
 
@@ -11,7 +11,7 @@ Add a line to the table below when an AI tool does a meaningful part of your pul
 | 29 Sep to 1 Oct | Store manager screens (S1 to S4) | Claude | Screen components, fixtures and the `StoreApi` mock from the Figma frames and PRD §3 | Frames compared side by side, copy read against Figma, lint, typecheck and build |
 | 1 Oct | Field apps foundation (`frontend/src/field/**`, shared field components, offline core, scenario clock, state gallery harness, PWA setup) | Claude | The shared base the loader and driver sit on: themes, components, Dexie outbox and sync engine, clock, gallery, compare script | 21 unit tests written and run; the production build opened offline after one visit; lint, typecheck and build clean. The components were not yet compared pixel by pixel with Figma, which the role branches do per screen |
 | 1 to 2 Oct | Loader screens (L1 to L4) | Claude | Screens, states, `LoaderApi` and fixtures from the Figma frames | See the loader PR |
-| 1 to 2 Oct | Driver screens (R1 to R10) | Claude | Screens, states, `DriverApi`, fixtures and sync handlers from the Figma frames | See the driver PRs |
+| 1 to 2 Oct | Driver screens (R1 to R3 so far) | Claude Code | Types, fixtures, `DriverApi` and mock, sync handlers, the shell and Me tab, Route, Stop detail and Record outcome, state gallery and a Playwright hero-path walkthrough, built against `claude/field-build/03-driver-core.md` and the field conventions | HH reviewed and directed each phase; lint, typecheck and build run on every commit |
 | 2 Oct | PRD v3.1 and central context (`waypoint-prd-v3.md`, `waypoint-central-context-v3.md`) | Claude | Changes V32 to V42: the planned-distance basis, the dock setting, PIN rules, R10 in API mode, the mock-to-real switch, Dispatch handling of non-vehicle flags, R6 problem threads, assumptions A55 to A58, departures DP-17 to DP-23, open decisions O-8 to O-11 | Register numbering checked against the existing rows so nothing was overwritten; A55 on frame L1.2 A is still to be confirmed against Figma and says so in the row |
 
 ## Invented data
