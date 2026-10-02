@@ -100,6 +100,8 @@ async function main() {
 
   // H9, 05:17: coverage lost. A real browser-level disconnect, not only the scripted Kandy gate.
   await page.goto(`${base}/driver/run?at=05:20`, { waitUntil: "networkidle" });
+  // The departure and the plan acknowledgement went out while the phone still had coverage.
+  await page.waitForTimeout(2000);
   await context.setOffline(true);
   await page.waitForTimeout(1200);
   check((await body()).includes("Offline"), "R1.6, past 05:17: offline for real (context.setOffline)");
@@ -134,6 +136,21 @@ async function main() {
   text = await body();
   check(text.includes("All stops recorded"), "R3.9 / R3.10: all stops recorded");
   check(text.includes("5"), "five records are waiting on the phone");
+
+  // R4.1: the chip opens the Outbox with every record of the run and the Simulate offline switch.
+  await page.getByRole("button", { name: /Offline/ }).first().click();
+  await page.getByRole("dialog", { name: "Outbox" }).waitFor({ timeout: 5_000 });
+  const outbox = (await page.getByRole("dialog", { name: "Outbox" }).innerText()).replace(/\s+/g, " ");
+  check(outbox.includes("5 records waiting - they send automatically when you're back in coverage."), "R4.1: five records waiting, sends automatically");
+  check(/05:10 Departed Synced/.test(outbox), "R4.1: Departed 05:10 is Synced (it left before coverage dropped)");
+  check(["Arrival OUT084", "Delivered ORD2001", "Delivered ORD2002", "Arrival OUT087", "Delivered ORD2003"].every((row) => outbox.includes(row)), "R4.1: the five waiting records are listed");
+  check((outbox.match(/Saved on phone/g) ?? []).length === 5, "R4.1: the five waiting records read Saved on phone");
+  check(await page.getByRole("switch", { name: "Simulate offline" }).isVisible(), "R4.1: the Simulate offline switch is there");
+  await page.getByRole("button", { name: "Send now" }).click();
+  await page.waitForTimeout(300);
+  check((await page.getByRole("dialog", { name: "Outbox" }).innerText()).includes("5 records waiting"), "R4.1: Send now while offline sends nothing and loses nothing");
+  await page.getByRole("button", { name: "Close" }).click();
+  await page.getByRole("dialog", { name: "Outbox" }).waitFor({ state: "detached", timeout: 5_000 });
 
   await browser.close();
 

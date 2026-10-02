@@ -23,9 +23,3 @@
 .mainLarge {
   zoom: 1.15;
 }
-
-.outboxBody {
-  padding: 0 var(--gutter-phone) var(--space-6);
-  color: var(--ink-muted);
-  font: var(--text-body);
-}

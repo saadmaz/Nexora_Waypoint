@@ -1,6 +1,7 @@
 import { HERO_DATE, HERO_EVENING_DATE } from "../../../field/clock/clock";
 import type { GalleryFrame } from "../../../field/gallery/StateGallery";
 import { GALLERY_SHORTFALL } from "../fixtures";
+import type { OutboxRow, OutboxRowState } from "../outbox/outboxModel";
 import { MeScreen } from "../me/MeScreen";
 import { OutcomeScreen } from "../outcome/OutcomeScreen";
 import { RunScreen } from "../run/RunScreen";
@@ -24,6 +25,93 @@ const OUT084_OUTCOMES = {
   ORD2001: { orderId: "ORD2001", outcome: "Delivered" as const, unitsDelivered: 12, receiverName: "S. Fernando", savedAt: "05:42" },
   ORD2002: { orderId: "ORD2002", outcome: "Delivered" as const, unitsDelivered: 8, receiverName: "S. Fernando", savedAt: "05:42" },
 };
+
+
+/** The hero run's six outbox rows (R4), each in the state a frame draws it in. */
+function heroRows(states: Partial<Record<"arrival084" | "ord2001" | "ord2002" | "arrival087" | "ord2003", OutboxRowState>> = {}): OutboxRow[] {
+  const state = (key: keyof typeof states, fallback: OutboxRowState): OutboxRowState => states[key] ?? fallback;
+  return [
+    { clientId: "g-depart", time: "05:10", kind: "departed", state: "synced" },
+    { clientId: "g-arr084", time: "05:26", kind: "arrival", subject: "OUT084", state: state("arrival084", "saved"), groupKey: "OUT084" },
+    { clientId: "g-ord2001", time: "05:42", kind: "outcome", outcomeWord: "Delivered", subject: "ORD2001", state: state("ord2001", "saved"), groupKey: "OUT084" },
+    { clientId: "g-ord2002", time: "05:42", kind: "outcome", outcomeWord: "Delivered", subject: "ORD2002", state: state("ord2002", "saved"), groupKey: "OUT084" },
+    { clientId: "g-arr087", time: "05:48", kind: "arrival", subject: "OUT087", state: state("arrival087", "saved"), groupKey: "OUT087" },
+    { clientId: "g-ord2003", time: "05:58", kind: "outcome", outcomeWord: "Delivered", subject: "ORD2003", state: state("ord2003", "saved"), groupKey: "OUT087" },
+  ];
+}
+
+const ALL_RECORDED_SEED = {
+  downloadedVersion: 4,
+  acknowledgedVersion: 4,
+  departedAt: "05:10",
+  stops: {
+    OUT084: { arrivalAt: "05:26", outcomes: OUT084_OUTCOMES },
+    OUT087: { arrivalAt: "05:48", outcomes: { ORD2003: { orderId: "ORD2003", outcome: "Delivered" as const, unitsDelivered: 9, savedAt: "05:58" } } },
+  },
+};
+
+function outboxFrame(
+  frameId: string,
+  figmaNodeId: string,
+  name: string,
+  time: string,
+  connectivity: ReturnType<typeof fakeConnectivity>,
+  preview: NonNullable<NonNullable<Parameters<typeof RunScreen>[0]>["outboxPreview"]>,
+): GalleryFrame {
+  return {
+    frameId,
+    figmaNodeId,
+    name,
+    width: 390,
+    height: 844,
+    clock: { date: HERO_DATE, time },
+    render: () =>
+      renderDriverFrame(<RunScreen connectivityOverride={connectivity} forceJustSaved={false} outboxPreview={{ open: true, ...preview }} />, {
+        theme: "dark",
+        apiOptions: { seed: ALL_RECORDED_SEED },
+      }),
+  };
+}
+
+const OUTBOX_FRAMES: GalleryFrame[] = [
+  outboxFrame("R4.1", "442:58541", "R4.1 · 05:59 · Outbox, records waiting", "05:59", OFFLINE_5, { rows: heroRows() }),
+  outboxFrame(
+    "R4.2",
+    "442:58658",
+    "R4.2 · 06:40 · Outbox, syncing",
+    "06:40",
+    fakeConnectivity({ status: "syncing", waitingCount: 3, lastSyncAt: Date.parse(`${HERO_DATE}T05:17:00+05:30`) }),
+    {
+      rows: heroRows({ arrival084: "synced", ord2001: "review", ord2002: "review", arrival087: "sending", ord2003: "saved" }),
+      progress: { done: 3, total: 5 },
+      showSimulate: false,
+    },
+  ),
+  outboxFrame(
+    "R4.3-1",
+    "442:58760",
+    "R4.3 · 1 · 06:41 · Outbox, conflict sent for review",
+    "06:41",
+    fakeConnectivity({ status: "online", lastSyncAt: Date.parse(`${HERO_DATE}T06:41:00+05:30`) }),
+    { rows: heroRows({ arrival084: "synced", ord2001: "review", ord2002: "review", arrival087: "synced", ord2003: "synced" }), showSimulate: false },
+  ),
+  outboxFrame(
+    "R4.3-2",
+    "442:58856",
+    "R4.3 · 2 · Outbox, error and retrying",
+    "06:41",
+    fakeConnectivity({ status: "failed", waitingCount: 1, lastFailureAt: Date.parse(`${HERO_DATE}T06:41:00+05:30`) }),
+    { rows: heroRows({ arrival084: "synced", ord2001: "synced", ord2002: "synced", arrival087: "synced", ord2003: "retrying" }), showSimulate: false },
+  ),
+  outboxFrame(
+    "R4.3-3",
+    "442:58955",
+    "R4.3 · 3 · 06:45 · Outbox, all synced",
+    "06:45",
+    fakeConnectivity({ status: "online", lastSyncAt: Date.parse(`${HERO_DATE}T06:45:00+05:30`) }),
+    { rows: heroRows({ arrival084: "synced", ord2001: "synced", ord2002: "synced", arrival087: "synced", ord2003: "synced" }), showSimulate: false },
+  ),
+];
 
 /**
  * Every Driver frame (`/driver/_states`), registered as its screens land (field conventions
@@ -639,4 +727,5 @@ export const DRIVER_FRAMES: GalleryFrame[] = [
         },
       ),
   },
+  ...OUTBOX_FRAMES,
 ];

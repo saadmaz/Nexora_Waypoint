@@ -1,10 +1,15 @@
 import { useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { formatTime } from "../../../field/clock/clock";
-import { useNow } from "../../../field/clock/useClock";
-import { BottomSheet, ConnectivityChip, FieldTabBar, FieldTopBar, NotificationBell, type ChipStatus, type FieldTab } from "../../../field/components";
-import { useConnectivity, type ConnectivitySnapshot } from "../../../field/offline";
-import { useDriverSettings, useT } from "../context/DriverContext";
+import { useFieldClock, useNow } from "../../../field/clock/useClock";
+import { ConnectivityChip, FieldTabBar, FieldTopBar, NotificationBell, type ChipStatus, type FieldTab } from "../../../field/components";
+import { connectivity as connectivityStore, useConnectivity, type ConnectivitySnapshot } from "../../../field/offline";
+import { useCoverageGap, useDriverSettings, useT } from "../context/DriverContext";
+import { RUN_DATE } from "../fixtures";
+import { resolveConflictNow, setFailNextUpload } from "../api/mockDriverApi";
+import { OutboxSheet, type OutboxProgress, type OutboxPrototypeControls } from "../outbox/OutboxSheet";
+import type { OutboxRow } from "../outbox/outboxModel";
+import { useOutboxView } from "../outbox/useOutboxView";
 import styles from "./DriverShell.module.css";
 
 type DriverTabKey = "run" | "issues" | "history" | "me";
@@ -18,7 +23,8 @@ type DriverTabKey = "run" | "issues" | "history" | "me";
 function chipStatus(connectivity: ConnectivitySnapshot, preDeparture: boolean): ChipStatus {
   if (connectivity.status === "offline") return "offline";
   if (connectivity.status === "syncing") return "syncing";
-  if (connectivity.status === "failed") return "failed";
+  // A failed record is retried on its own every 30 s, so while any is still waiting the chip says so (R4.3 2).
+  if (connectivity.status === "failed") return connectivity.waitingCount > 0 ? "retrying" : "failed";
   return preDeparture ? "synced" : "online";
 }
 
@@ -38,14 +44,17 @@ export type DriverShellProps = {
    * of reading the live singleton. The single-frame `?frame=` view (what the compare script shoots)
    * is unaffected either way. */
   connectivityOverride?: ConnectivitySnapshot;
+  /** The state gallery only: the Outbox rows and progress for a frame, in place of the phone's own
+   * outbox, and whether the sheet starts open (R4 frames draw it open over the run). */
+  outboxPreview?: { rows: OutboxRow[]; progress?: OutboxProgress; showSimulate?: boolean; open?: boolean };
   children: ReactNode;
 };
 
 /**
  * The driver chrome shared by every screen (field conventions section 5, driver prompt 3 section
  * 3): top bar with the connectivity chip and the bell, an optional banner, the scrollable body, an
- * optional pinned action bar, and the Run / Issues / History / Me tab bar. The chip opens a
- * placeholder outbox sheet; driver prompt 4 replaces it with the real one.
+ * optional pinned action bar, and the Run / Issues / History / Me tab bar. The chip opens the R4
+ * Outbox sheet.
  */
 export function DriverShell({
   title,
@@ -56,6 +65,7 @@ export function DriverShell({
   pinned,
   showTabBar = true,
   connectivityOverride,
+  outboxPreview,
   children,
 }: DriverShellProps) {
   const t = useT();
@@ -65,7 +75,28 @@ export function DriverShell({
   const liveConnectivity = useConnectivity();
   const connectivity = connectivityOverride ?? liveConnectivity;
   const now = useNow();
-  const [outboxOpen, setOutboxOpen] = useState(false);
+  const clock = useFieldClock();
+  const [outboxOpen, setOutboxOpen] = useState(outboxPreview?.open ?? false);
+  const view = useOutboxView(connectivity.status === "syncing");
+  const rows = outboxPreview?.rows ?? view.rows;
+  const progress = outboxPreview ? outboxPreview.progress : view.progress;
+  const coverageGap = useCoverageGap();
+  const [failUpload, setFailUpload] = useState(false);
+  const presenter = !outboxPreview && new URLSearchParams(location.search).get("presenter") === "1";
+  const prototype: OutboxPrototypeControls | undefined = presenter
+    ? {
+        coverageGap: coverageGap.enabled,
+        onCoverageGap: coverageGap.setEnabled,
+        failNextUpload: failUpload,
+        onFailNextUpload: (on) => {
+          setFailUpload(on);
+          setFailNextUpload(on);
+        },
+        onResolve: view.openConflictOutletId
+          ? (decision) => void resolveConflictNow(RUN_DATE, view.openConflictOutletId as string, clock.nowMs, decision, decision === "keep_partial" ? 10 : undefined)
+          : undefined,
+      }
+    : undefined;
 
   const status = chipStatus(connectivity, preDeparture);
   const chipTime = status === "synced" ? now : status === "failed" ? (connectivity.lastFailureAt ?? now) : undefined;
@@ -93,6 +124,7 @@ export function DriverShell({
           status={status}
           time={chipTime !== undefined ? formatTime(chipTime) : undefined}
           count={connectivity.waitingCount}
+          progress={progress}
           onClick={() => setOutboxOpen(true)}
         />
       </FieldTopBar>
@@ -100,9 +132,17 @@ export function DriverShell({
       <main className={[styles.main, settings.textSize === "large" && styles.mainLarge].filter(Boolean).join(" ")}>{children}</main>
       {pinned}
       {showTabBar && <FieldTabBar tabs={tabs} active={activeTab} onSelect={(key) => navigate(`/driver/${key}`)} />}
-      <BottomSheet open={outboxOpen} onOpenChange={setOutboxOpen} title="Outbox" description="What's waiting to send.">
-        <p className={styles.outboxBody}>Coming in driver prompt 4.</p>
-      </BottomSheet>
+      <OutboxSheet
+        open={outboxOpen}
+        onOpenChange={setOutboxOpen}
+        rows={rows}
+        connectivity={connectivity}
+        now={now}
+        progress={progress}
+        showSimulate={outboxPreview?.showSimulate}
+        prototype={prototype}
+        onSendNow={() => void connectivityStore.sendNow()}
+      />
     </div>
   );
 }

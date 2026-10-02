@@ -877,6 +877,15 @@ The `t(key, params)` dictionary (`i18n.ts`) is complete in English and routes ev
 
 `getRun` reads the phone's own cache and never throws offline, since the route has to be usable with no signal by design; writes (`acknowledgePlan`, `startRoute`, `recordArrival`, `recordOutcome`) update that same cache at once, so the screen reflects them immediately, and queue an outbox record (`driver.ack`, `driver.startRoute`, `driver.arrival`, `driver.outcome`) that the shared sync engine sends once it can. The mock server simply accepts everything in this prompt; driver prompt 4 adds the conflict rule.
 
+### The Outbox (driver prompt 4, O2)
+
+The connectivity chip on every driver screen opens the R4 Outbox sheet (`screens/driver/outbox/`). It is a read of the phone's own outbox (`useOutbox()`) and connectivity (`useConnectivity()`), so it never touches the network. One bar says what the device is doing, in this order: sending ("Sending 5 records…", with "3 / 5" also on the chip), offline ("Offline · 5 saved on phone", "Last sync 05:17"), failed and retrying, sent for review ("1 stop (2 orders) sent for review. Nothing for you to do."), or all synced (the empty state). The rows are the driver's own events in save order: Departed, Arrival, and one outcome per order. The plan acknowledgement is not listed. A conflict row reads Synced again once Dispatch has resolved its stop.
+
+- **Simulate offline** (the "Prototype" row) is the foundation's real `connectivity.setSimulatedOffline`: it persists, and every screen reacts.
+- **Send now** and **Retry now** call `connectivity.sendNow()`, which forces a run past the 30 s wait. Pressing it repeatedly joins the run in flight, so nothing is sent twice. Offline it sends nothing and loses nothing.
+- **Presenter controls** appear in the sheet only under `?presenter=1`: the Kandy corridor coverage gap switch, "Fail next photo upload", and "Dispatch resolves now: Keep delivery" or "Keep as Partial (10 of 12)" while a conflict is open.
+- The chip gains two drawn variants: "3 / 5" while syncing, and "Retrying 1" while a failed record waits for its automatic retry.
+
 ### Camera, signature and receiver name
 
 `CameraCapture` opens a real `getUserMedia({ video: { facingMode: "environment" } })` viewfinder with a shutter; if the camera is unavailable or permission is refused it falls back to `<input type="file" accept="image/*" capture="environment">`, per field conventions and PRD A58. Headless Chromium has no camera, so every photo in the gallery, the hero walkthrough and this PR's own testing went through the file-input fallback; the live viewfinder path has not been tried on a physical phone in this PR (do that over `npm run dev:https` before the judge walkthrough). Captured photos are compressed with the shared `compressImage` (JPEG, longest edge 1600 px, quality 0.7, PRD A57) and stored with `saveBlob`. `SignaturePad` is a pointer-events canvas saved as a PNG blob. `ReceiverNameForm` offers per-outlet recent-name chips from the fixtures.
@@ -889,6 +898,15 @@ The `t(key, params)` dictionary (`i18n.ts`) is complete in English and routes ev
 - [x] D3 R2 Stop detail, every state (R2.1 to R2.3, R2.S 1 to 4)
 - [x] D4 R3 Record outcome: all five outcomes, the per-order grid, camera, receiver name, signature, validation (R3.1 to R3.11)
 - [x] D5 state gallery, a compare pass against Figma, the hero-path Playwright walkthrough, this section
+
+Driver prompt 4 (`claude/field-build/04-driver-offline.md`):
+
+- [x] O1 mock server: plan v5, the conflict rule, grouping by stop, notices, the 06:44 resolution, dev controls, the coverage profile
+- [x] O2 R4 Outbox sheet, Simulate offline, Send now and Retry now (frames R4.1, R4.2, R4.3 1 to 3)
+- [ ] O3 R5 Sync result, R1.7 and R1.8 on real data
+- [ ] O4 photo upload after records, R8.2 and R8.3
+- [ ] O5 R8 Notifications
+- [ ] O6 gallery, compare, remaining tests, real-device check
 
 ### Departures from the Designathon design
 
@@ -905,11 +923,17 @@ Figma wins on UI and copy (field conventions section 2); where it was silent or 
 - **R1.7 and R1.8 are gallery-only layouts.** Both are registered in `/driver/_states` with fixture data shaped the way driver prompt 4's sync result will supply it (`RunScreen`'s `reviewNotice` prop), but nothing in this prompt produces a real review or resolution notice, since that needs the conflict rule and a plan v5 the phone does not yet know about (by design: "the phone never learns about plan v5 in this prompt").
 - **ORD2003's weight and volume are not drawn anywhere** (only its 9-unit count is, on R1.2 and R2.3). Estimated from ORD2002's per-unit rate (45 kg / 0.6 m³ for 8 ambient units) as 51 kg / 0.68 m³ for 9 units.
 - **Camera and Receiver name drop the tab bar; Signature keeps it**, matching what each frame actually draws (R3.2, R3.3 omit it; R3.11 does not).
+- **The Prototype row stays on the live Outbox in every state.** R4.2 and R4.3 draw the sheet without it, but it is the only way to turn Simulate offline on while online, so the app always shows it. Their gallery frames pass `showSimulate: false` so they still match Figma.
+- **"Send now" is pressable offline.** Figma draws it enabled on R4.1 (offline), and the prompt says it is only possible online; it stays enabled and does nothing until coverage returns, rather than greying out a button the frame shows live.
+- **R4.3 1 and R4.3 3 draw the chip as "Synced 06:41" and "Synced 06:45".** The shell still says "Online" once departed (see the chip wording note above); the compare pass in O6 decides whether a post-sync "Synced HH:MM" belongs there.
 
 ### Shared files this role has changed
 
 - `frontend/src/domain/field.ts`: `Stop` gains optional `parkingNote` and `unloadMinutes` (additive; R1 and R2's "Rear dock, normal parking. Allow about 15 min to unload.").
 - `frontend/package.json`: one new script, `test:hero`. No dependency or version change.
+- `frontend/src/field/components/BottomSheet`: a `flush` variant (full-bleed body, 40 px grabber) and a `headerAside` slot, a z-index so the sheet and scrim sit above the shell's bars, a plain scrim in the non-modal gallery case (Radix draws none), and the flush sheet opens focused on itself. Existing sheets are unchanged.
+- `frontend/src/field/components/ConnectivityChip`: `progress` ("3 / 5") and a `retrying` status ("Retrying 1"). Additive.
+- `frontend/src/field/offline/sync.ts`: `requeueInterrupted()`, called when the engine starts. A record left `sending` by a reload or a killed app was never retried; it now goes back to `waiting` and is sent (the server answers `duplicate` if the first send landed). One new unit test.
 
 ### Checks run (D5)
 

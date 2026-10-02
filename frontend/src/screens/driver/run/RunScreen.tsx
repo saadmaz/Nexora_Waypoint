@@ -16,7 +16,7 @@ import { useDriverApi, useT } from "../context/DriverContext";
 import { useDriverRun } from "../context/useDriverRun";
 import { RUN_DATE } from "../fixtures";
 import { buildOfflineBanner } from "../offlineBanner";
-import { DriverShell } from "../shell/DriverShell";
+import { DriverShell, type DriverShellProps } from "../shell/DriverShell";
 import { CompletedStopRow } from "../stop/CompletedStopRow";
 import { StopOrdersSummary, StopSchedule } from "../stopComponents";
 import { isChilled, openMapsFor, primaryStopIndex, stopDone, stopPlace, willWaitMinutes } from "../stopFormat";
@@ -39,6 +39,8 @@ export type RunScreenProps = {
   /** The state gallery only: R1.7 and R1.8's review notice layout. The sync result that would
    * really drive this is driver prompt 4's; there is no live trigger for it yet. */
   reviewNotice?: { body: string; action?: string };
+  /** The state gallery only; see `DriverShellProps.outboxPreview`. */
+  outboxPreview?: DriverShellProps["outboxPreview"];
 };
 
 /**
@@ -46,7 +48,7 @@ export type RunScreenProps = {
  * comes from the run data, connectivity and the clock. Covers R1.1 to R1.6 and the merged
  * R1.3 B / R1.4 "ready to depart" view; R1.10 is this same screen in the Field theme.
  */
-export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadError, forceJustSaved, reviewNotice }: RunScreenProps = {}) {
+export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadError, forceJustSaved, reviewNotice, outboxPreview }: RunScreenProps = {}) {
   const t = useT();
   const api = useDriverApi();
   const navigate = useNavigate();
@@ -115,7 +117,7 @@ export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadE
 
   if (!run) {
     return (
-      <DriverShell title={t("run.title", { runNo: 1, vehicleId: "" })} connectivityOverride={connectivityOverride}>
+      <DriverShell title={t("run.title", { runNo: 1, vehicleId: "" })} connectivityOverride={connectivityOverride} outboxPreview={outboxPreview}>
         <LoadingSkeleton />
       </DriverShell>
     );
@@ -134,7 +136,7 @@ export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadE
   if (!run.currentVersion) {
     const releaseMs = Date.parse(run.nextPlanReleaseAt);
     return (
-      <DriverShell title={title} subtitle={t("run.noRoute")} banner={banner} connectivityOverride={connectivityOverride}>
+      <DriverShell title={title} subtitle={t("run.noRoute")} banner={banner} connectivityOverride={connectivityOverride} outboxPreview={outboxPreview}>
         <StateScreen
           icon="route"
           bg="route-soft"
@@ -165,7 +167,7 @@ export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadE
         subtitle={`${formatDate(now)} · ${t("run.stopsCount", { count: run.stops.length })}`}
         preDeparture
         banner={banner}
-        connectivityOverride={connectivityOverride}
+        connectivityOverride={connectivityOverride} outboxPreview={outboxPreview}
         pinned={
           <PinnedActionBar helper={t("run.startRouteLocked")}>
             <Button disabled>{t("action.startRoute")}</Button>
@@ -313,7 +315,7 @@ export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadE
         preDeparture
         banner={banner}
         pinned={pinned}
-        connectivityOverride={connectivityOverride}
+        connectivityOverride={connectivityOverride} outboxPreview={outboxPreview}
       >
         {planCard}
         {loaderLine}
@@ -331,7 +333,7 @@ export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadE
         title={title}
         subtitle={`${t("run.allRecordedShort")} · ${t("run.planShort", { version: planVersion })}`}
         banner={banner}
-        connectivityOverride={connectivityOverride}
+        connectivityOverride={connectivityOverride} outboxPreview={outboxPreview}
         pinned={
           <PinnedActionBar helper={t("run.finishHelper")}>
             <Button onClick={() => navigate("/driver/finish")}>{t("action.finishRun")}</Button>
@@ -430,7 +432,7 @@ export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadE
   });
 
   return (
-    <DriverShell title={title} subtitle={subtitle} banner={banner} connectivityOverride={connectivityOverride}>
+    <DriverShell title={title} subtitle={subtitle} banner={banner} connectivityOverride={connectivityOverride} outboxPreview={outboxPreview}>
       <StatusPill status="Departed" className={styles.departedPill} />
       <p className={styles.departedLine}>
         {t("run.departedPrefix", { time: run.departedAt ?? "" })} <Mono>{current.outletId}</Mono>
