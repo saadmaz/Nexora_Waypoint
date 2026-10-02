@@ -191,11 +191,16 @@
 
 .error {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
   margin: 0;
   font: 500 13px / var(--lh) var(--font-sans);
   color: var(--danger);
+}
+
+/* The message can wrap on a narrow phone; the icon stays its size and sits on the first line. */
+.error svg {
+  flex: 0 0 auto;
 }
 
 .divider {

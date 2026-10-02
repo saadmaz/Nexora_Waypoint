@@ -11,8 +11,12 @@ export const SIGN_IN_STRINGS = {
   emailPlaceholder: "name@waypoint.lk",
   passwordLabel: "Password",
   submit: "Sign in",
-  /** G1.4. One message for a wrong password and an unknown email, so neither is confirmed alone. */
-  wrongPassword: "Email or password is wrong.",
+  /**
+   * G1.4 draws "Email or password is wrong." The second sentence names what to do, which the brief
+   * asked for and the frame leaves out. One message for a wrong password and an unknown email, so
+   * neither is confirmed on its own.
+   */
+  wrongPassword: "Email or password is wrong. Check both and try again.",
   /** G1.5. */
   offlineTitle: "You're offline",
   offlineBody: "Sign-in needs a connection once. After that, field screens work offline.",
