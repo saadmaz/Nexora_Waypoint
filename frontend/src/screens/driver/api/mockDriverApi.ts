@@ -81,6 +81,8 @@ export type MockDriverApiOptions = {
    * IndexedDB cache, so every frame on `/driver/_states` can show its own moment independently, and
    * writes there never touch the real outbox. */
   seed?: Partial<LocalRunState>;
+  /** The state gallery only: `getRun` never resolves, for the R2.S 4 loading frame. */
+  stuckLoading?: boolean;
 };
 
 /**
@@ -109,6 +111,7 @@ export function createMockDriverApi(now: () => number, options: MockDriverApiOpt
   }
 
   async function getRun(date: string): Promise<DriverRun> {
+    if (options.stuckLoading) await new Promise<never>(() => undefined);
     const local = await readState(date);
     const nowMs = now();
     const currentVersion = currentPlanVersion(nowMs);

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { formatDate, formatTime } from "../../../field/clock/clock";
 import { useNow } from "../../../field/clock/useClock";
@@ -14,25 +14,11 @@ import { useDriverApi, useT } from "../context/DriverContext";
 import { useDriverRun } from "../context/useDriverRun";
 import { RUN_DATE } from "../fixtures";
 import { DriverShell } from "../shell/DriverShell";
+import { buildOfflineBanner } from "../offlineBanner";
 import { StopOrdersSummary, StopSchedule } from "../stopComponents";
-import { isChilled, openMapsFor, primaryStopIndex, stopDone, stopPlace, willWaitMinutes, type TFn } from "../stopFormat";
+import { isChilled, openMapsFor, primaryStopIndex, stopDone, stopPlace, willWaitMinutes } from "../stopFormat";
 import type { RecordedOutcome } from "../types";
 import styles from "./RunScreen.module.css";
-
-/** R1.6: a single combined line while nothing has been recorded yet; R3.5 C / R3.7 / R3.9's two-part
- * pattern (banner text plus a "Last sync" detail) once something is waiting. */
-function buildBanner(connectivity: ConnectivitySnapshot, t: TFn): ReactNode {
-  if (connectivity.status !== "offline") return undefined;
-  const time = connectivity.lastSyncAt ? formatTime(connectivity.lastSyncAt) : "--:--";
-  if (connectivity.waitingCount === 0) {
-    return <OfflineBanner tone="offline">{t("banner.offlineWaiting", { time, count: 0 })}</OfflineBanner>;
-  }
-  return (
-    <OfflineBanner tone="offline" detail={t("banner.offlineLastSync", { time })}>
-      {t("banner.offlineSaved", { count: connectivity.waitingCount })}
-    </OfflineBanner>
-  );
-}
 
 function depotLabel(depot: string): string {
   return depot.charAt(0).toUpperCase() + depot.slice(1);
@@ -124,7 +110,13 @@ export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadE
   }
 
   const title = t("run.title", { runNo: run.runNo, vehicleId: run.vehicle.id });
-  const banner = buildBanner(connectivity, t);
+  const banner = buildOfflineBanner(
+    connectivity,
+    t,
+    <OfflineBanner tone="offline">
+      {t("banner.offlineWaiting", { time: connectivity.lastSyncAt ? formatTime(connectivity.lastSyncAt) : "--:--", count: 0 })}
+    </OfflineBanner>,
+  );
 
   // R1.1: no plan released yet for this driver and date.
   if (!run.currentVersion) {

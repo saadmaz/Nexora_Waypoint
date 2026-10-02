@@ -107,6 +107,12 @@ const en: Dict = {
   "stop.deliver": "Deliver {count}",
   "stop.ordersPlural": "{count} orders",
   "stop.orderSingular": "{count} order",
+  "stop.units": "{count} units",
+  "stop.subtitleOffline": "{district} · offline",
+  "stop.subtitleOnline": "{district}",
+  "stop.loadingTitle": "Stop",
+
+  "action.callStore": "Call store",
 
   "outcome.title": "Deliver · Stop {number}",
   "outcome.sameOutcome": "Same outcome for both orders",
