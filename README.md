@@ -895,7 +895,7 @@ There are five G1 and four G2 frames, as PRD v3 section 3 says. The conventions 
 
 - **Files** (`src/screens/auth/`): `SignInScreen.tsx` and its CSS module, `SignInRoute.tsx`, `signInStrings.ts` (every string, copied from Figma), `useIsPhone.ts`, `useSignInConnectivity.ts`, `authClient.ts`, and `gallery/` (the frame registry and the page).
 - **Gallery and compare.** `/auth/_states` lists the five frames at their Figma size; `?frame=G1.4` draws one. `npm run compare -- auth G1.1 G1.2 G1.3 G1.4 G1.5` screenshots them beside `.figma/<id>.png` (it needs `npm run dev` running).
-- **Retry.** A wrong password or an unknown email shows "Email or password is wrong." under the password, keeps the email, clears the password and puts focus back on it. Attempts are not counted and nothing locks.
+- **Retry.** A wrong password or an unknown email shows "Email or password is wrong. Check both and try again." under the password, keeps the email, clears the password and puts focus back on it. Attempts are not counted and nothing locks.
 - **Offline.** `navigator.onLine` events are fed into the field `connectivity` store by `useSignInConnectivity`, because the field runtime that normally does this does not run on `/sign-in`. Offline shows the G1.5 notice and disables Sign in; an existing session is never touched.
 - **Loading.** The form is a disabled `fieldset` and the button is busy. The button keeps its box, so nothing moves.
 - **Demo accounts.** Tapping a row signs in at once with the demo password. Offline it only fills the fields.
@@ -907,7 +907,7 @@ There are five G1 and four G2 frames, as PRD v3 section 3 says. The conventions 
 - **Offline detection** reads the field `connectivity` object, not `navigator.onLine` directly. It wraps the browser's online state and adds "Simulate offline", which the walkthrough uses, so sign-in agrees with the rest of the app about being offline.
 - **The API pattern** follows `api/StoreApi.ts` and `mockStoreApi.ts`. The brief points at `LoaderApi` and `mockLoaderApi.ts`, which live on the unmerged `feature/loader`.
 - **`Role`** is the existing union in `domain/status.ts`; no second one was declared.
-- **The wrong-password message is a plain statement.** The brief asked for an error that names what to do. G1.4 draws "Email or password is wrong." and Figma wins.
+- **The wrong-password message names what to do.** G1.4 draws "Email or password is wrong." The brief asked for an error that says what to do next, so the live message adds "Check both and try again." The drawn sentence is verbatim and still does not say which of the two was wrong. This is a visible difference from G1.4, chosen deliberately, so the gallery frame and the compare for G1.4 show the longer text.
 - **Line height is 1.08**, not the project's fixed 34 and 24. The frames set the sign-in text to automatic line height, and the browser's own `normal` (1.088) drifts 2 px down the card. 1.08 was measured against G1.2 and lines every box up exactly.
 - **The desktop button is the shared `Button`**, medium, with its height and label size overridden through the `--size-button-md` and `--text-button-md` tokens inside the sign-in screen (40 px and 14 px, as G1.1). No second button was built and no shared file changed.
 - **The disabled Sign in is the shared Button's 50%**; G1.5 draws 40%.
