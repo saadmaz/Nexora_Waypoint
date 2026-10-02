@@ -9,7 +9,10 @@ node_modules/
 
 # Build output
 dist/
-build/
+# Anchored: an unanchored "build/" also matched docs/build/, which is tracked.
+/build/
+frontend/build/
+backend/build/
 .next/
 out/
 coverage/
