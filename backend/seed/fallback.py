@@ -64,16 +64,31 @@ def load(db: Session) -> dict[str, int]:
         )
     db.flush()
 
+    calendar = extend_calendar(db)
+    return {"depots": len(ref.DEPOTS), "districts": len(ref.DISTRICTS), "outlets": len(ref.OUTLETS),
+            "vehicles": len(ref.VEHICLES), "calendar": calendar}
+
+
+def extend_calendar(db: Session) -> int:
+    """Add the scenario weeks the calendar lacks and return how many days were added. Loaded rows win.
+
+    ``calendar.csv`` ends on Sun 28 Jun 2026, before the scenario week, so the CSV seed needs this too.
+    """
+    added = 0
     for i in range(CALENDAR_DAYS):
         d = CALENDAR_FROM + timedelta(days=i)
+        if db.get(CalendarDay, d) is not None:
+            continue
+        # The same weekday 52 weeks earlier carries the season (monsoon starts in October in the CSV).
+        last_year = db.get(CalendarDay, d - timedelta(weeks=52))
         iso = d.isocalendar()
-        db.merge(
+        db.add(
             CalendarDay(
                 date=d, dow=d.weekday(), dow_name=d.strftime("%a"), is_weekend=d.weekday() >= 5,
                 iso_year=iso.year, iso_week=iso.week, is_payday=False, festival=None, festival_ramp=0.0,
-                is_holiday=False, monsoon=False, is_operating=d.weekday() != 6,
+                is_holiday=False, monsoon=bool(last_year and last_year.monsoon), is_operating=d.weekday() != 6,
             )
         )
+        added += 1
     db.flush()
-    return {"depots": len(ref.DEPOTS), "districts": len(ref.DISTRICTS), "outlets": len(ref.OUTLETS),
-            "vehicles": len(ref.VEHICLES), "calendar": CALENDAR_DAYS}
+    return added
