@@ -1,7 +1,29 @@
 # AI disclosure
 
-Where an AI coding tool did a meaningful part of a branch's work (Contributing.md section 29). One line per branch; add to it, do not replace another branch's row.
+Waypoint was built with AI coding assistants. This file is the single place we say where and how, as the Challenge Booklet asks and as `Contributing.md` §19 and §24 require. There are no "Mock data" chips or AI badges on any screen; the disclosure lives here, in the Figma AI disclosure page (F17), in the README and in the submission video.
 
-| Branch | Tool | What it did |
-| --- | --- | --- |
-| `feature/loader` | Claude Code | L0 (types, fixtures, `LoaderApi`, mock server) and L1 to L2 (Dock and Load plan screens, state gallery, Figma comparison), built against `claude/field-build/02-loader.md` and the field conventions, with HH reviewing and directing each phase. |
+Add a line to the table below when an AI tool does a meaningful part of your pull request. One row per branch; add to it, do not replace another branch's row. Keep it factual: what it wrote, what you checked.
+
+## What AI did, and what a person checked
+
+| Date | Area | Tool | What the tool produced | What a person checked |
+|---|---|---|---|---|
+| 29 Sep to 1 Oct | Store manager screens (S1 to S4) | Claude | Screen components, fixtures and the `StoreApi` mock from the Figma frames and PRD §3 | Frames compared side by side, copy read against Figma, lint, typecheck and build |
+| 1 Oct | Field apps foundation (`frontend/src/field/**`, shared field components, offline core, scenario clock, state gallery harness, PWA setup) | Claude | The shared base the loader and driver sit on: themes, components, Dexie outbox and sync engine, clock, gallery, compare script | 21 unit tests written and run; the production build opened offline after one visit; lint, typecheck and build clean. The components were not yet compared pixel by pixel with Figma, which the role branches do per screen |
+| 1 to 2 Oct | Loader screens (L0 to L2 so far) | Claude Code | Types, fixtures, `LoaderApi` and the mock server; the Dock and Load plan screens, state gallery and Figma comparison, built against `claude/field-build/02-loader.md` and the field conventions | HH reviewed and directed each phase; lint, typecheck and build run on every commit |
+| 1 to 2 Oct | Driver screens (R1 to R10) | Claude | Screens, states, `DriverApi`, fixtures and sync handlers from the Figma frames | See the driver PRs |
+| 2 Oct | PRD v3.1 and central context (`waypoint-prd-v3.md`, `waypoint-central-context-v3.md`) | Claude | Changes V32 to V42: the planned-distance basis, the dock setting, PIN rules, R10 in API mode, the mock-to-real switch, Dispatch handling of non-vehicle flags, R6 problem threads, assumptions A55 to A58, departures DP-17 to DP-23, open decisions O-8 to O-11 | Register numbering checked against the existing rows so nothing was overwritten; A55 on frame L1.2 A is still to be confirmed against Figma and says so in the row |
+
+## Invented data
+
+PRD §4d is the full register. Every figure, time and name the Day 5 design did not give us was invented or inferred and is listed there (A1 to A58). The competition CSVs supply the real reference data: outlets, vehicles, the calendar, district travel, service allowances and traffic speeds.
+
+## Machine-translated strings
+
+The driver app offers Sinhala and Tamil (R1.9). Those strings are a machine draft and have not been reviewed by a native speaker. Open decision O-8 tracks who reviews them. If they ship unreviewed, the README says so on the driver section.
+
+## What AI did not do
+
+- No rule, constraint or refusal message was invented by a tool. They come from the Challenge Booklet and live in `backend/waypoint_rules`.
+- No competition CSV row was pasted into an AI tool (`Contributing.md` §19).
+- Nothing in the Figma file was created, moved, renamed or edited; it is read-only to us now.

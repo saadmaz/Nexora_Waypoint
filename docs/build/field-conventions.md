@@ -42,12 +42,28 @@ Useful nodes on "Shared Library Framing" `158:2`:
 | `166:1761` | LIB3 Global chrome (top bar, connectivity chip, tab bar) |
 | `171:2123` | LIB6 Field components (plan diff row, PIN sheet, bottom sheet, pinned action bar, outcome grid, units stepper, photo tile, signature pad, outbox row, offline banner) |
 | `173:2112` | LIB8 States components (alerts, empty, loading skeleton, error with retry) |
-| `175:2174` | G1.3 Sign-in, phone, Dark · pre-dawn |
-| `175:2456` · `175:2472` | G2.2 Role landing, Loader · G2.3 Role landing, Driver |
 | `180:2729` · `182:2132` | F5 Persona Priya · F6 Persona Nimal |
 | `185:2285` · `185:2746` | F10 Loader flow · F11 Driver flow |
 | `185:3310` · `186:2946` | F13 Degradation: Driver offline, plan changed · F14 Degradation: Reefer swap |
 | `187:3073` | F16 Style guide |
+
+The sign-in and role-landing frames are on **"Nexora (main)" `0:1`**, not on the library page (checked against the live file on 2 Oct 2026):
+
+| Node | What | Size |
+|---|---|---|
+| `442:67261` | G1.1 Sign-in, desktop | 1440 × 900 |
+| `442:67336` | G1.2 Sign-in, phone, Light | 390 × 844 |
+| `442:67411` | G1.3 Sign-in, phone, Dark · pre-dawn | 390 × 844 |
+| `442:67486` | G1.4 Sign-in, wrong password | 390 × 844 |
+| `442:67568` | G1.5 Sign-in, offline | 390 × 844 |
+| `442:67656` · `442:67672` | G2.1 Role landing, Dispatcher · G2.2 Loader | 480 × 560 |
+| `442:67688` · `442:67704` | G2.3 Role landing, Driver · G2.4 Store | 480 × 560 |
+| `442:67720` | G3 Presenter mode, over D6.4 | 1440 × 900 |
+| `442:68072` | G4 "Why this screen", over D7.1 | 1440 × 900 |
+
+Earlier copies of this table gave `175:2174`, `175:2456` and `175:2472` for G1.3, G2.2 and G2.3. Those nodes render pixel-equivalent frames but belong to an orphaned earlier generation, the same stale generation Contributing section 2 warns about for the deleted per-role pages. Use the `442:67xxx` block, which is contiguous, consistently named `SCREEN G<n>.<n>: …` and sits on the same canvas as the 27 D, S, L and R sections.
+
+G1.4 and G1.5 **are drawn** (they are taller than the base phone frame, carrying extra content), so copy what the frames show rather than inventing the wrong-password and offline states. The G1 wordmark already reads a neutral "Waypoint", so DP-02's sign-in naming needs no new work; DP-02 still covers printing each role's app name in its own chrome.
 
 **Figma is read-only for you.** Never create, move, rename or edit anything in the Figma file.
 
