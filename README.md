@@ -763,7 +763,8 @@ On a phone, open the `Network` address `npm run dev:https` prints, accept the ce
 
 | Route | What |
 |---|---|
-| `/loader`, `/loader/dock`, `/loader/vehicles/:vehicleId/trips/:trip`, `/loader/changes` | Loader root, always Dark · pre-dawn. Placeholders for L1, L2, L4 |
+| `/loader`, `/loader/dock` | Loader root, always Dark · pre-dawn. L1 Dock is built (loader prompt); see "Waypoint Load" below |
+| `/loader/vehicles/:vehicleId/trips/:trip`, `/loader/changes` | Placeholders for L2 and L4 |
 | `/driver`, `/driver/run`, `/driver/stops/:stopId`, `/driver/stops/:stopId/outcome`, `/driver/issues`, `/driver/history`, `/driver/notifications`, `/driver/finish`, `/driver/me` | Driver root, Dark for now (the theme rule lands with driver prompt 3). Placeholders for R1 to R9 |
 | `/loader/_states`, `/driver/_states` | State galleries, dev only, empty until the role prompts register their frames. `?frame=ID` renders one frame at its Figma size |
 | `/field/_components` | Every field component in Dark, Field and Light side by side (dev only) |
@@ -825,6 +826,75 @@ Import from `field/offline`. One IndexedDB, `waypoint-field`: `outbox`, `cache`,
 - Compare each component with its Figma frame once the role screens register frames in the galleries (`npm run compare`). `.figma/` and `.compare/` are git-ignored.
 - `Mono` renders at the surrounding weight; the frames use Plex Mono Medium (500) for IDs. Compare when the first screens land and set it if it differs.
 - Sign-in: no sign-in exists on this branch, so `loader@waypoint.demo` and `driver@waypoint.demo` do not land anywhere yet.
+
+---
+
+## 🏭 Waypoint Load (Loader)
+
+L1 Dock, built in `frontend/`, branch `feature/loader` from `feature/field-foundation`. Binding rules: [`docs/build/field-conventions.md`](docs/build/field-conventions.md) and the loader prompt. L2 to L4 are not built yet; `/loader/vehicles/:vehicleId/trips/:trip` and `/loader/changes` still answer with the foundation's placeholder.
+
+**Status:** L0 (types, fixtures, `LoaderApi`, mock server, PIN sheet wiring) and L1 (Dock: every state, PIN acknowledgement, countdowns, held vehicle, plan-changed banner, offline cache, empty, loading, error) built, checked and compared against Figma. L1.7 (tablet master-detail) is phase L5 and lands with L2 to L4.
+
+### How to run
+
+```bash
+cd frontend
+npm install
+npm run dev
+# http://localhost:5173/loader/dock?dock=peliyagoda        Priya's dock
+# http://localhost:5173/loader/dock?dock=kandy&at=04:14     Ruwan's dock, v4 no change
+npm run compare -- loader L1.1 L1.3 L1.4 L1.5 L1.6-A L1.6-B L1.S-1 L1.S-2 L1.S-3 L1.S-4 --base http://localhost:5173
+```
+
+`?dock=peliyagoda|kandy` sets which dock this tablet is at and saves it (`settings` table); without it, or on a first run with nothing saved, a plain dock picker asks once. This picker is not a designed screen (loader prompt section 3 allows it) and is kept out of the main UI.
+
+### The two stories
+
+- **Priya, Peliyagoda.** Open `/loader/dock?dock=peliyagoda`. Acknowledge plan v3 (PIN `1234`). The dock unlocks; VEH003 is the primary card. L3 (flag exception) is not built yet, so the VEH003 → VEH036 swap cannot be triggered from the UI yet; `mockLoaderApi`'s `devResolveExceptionNow` and the 03:00 scenario-clock path exist for when L3 lands.
+- **Ruwan, Kandy.** Open `/loader/dock?dock=kandy`. Acknowledge plan v3 (PIN `5678`) first (so there is a version to compare against), then once Peliyagoda's plan reaches v4 the Kandy dock shows "Plan v4: no change to your vehicles" and asks for a fresh acknowledgement (L1.6 A/B).
+
+### Demo PINs
+
+Priya `1234`, Ruwan `5678` (PRD v3 assumption A36). "Other…" is not designed (Day 5 gap); selecting it shows a name field above the keypad, same as the foundation's PinSheet departure.
+
+### `LoaderApi` and the mock server (`src/screens/loader/`)
+
+- `fixtures.ts`: docks, people and PINs, plan v3 and v4 trips for VEH003, VEH035, VEH036, VEH011 (Peliyagoda) and VEH039 (Kandy), copied from PRD v3 §4c's "Plan v3 trips" and "Pinned orders" tables.
+- `LoaderApi.ts` / `mockLoaderApi.ts`: one in-memory server per app session. `getDock`, `getLoadPlan`, `getPlanDiff`, `getException`, `getCurrentVersion` read it; `acknowledgePlan`, `recordCheck`, `confirmLoaded`, `flagException` write it. The VEH003 "Vehicle check failed" exception (once L3 can raise one) resolves into plan v4 at the scenario's 03:00, or at once via `devResolveExceptionNow` (a dev control, not yet wired to a button — it lands with the L3 state gallery).
+- `LoaderProvider.tsx` / `LoaderContext.ts`: creates the one `LoaderApi` for the session and resolves the dock.
+- Reads go through `useFieldQuery` (new, `field/offline/query.ts`): cache-then-network, falling back to the last cached dock on a `NetworkError` and marking it stale (L1.S-3). Writes still go directly through the mock for now (no outbox yet): `acknowledgePlan` is called straight from the PIN sheet's `onConfirmed`. Wiring `enqueue`/`registerSyncHandler` for `loader.ack`, `loader.check`, `loader.confirmLoaded` and `loader.exception` is L2 to L3 work, once there is a screen that needs to queue a write while offline.
+
+### L1 Dock (`src/screens/loader/dock/`)
+
+`Dock.tsx` is presentational (a `view`, an `alert`, a list of vehicle cards, a pinned acknowledge button); `DockContainer.tsx` wires it to `LoaderApi`, the scenario clock and connectivity for the live route, and the state gallery builds the same `Dock` and `VehicleCard` straight from literal fixture props, per frame. `VehicleCard.tsx` is the vehicle row (L1.1 to L1.6), including the held variant with its "Go to VEH0xx" shortcut.
+
+### State gallery
+
+`/loader/_states` registers L1.1, L1.2 A/B/C (the PIN sheet frozen with `PinSheet`'s new `demoPhase`/`demoDigits` props), L1.3 to L1.6 B and the four L1.S states: 13 of L1's 15 frames (L1.7 tablet is L5). `npm run compare -- loader <id>` matches every one against its Figma screenshot.
+
+### Departures from the Designathon design (loader)
+
+| Frame | Day 5 | Build | Why |
+|---|---|---|---|
+| L1.1, L1.5 | A locked card with no diff shows no action at all; a locked card with a diff shows "Acknowledge vN first" and its own disabled button | Same split, made explicit: the "Acknowledge first" line and button appear only when the card carries a Changed/No change tag | Matches both L1.1 (bare) and L1.5 (detailed) exactly; see the loader README's VehicleCard notes |
+| L1.3, L1.4 | VEH035 shows "3 of 4" orders checked at 00:10 and "3 of 5" at 02:56, with no story driving the change | The state gallery reproduces both numbers verbatim (literal per-frame props); the live app computes VEH035's progress for real from 0, since it is not part of either hero story | Figma's two numbers are not reconcilable with one running total; the gallery keeps both exact, the live app stays internally consistent |
+
+### Shared files this role has changed
+
+- `field/components/PinSheet.tsx`: two new optional props, `demoPhase` and `demoDigits`, so the state gallery can freeze the sheet on its success or wrong-PIN frame without a fake timer. No existing prop or behaviour changed.
+- `field/format.ts`: added `formatCountdown(minutes)` ("in 3 h 45 min", "in 56 min").
+- `field/offline/query.ts` (new) and `field/offline/index.ts`: `useFieldQuery`, the cache-then-network read hook every field screen's L1.S-3-style offline state needs. Exported alongside the rest of `field/offline`.
+- `vite.config.ts`: `server.fs.allow` includes the sibling checkout, because this worktree's `node_modules` is a symlink into it and Vite's dev server otherwise 403s on the self-hosted fonts.
+
+### Phases
+
+- [x] L0 types, fixtures, `LoaderApi` and mock server
+- [x] L1 Dock: every state, PIN acknowledgement, countdowns, offline cache
+- [ ] L2 Load plan
+- [ ] L3 Flag exception sheet
+- [ ] L4 Plan changed
+- [ ] L5 L1.7 tablet master-detail
+- [ ] L6 Playwright run of both stories, final README pass
 
 ---
 

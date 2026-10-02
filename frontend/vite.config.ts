@@ -54,7 +54,9 @@ export default defineConfig(({ mode }) => ({
     // and GPS need a secure context on a phone.
     ...(mode === "https" ? [basicSsl()] : []),
   ],
-  server: mode === "https" ? { host: true } : undefined,
+  // This worktree's node_modules is a symlink to the main checkout's (so the loader and driver
+  // worktrees share one install); without this, Vite's dev server 403s on fonts reached through it.
+  server: { fs: { allow: [".", "../../Nexora_Waypoint/frontend"] }, ...(mode === "https" ? { host: true } : {}) },
   test: {
     environment: "node",
     include: ["src/**/*.test.ts"],

@@ -29,6 +29,10 @@ export type PinSheetProps = {
   context?: ReactNode;
   initialPersonId?: string;
   confirmedDelayMs?: number;
+  /** State-gallery only: mounts the sheet already in this phase, to freeze a success or wrong-PIN frame. */
+  demoPhase?: Phase;
+  /** State-gallery only: the digits shown under `demoPhase`. */
+  demoDigits?: string;
 };
 
 const PIN_LENGTH = 4;
@@ -65,12 +69,14 @@ function PinBody({
   context,
   initialPersonId,
   confirmedDelayMs = 1200,
+  demoPhase,
+  demoDigits,
   onCancel,
 }: PinSheetProps & { onCancel: () => void }) {
   const [personId, setPersonId] = useState<string | undefined>(initialPersonId);
   const [otherName, setOtherName] = useState("");
-  const [digits, setDigits] = useState("");
-  const [phase, setPhase] = useState<Phase>("entry");
+  const [digits, setDigits] = useState(demoDigits ?? "");
+  const [phase, setPhase] = useState<Phase>(demoPhase ?? "entry");
   const [shakeKey, setShakeKey] = useState(0);
   const [needsPerson, setNeedsPerson] = useState(false);
   const timers = useRef<number[]>([]);
