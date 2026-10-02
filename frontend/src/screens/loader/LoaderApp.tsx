@@ -1,7 +1,8 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { ClockProvider } from "../../field/clock/ClockContext";
 import { HERO_EVENING_DATE } from "../../field/clock/clock";
 import { FieldRuntime } from "../../field/FieldRuntime";
+import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { RoleRoot } from "../../shared/RoleRoot";
 import { ChangesContainer } from "./changes/ChangesContainer";
 import { DockContainer } from "./dock/DockContainer";
@@ -9,6 +10,8 @@ import { LoaderGallery } from "./gallery/LoaderGallery";
 import { LoadPlanContainer } from "./loadplan/LoadPlanContainer";
 import { LoaderDevControls } from "./LoaderDevControls";
 import { LoaderProvider } from "./LoaderProvider";
+import { TabletDock } from "./tablet/TabletDock";
+import { WideColumn } from "./tablet/WideColumn";
 
 /** Waypoint Load always works in the dark (field conventions section 1): a shared dock tablet at night. */
 const LOADER_THEME = "dark";
@@ -18,7 +21,8 @@ const LOADER_START = { date: HERO_EVENING_DATE, time: "23:45" };
 
 /**
  * The Loader role root: `/loader/*`. The state gallery sits outside the runtime and the clock,
- * because each of its frames fakes its own. L1 to L4 are built.
+ * because each of its frames fakes its own. L1 to L4 are built, and L1.7 swaps the dock and load plan
+ * routes for the tablet master-detail from 1024 px.
  */
 export function LoaderApp() {
   return (
@@ -47,11 +51,29 @@ function LoaderRoutes() {
   return (
     <Routes>
       <Route index element={<Navigate to="dock" replace />} />
-      <Route path="dock" element={<DockContainer />} />
-      <Route path="vehicles/:vehicleId/trips/:trip" element={<LoadPlanContainer />} />
-      <Route path="vehicles/:vehicleId/trips/:trip/flag" element={<LoadPlanContainer flagOpen />} />
-      <Route path="changes" element={<ChangesContainer />} />
+      <Route element={<DockRoutes />}>
+        <Route path="dock" element={<DockContainer />} />
+        <Route path="vehicles/:vehicleId/trips/:trip" element={<LoadPlanContainer />} />
+        <Route path="vehicles/:vehicleId/trips/:trip/flag" element={<LoadPlanContainer flagOpen />} />
+      </Route>
+      <Route
+        path="changes"
+        element={
+          <WideColumn>
+            <ChangesContainer />
+          </WideColumn>
+        }
+      />
       <Route path="*" element={<Navigate to="dock" replace />} />
     </Routes>
   );
+}
+
+/**
+ * The dock and load plan routes share one layout element, so moving between them at tablet width keeps
+ * the shell, and the vehicle list, mounted. On a phone each route draws its own screen.
+ */
+function DockRoutes() {
+  const tablet = useMediaQuery("(min-width: 1024px)");
+  return tablet ? <TabletDock /> : <Outlet />;
 }

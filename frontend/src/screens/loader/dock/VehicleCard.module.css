@@ -12,6 +12,43 @@
   color: var(--ink);
 }
 
+/* L1.7: the selected master item, teal outline on the soft route fill. */
+.selected {
+  border: 2px solid var(--route);
+  /* The 2 px border replaces the 1 px one, so the padding gives back the extra pixel. */
+  padding: calc(var(--space-4) - 1px);
+  background: var(--route-soft);
+}
+
+.selectable {
+  position: relative;
+  gap: 10px;
+}
+
+/* The whole card is the target; the held card's own "Go to" button sits above it. */
+.hit {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  cursor: pointer;
+}
+
+.hit:disabled {
+  cursor: default;
+}
+
+.selectable > :not(.hit) {
+  position: relative;
+  pointer-events: none;
+}
+
+.selectable button:not(.hit) {
+  pointer-events: auto;
+}
+
 .heldCard {
   border-color: var(--danger);
   background: var(--surface-1);
@@ -97,5 +134,12 @@
 
 .heldNext {
   font: var(--text-body-sm);
+  color: var(--ink-muted);
+}
+
+/* L1.7: the order IDs under the meta line. */
+.orderIds {
+  margin: 0;
+  font: 500 12px / 16px var(--font-mono);
   color: var(--ink-muted);
 }

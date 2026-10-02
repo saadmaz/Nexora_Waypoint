@@ -25,6 +25,8 @@ export type LoaderCheckCardProps = {
   state: LoaderCheckState;
   /** OUT012 on L2.5: a lock tag replaces the brand tag (deferred yesterday, protected this run). */
   protectedOrder?: boolean;
+  /** L1.7: a loaded row drops its brand tag and zone line, as the tablet frame draws it. */
+  compact?: boolean;
   /** The action under the row, for example the 56 px "Load 12 units" button. */
   children?: ReactNode;
   /** Words for the screen: "Loaded", "Short". */
@@ -62,10 +64,12 @@ export function LoaderCheckCard({
   unitsExpected,
   state,
   protectedOrder,
+  compact,
   children,
   labels = DEFAULT_LABELS,
 }: LoaderCheckCardProps) {
   const done = state === "checked";
+  const lean = compact && done;
   return (
     <article className={[styles.card, state === "short" && styles.short].filter(Boolean).join(" ")}>
       {chilled && <span className={styles.accent} aria-hidden />}
@@ -88,7 +92,7 @@ export function LoaderCheckCard({
               <span className={[styles.position, done && styles.muted].filter(Boolean).join(" ")}>
                 {labels.load} <Mono>{ordinal(loadNumber)}</Mono> · {labels.stop} <Mono>{stopNumber}</Mono>
               </span>
-              {protectedOrder ? (
+              {lean ? null : protectedOrder ? (
                 <Tag kind="outline" icon="lock">
                   Protected
                 </Tag>
@@ -103,10 +107,12 @@ export function LoaderCheckCard({
                 </Tag>
               )}
             </div>
-            <p className={[styles.zone, chilled && styles.chilledZone].filter(Boolean).join(" ")}>
-              {chilled && <Icon name="snowflake" size={16} />}
-              {chilled ? labels.chilledZone : labels.ambient} · {dock}
-            </p>
+            {!lean && (
+              <p className={[styles.zone, chilled && styles.chilledZone].filter(Boolean).join(" ")}>
+                {chilled && <Icon name="snowflake" size={16} />}
+                {chilled ? labels.chilledZone : labels.ambient} · {dock}
+              </p>
+            )}
             <div className={styles.quantity}>
               <span className={[styles.units, done && styles.muted].filter(Boolean).join(" ")}>
                 {orderIdIn === "quantity" && <>{orderId} · </>}

@@ -1,0 +1,105 @@
+/* L1.7 Dock: tablet master-detail (1024 x 768). Every value is from the frame. */
+
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  background: var(--surface-0);
+  color: var(--ink);
+}
+
+.appbar {
+  display: flex;
+  flex: 0 0 56px;
+  align-items: center;
+  gap: 32px;
+  height: 56px;
+  padding: 0 var(--space-6);
+  background: var(--chrome);
+  color: var(--on-chrome);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+}
+
+.diamond {
+  width: 11px;
+  height: 11px;
+  transform: rotate(45deg);
+  background: var(--signal);
+}
+
+.brandText {
+  font: 400 17px / 24px var(--font-sans);
+}
+
+.brandText strong {
+  font-weight: 700;
+}
+
+.nav {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  height: 56px;
+  padding: 0 var(--space-3);
+  border-bottom: 3px solid transparent;
+  color: var(--on-chrome-muted);
+  font: 600 15px / 22px var(--font-sans);
+  cursor: default;
+}
+
+.navCurrent {
+  border-bottom-color: var(--signal);
+  color: var(--on-chrome);
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+.dateLine {
+  color: var(--on-chrome-muted);
+  font: var(--text-caption);
+  white-space: nowrap;
+}
+
+.panes {
+  display: flex;
+  flex: 1 1 auto;
+  gap: var(--space-6);
+  min-height: 0;
+  padding: var(--space-6);
+}
+
+.master {
+  display: flex;
+  flex: 0 0 360px;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.detail {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}

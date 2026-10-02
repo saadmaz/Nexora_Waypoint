@@ -167,6 +167,7 @@ export function createMockLoaderApi(nowMs: () => number): LoaderApi {
       orderCount,
       activeTrip: active,
       departsAt: activeTrip?.departsAt ?? ts[0]?.departsAt ?? "",
+      orderIds: activeTrip ? activeTrip.stops.flatMap((stop) => stop.orders.map((o) => o.id)).sort() : undefined,
       status,
       checked: status === "to_load" || status === "held" ? undefined : tripChecked(vehicleId, active),
       heldReason: status === "held" ? HELD_REASON : undefined,
