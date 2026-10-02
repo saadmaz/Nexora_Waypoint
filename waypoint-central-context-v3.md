@@ -42,6 +42,7 @@ Waypoint's shared fleet can't serve all three brands (Fresh, Style, Tech) on mos
 15. **Mock first.** Every role codes against a typed API interface (`DispatcherApi`, `StoreApi`, `LoaderApi`, `DriverApi`) with a mock over a small transport, seeded from its `fixtures.ts`. The real backend replaces the mock operation by operation (PRD §19).
 16. **One scenario clock.** Nothing reads the wall clock. Mock mode: `?at=HH:MM` and `?date=`. API mode: the server's scenario clock, starting Mon 28 Sep 2026 15:30, moved forward by a presenter control.
 17. **Computed numbers.** In the build, counts, minutes, kg, fuel and deferral totals come from data and the rules module. PRD §4c figures are seed targets; if the seeded day computes differently, the screen shows the computed value and the README says so.
+18. **Mock to real is per role**, switched with `VITE_<ROLE>_API=mock|api`. The field transport has a mock and a `fetch` implementation behind one function, with the same connectivity behaviour (PRD §9, principle 7).
 
 ## 4. People, story and scenarios
 
@@ -80,15 +81,15 @@ https://www.figma.com/design/0qCle1zCrSImSou4lVlvmL/NEXORA---TRIATHLON · file k
 | **Nexora (main)** `0:1` | The Day 5 design. **27 sections** (D1 to D9, S1 to S4, L1 to L4, R1 to R10), 27 rationale cards; G1.1 to G1.5 sign-in, G2.1 to G2.4 role landing, G3 presenter mode, G4 "Why this screen"; X1 to X14 out of scope (not built). **53 flow starts, 1,851 prototype reactions** (30 Sep). Node IDs are `442:*`, plus `527:32` D5.3 B, `527:324` D7.4 B and `585:*` for S4 |
 | **Shared Library Framing** `158:2` | LIB1 to LIB8 components, F1 to F17 framing pages (personas F4 to F7, flows F9 to F12, degradation F13 and F14, tradeoff F15, style guide F16 `187:3073`, AI disclosure F17) |
 
-Node IDs quoted in `claude/store-manager-build-prompt.md` point at the deleted Store Manager page and are stale; use the S1 to S4 sections on Nexora (main). The field-build prompts carry correct node IDs for every loader and driver frame.
+Node IDs quoted in `claude/store-manager-build-prompt.md` point at the deleted Store Manager page and are stale; use the S1 to S4 sections on Nexora (main). The field-build prompts carry correct node IDs for every loader and driver frame (138 IDs, checked against the live file on 30 Sep).
 
 ### This Claude project
 
 | File | What it is |
 |---|---|
-| `claude/waypoint-prd-v3.md` | **Source of truth (30 Sep).** Part A: product, hero timeline, screen inventory with S4, rules, vocabulary, data, assumptions A1 to A41, handoffs 1 to 14, known gaps G-1 to G-13. Part B: architecture, data model, rules module, planner, scenario clock, seed, routes and offline, judge walkthrough, tests, departures register DP-01 to DP-15, API, build order, open decisions |
+| `claude/waypoint-prd-v3.md` | **Source of truth (v3.1, 1 Oct).** Part A: product, hero timeline, screen inventory with S4, rules, vocabulary, data, assumptions A1 to A58, handoffs 1 to 14, known gaps G-1 to G-15. Part B: architecture, data model, rules module, planner, scenario clock, seed, routes and offline, judge walkthrough, tests, departures register DP-01 to DP-25, API, build order, open decisions O-1 to O-11. In the repo it is `waypoint-prd-v3.md` at the root |
 | `claude/waypoint-central-context-v3.md` | This file |
-| `claude/field-build/00-field-conventions.md` | Binding conventions for loader and driver: sources, how to copy a frame exactly, tokens for all three themes, offline model, git rules |
+| `claude/field-build/00-field-conventions.md` | Binding conventions for loader and driver: sources, how to copy a frame exactly, tokens for all three themes, offline model, git rules. In the repo it is saved as `docs/build/field-conventions.md`, which is the path every prompt reads |
 | `claude/field-build/01` to `05` | Build prompts: field foundation, loader L1 to L4, driver core, driver offline and recovery, driver run support |
 | `claude/store-manager-build-prompt.md` | Store build prompt (S1 to S3). Written against PRD v2; use PRD v3 for S4 and the stale node IDs note above |
 | `waypoint-prd-v2.1.md`, `waypoint-central-context-v2.1.md` | 29 Sep. **Superseded** by v3 |
@@ -112,7 +113,7 @@ Node IDs quoted in `claude/store-manager-build-prompt.md` point at the deleted S
 - **Type:** Archivo for sentences, IBM Plex Mono only for IDs, times and figures; nothing under 12 px; contrast ≥ 4.5:1 in all three themes; every tap target ≥ 44 px.
 - **Hero consistency:** ORD2001 / ORD2002 look the same and use the same times on every role's screens; no screen shows a plan version that doesn't exist yet at its clock.
 - **Code:** screens call only their role's API interface; no rule logic in the frontend (it lives in `waypoint_rules`); every commit passes `tsc --noEmit`, `oxlint` and `vite build`; CSS Modules only; shared files (tokens, shared UI, domain types, router) change in their own commit.
-- **Git:** branches from `main` per role and topic (`store/…`, `field/…`, `loader/…`, `driver/…`, `backend/…`), never commit to `main`, Conventional Commits, commit as the repo owner. Our team prompts ask for **no AI attribution lines** in commits and PRs; AI use is disclosed in `docs/ai-disclosure.md` instead.
+- **Git:** branches from `develop` as `feature/<area>` and PRs back to `develop`; never commit to `main` or `develop` directly, never force push. Conventional Commits, commit as the repo owner. Our team prompts ask for **no AI attribution lines** in commits and PRs; AI use is disclosed in `docs/ai-disclosure.md` instead. Each role writes its own README section and departures list; HH merges them into the PRD §18 register on Sat 3 Oct.
 - **Data:** never paste or commit the competition CSVs anywhere public or into AI tools.
 - **Scope restraint:** X1 to X14 stay unbuilt. Anything not in PRD §3 needs the PRD updated first.
 
@@ -123,13 +124,15 @@ Node IDs quoted in `claude/store-manager-build-prompt.md` point at the deleted S
 - Re-check of the page found the 29 Sep gaps G-1 to G-9 still in the frames (they stay; the build fixes behaviour and lists departures), plus: S2.10 swaps Thu 24 and Fri 25 (A35 wins), an unnamed "Flow 1" and a duplicate store flow start, and hidden Mock layers in X frames.
 - **Field-build prompts 00 to 05** written for the loader and driver (conventions, foundation, L1 to L4, driver core, offline, run support). PRD v3 adopts their routes, record types, sync results, demo PINs, R6 problem choices and driver theme rule.
 - **PRD v3** adds the whole build spec: architecture, database, API, rules module, planner, scenario clock, seed, walkthrough, tests, departures register.
+- **1 Oct, PRD v3.1:** v3 checked against the field-build prompts and the merged foundation. Changes V32 to V42: the planned-distance basis (two correct figures, `planned_run_legs` beside `planned_fuel`), the dock as a device setting with `?dock=` and Change dock, the "Other…" guest PIN `0000` and a tablet cache covering every PIN person, R10 in API mode, the app shell as build stage 2b with no owner yet, the `VITE_<ROLE>_API` mock-to-real switch, API-mode answers for the mock-only dev controls, Dispatch handling of non-vehicle flags and driver problems, R6 problem threads, the two kinds of driver notification, assumptions A55 to A58, departures DP-19 to DP-25 and open decisions O-8 to O-11.
 
 ## 9. Build plan to Sun 4 Oct 23:59
 
 | Stage | What lands | Notes |
 |---|---|---|
 | 1 | Dispatcher and Store screens against typed mock APIs | In progress |
-| 2 | Loader and Driver: field foundation first, then L1 to L4 and driver prompts 3 to 5 | Prompts ready |
+| 2 | Loader and Driver: field foundation first, then L1 to L4 and driver prompts 3 to 5 | Prompts ready. Order: foundation (01) merges first, then loader (02) and driver core (03) in parallel, then 04, then 05 |
+| 2b | App shell: `/sign-in`, `/start`, per-role session storage, avatar menu, presenter panel (`/demo/advance`, `/demo/reset`; a local clock stepper in mock mode), Change dock, optional G4 "Why this screen" | **No owner yet (O-11).** About half a day, and it blocks stage 7 |
 | 3 | Backend foundation: schema + migrations, seed + checks, auth, scenario clock, OpenAPI published early, Compose skeleton | Can start now, parallel to 1 and 2 |
 | 4 | `waypoint_rules`, planner, `validate-move`, D8 recommendation, golden tests | Needs 3 |
 | 5 | Swap mocks for the real API role by role: Store, Dispatcher, Loader, Driver | Needs 3 and 4 |
@@ -150,3 +153,7 @@ Node IDs quoted in `claude/store-manager-build-prompt.md` point at the deleted S
 | O-5 | Presenter control (clock + reset) visible to judges | In the dispatcher avatar menu | ________ |
 | O-6 | DispatcherApi operation names | PRD §19 proposal unless the dispatcher owner has already fixed them | Dispatcher owner |
 | O-7 | Spec owner and team names in the PRD header | HH | ________ |
+| O-8 | Who reviews the Sinhala and Tamil driver strings (prompt 05 §6 lists the ten that matter most) | Ship the machine draft and say so in the README and `docs/ai-disclosure.md` | ________ |
+| O-9 | Dispatch handling of non-vehicle loader flags and driver problems | The default in PRD §7 G-14: stored, listed in D6, marked seen on open | Dispatcher owner |
+| O-10 | The "Other…" guest PIN value (A55) | `0000`, listed in the README | HH |
+| O-11 | Owner of the app shell (build stage 2b) | HH until someone takes it | ________ |
