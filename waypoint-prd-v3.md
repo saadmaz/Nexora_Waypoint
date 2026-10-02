@@ -635,6 +635,18 @@ Everything below was invented or inferred. **Disclosure rule:** no per-screen "M
 | A57 | **New (1 Oct, field build).** Photo compression: JPEG, longest edge 1600 px, quality 0.7 | R3, L3 |
 | A58 | **New (1 Oct, field build).** Camera permission refused or no camera falls back to the phone's file picker with rear camera capture | R3.2 |
 
+### App shell assumptions (feature/auth, 2 Oct), to be numbered centrally
+
+These rows are not numbered on this branch: parallel branches numbering their own rows has collided twice. HH numbers them on Sat 3 Oct.
+
+| # | Assumption | Used in | How to retire it |
+|---|---|---|---|
+| to number | **New (2 Oct, app shell).** The "Demo accounts" rows on sign-in sign in at once with the demo password. Offline they only fill the email and password, because a new sign-in needs a connection. The frames draw the rows and a Prototype tag but no behaviour | G1.1 to G1.5 | Keep; or remove the rows after the judge walkthrough |
+| to number | **New (2 Oct, app shell).** The live sign-in is Light at 640 px and wider and Dark below it (theme follows the working environment, section 6). Figma draws G1.2 and G1.4 Light on a phone and G1.3 and G1.5 Dark, so the state gallery draws each frame as drawn | `/sign-in` | Keep |
+| to number | **New (2 Oct, app shell).** Desktop sign-in controls are 40 px as G1.1 draws them, and 44 px on a touch screen so the tap target holds. Phone controls are 56 px as drawn | G1.1 | Keep |
+| to number | **New (2 Oct, app shell).** Focus on load: the desktop puts the cursor in Email; the phone puts it nowhere, so the keyboard stays down. The focus ring the frames show on Password is the focus style, not a starting position | G1.1 to G1.3 | Keep |
+| to number | **New (2 Oct, app shell).** Submitting with an empty email or password shows the wrong-password message and sends no request | G1.4 | Keep |
+
 ### Corrections to app.html
 
 app.html (Plan A) is retired for the Hackathon. The React build replaces it; corrections C1 to C18 are absorbed into this spec and need not be applied to app.html.

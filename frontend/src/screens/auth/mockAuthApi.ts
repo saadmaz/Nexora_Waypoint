@@ -1,7 +1,7 @@
 import type { Role } from "../../domain/status";
 import { connectivity } from "../../field/offline/connectivity";
 import type { AuthApi } from "./AuthApi";
-import { accountFor } from "./AuthApi";
+import { DEMO_PASSWORD, accountFor } from "./AuthApi";
 import { clearSession, readSession, writeSession } from "./session";
 import type { Session, SignInResult } from "./types";
 
@@ -9,13 +9,8 @@ import type { Session, SignInResult } from "./types";
  * The sign-in mock (prompt 06 section 8).
  *
  * Answers in 300 to 600 ms like the field transport, so the loading state is real and
- * visible rather than a flash. Tests answer at once.
- *
- * One demo password for all four accounts (PRD v3 section 4c). It is the value the backend
- * seeds from `DEMO_PASSWORD` in `.env.example`, so the mock and the real API accept the same one.
+ * visible rather than a flash. Tests answer at once. All four accounts take `DEMO_PASSWORD`.
  */
-const DEMO_PASSWORD = "waypoint-demo";
-
 const latency: [number, number] = import.meta.env.MODE === "test" ? [0, 0] : [300, 600];
 
 function wait(ms: number): Promise<void> {

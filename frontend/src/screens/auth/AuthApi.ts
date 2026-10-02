@@ -44,6 +44,13 @@ export const ACCOUNTS: Account[] = [
   { email: "store@waypoint.demo", role: "store", displayName: "Anusha", appName: "Waypoint Store" },
 ];
 
+/**
+ * The one password all four demo accounts accept (PRD v3 section 4c). It is the backend's
+ * `DEMO_PASSWORD` (`.env.example`), so the mock and the real API agree. The README accounts
+ * table documents it; the sign-in screen's "Demo accounts" rows send it for the person.
+ */
+export const DEMO_PASSWORD = "waypoint-demo";
+
 export function accountFor(email: string): Account | undefined {
   const wanted = email.trim().toLowerCase();
   return ACCOUNTS.find((account) => account.email === wanted);
