@@ -39,19 +39,21 @@ export function BottomSheet({ open, onOpenChange, title, description, children, 
         <Dialog.Content
           className={[styles.content, place, flush && styles.flush].filter(Boolean).join(" ")}
           data-theme={theme}
-          // A gallery frame is not a live screen: do not pull focus into it (it would draw a focus ring on the first control).
-          onOpenAutoFocus={modal ? undefined : (event) => event.preventDefault()}
           // A tap on the presenter or dev controls is not a tap on the scrim: they carry data-keeps-sheet-open.
           onInteractOutside={(event) => {
             if ((event.target as HTMLElement | null)?.closest?.("[data-keeps-sheet-open]")) event.preventDefault();
           }}
           {...(description ? {} : { "aria-describedby": undefined })}
+          // A gallery frame is not a live screen: do not pull focus into it (it would draw a focus ring on the first control).
           // The Outbox holds a switch and several buttons; opening on the sheet itself keeps a
           // focus ring off whichever control happens to come first.
-          onOpenAutoFocus={flush ? (event) => {
-            event.preventDefault();
-            (event.currentTarget as HTMLElement).focus();
-          } : undefined}
+          onOpenAutoFocus={(event) => {
+            if (!modal) event.preventDefault();
+            else if (flush) {
+              event.preventDefault();
+              (event.currentTarget as HTMLElement).focus();
+            }
+          }}
         >
           <div className={styles.grabber} aria-hidden />
           <div className={styles.header}>
