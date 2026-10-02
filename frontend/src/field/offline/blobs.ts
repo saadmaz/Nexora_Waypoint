@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import { liveQuery } from "dexie";
 import { db, type BlobRecord } from "./db";
 import { nowMs } from "./time";
 
@@ -77,4 +79,17 @@ export async function pendingBlobs(): Promise<BlobRecord[]> {
 export async function blobBytes(): Promise<number> {
   const all = await db.blobs.toArray();
   return all.reduce((sum, b) => sum + b.bytes, 0);
+}
+
+/** Every photo and signature on the phone, as a hook: re-renders when one is saved, uploaded or fails. `null` until the first read. */
+export function useBlobs(): BlobRecord[] | null {
+  const [blobs, setBlobs] = useState<BlobRecord[] | null>(null);
+  useEffect(() => {
+    const subscription = liveQuery(() => db.blobs.toArray()).subscribe({
+      next: setBlobs,
+      error: () => setBlobs([]),
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+  return blobs;
 }

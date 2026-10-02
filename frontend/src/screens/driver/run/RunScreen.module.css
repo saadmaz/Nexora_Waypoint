@@ -132,3 +132,14 @@
   text-transform: uppercase;
   color: var(--ink-muted);
 }
+
+/* R8.2: the alert text on the bar is itself the way into R8.3. */
+.alertLink {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}

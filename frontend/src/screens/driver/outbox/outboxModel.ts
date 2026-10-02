@@ -61,15 +61,18 @@ export function outboxRows(records: readonly OutboxRecord[], resolvedStops: Read
 export type OutboxSummary = {
   pending: number;
   errors: number;
+  /** Photos that could not be sent. Their records are fine; the photo stays on the phone and is retried. */
+  failedPhotos: number;
   reviewStops: number;
   reviewOrders: number;
 };
 
-export function summarise(rows: readonly OutboxRow[]): OutboxSummary {
+export function summarise(rows: readonly OutboxRow[], failedPhotos = 0): OutboxSummary {
   const review = rows.filter((r) => r.state === "review");
   return {
     pending: rows.filter((r) => r.state === "saved" || r.state === "sending" || r.state === "retrying").length,
     errors: rows.filter((r) => r.state === "retrying").length,
+    failedPhotos,
     reviewStops: new Set(review.map((r) => r.groupKey ?? r.clientId)).size,
     reviewOrders: review.length,
   };
@@ -81,7 +84,7 @@ export type OutboxMode = "syncing" | "offline" | "failed" | "review" | "synced";
 export function outboxMode(connectivity: ConnectivitySnapshot, summary: OutboxSummary): OutboxMode {
   if (connectivity.status === "syncing") return "syncing";
   if (connectivity.status === "offline") return "offline";
-  if (summary.errors > 0) return "failed";
+  if (summary.errors > 0 || summary.failedPhotos > 0) return "failed";
   if (summary.reviewOrders > 0) return "review";
   return "synced";
 }

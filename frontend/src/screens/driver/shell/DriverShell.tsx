@@ -10,6 +10,7 @@ import { resolveConflictNow, setFailNextUpload } from "../api/mockDriverApi";
 import { OutboxSheet, type OutboxProgress, type OutboxPrototypeControls } from "../outbox/OutboxSheet";
 import type { OutboxRow } from "../outbox/outboxModel";
 import { useOutboxView } from "../outbox/useOutboxView";
+import { usePhotoState } from "../sync/usePhotoState";
 import { useSyncViewRedirect } from "../sync/useSyncViewRedirect";
 import { useSyncWatcher } from "../sync/useSyncWatcher";
 import styles from "./DriverShell.module.css";
@@ -41,6 +42,8 @@ export type DriverShellProps = {
   /** The pinned action bar, above the tab bar. */
   pinned?: ReactNode;
   showTabBar?: boolean;
+  /** R8.3: a top bar with the title only, no bell and no connectivity chip. */
+  bareTopBar?: boolean;
   /** The state gallery only: `connectivity` is one real store shared by every frame on the page, so
    * a frame that needs its own moment (Online, Offline · 5, Synced 04:54 …) passes it here instead
    * of reading the live singleton. The single-frame `?frame=` view (what the compare script shoots)
@@ -68,6 +71,7 @@ export function DriverShell({
   banner,
   pinned,
   showTabBar = true,
+  bareTopBar = false,
   connectivityOverride,
   chip,
   outboxPreview,
@@ -87,6 +91,7 @@ export function DriverShell({
   const setOutboxOpen = outboxPreview ? setPreviewOpen : shared.setOpen;
   const view = useOutboxView(connectivity.status === "syncing");
   useSyncWatcher(view.run);
+  const photos = usePhotoState(view.run);
   // A finished sync shows once, on the Run screen or over an open Outbox, never while recording.
   const recording = location.pathname.endsWith("/outcome");
   useSyncViewRedirect(!outboxPreview && !recording && (outboxOpen || location.pathname === "/driver/run"), () => setOutboxOpen(false));
@@ -132,14 +137,16 @@ export function DriverShell({
   return (
     <div className={styles.page}>
       <FieldTopBar title={title} subtitle={subtitle} onBack={onBack}>
-        <NotificationBell count={0} onClick={() => navigate("/driver/notifications")} />
-        <ConnectivityChip
-          status={status}
-          time={chipTime}
-          count={connectivity.waitingCount}
-          progress={progress}
-          onClick={() => setOutboxOpen(true)}
-        />
+        {!bareTopBar && <NotificationBell count={0} onClick={() => navigate("/driver/notifications")} />}
+        {!bareTopBar && (
+          <ConnectivityChip
+            status={status}
+            time={chipTime}
+            count={connectivity.waitingCount}
+            progress={progress}
+            onClick={() => setOutboxOpen(true)}
+          />
+        )}
       </FieldTopBar>
       {banner}
       <main className={[styles.main, settings.textSize === "large" && styles.mainLarge].filter(Boolean).join(" ")}>{children}</main>
@@ -152,6 +159,7 @@ export function DriverShell({
         connectivity={connectivity}
         now={now}
         progress={progress}
+        photoFailures={outboxPreview ? 0 : photos.failures.length}
         showSimulate={outboxPreview?.showSimulate}
         prototype={prototype}
         onSendNow={() => void connectivityStore.sendNow()}

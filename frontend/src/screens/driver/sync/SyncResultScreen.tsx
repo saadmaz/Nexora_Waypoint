@@ -15,6 +15,7 @@ import { RUN_DATE } from "../fixtures";
 import { outboxRows, summarise, type OutboxRow } from "../outbox/outboxModel";
 import { RecordPill } from "../outbox/RecordPill";
 import { StatusBar } from "../outbox/StatusBar";
+import { usePhotoState } from "./usePhotoState";
 import { DriverShell } from "../shell/DriverShell";
 import styles from "./SyncResultScreen.module.css";
 import type { SyncViewKind } from "./syncView";
@@ -56,6 +57,7 @@ export function SyncResultScreen({ connectivityOverride, viewOverride, rowsOverr
   const now = useNow();
   const records = useOutbox();
   const { run } = useDriverRun(RUN_DATE);
+  const photos = usePhotoState(run);
 
   const requested = viewOverride?.kind ?? (params.get("view") as SyncViewKind | null) ?? "empty";
   const clientIds = (location.state as { clientIds?: string[] } | null)?.clientIds ?? [];
@@ -74,7 +76,8 @@ export function SyncResultScreen({ connectivityOverride, viewOverride, rowsOverr
       ? "loading"
       : connectivity.status === "offline" && waiting > 0
         ? "offline"
-        : connectivity.status === "failed"
+        : // A photo that would not send is the run's alert (R8.2), not a failed sync: its records got through.
+          connectivity.status === "failed" && photos.failures.length === 0
           ? "failed"
           : requested;
 

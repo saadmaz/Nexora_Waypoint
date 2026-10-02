@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { formatDate, formatTime } from "../../../field/clock/clock";
 import { useNow } from "../../../field/clock/useClock";
 import { DriverStopCard, OfflineBanner, PinnedActionBar } from "../../../field/components";
-import { useConnectivity, type ConnectivitySnapshot } from "../../../field/offline";
+import { connectivity as connectivityStore, useConnectivity, type ConnectivitySnapshot } from "../../../field/offline";
 import { Button } from "../../../shared/ui/Button";
 import { Card } from "../../../shared/ui/Card";
 import { Icon } from "../../../shared/ui/Icon";
@@ -18,6 +18,7 @@ import { RUN_DATE } from "../fixtures";
 import { buildOfflineBanner } from "../offlineBanner";
 import { DriverShell, type DriverShellProps } from "../shell/DriverShell";
 import { RecordPill } from "../outbox/RecordPill";
+import { usePhotoState, type PhotoState } from "../sync/usePhotoState";
 import { StatusBar, StatusBarButton } from "../outbox/StatusBar";
 import { CompletedStopRow } from "../stop/CompletedStopRow";
 import { StopOrdersSummary, StopSchedule } from "../stopComponents";
@@ -40,6 +41,8 @@ export type RunScreenProps = {
   forceJustSaved?: boolean;
   /** The state gallery only; see `DriverShellProps.outboxPreview`. */
   outboxPreview?: DriverShellProps["outboxPreview"];
+  /** The state gallery only: the photos on the phone, instead of the phone's own blobs. */
+  photoStateOverride?: PhotoState;
 };
 
 /**
@@ -47,7 +50,7 @@ export type RunScreenProps = {
  * comes from the run data, connectivity and the clock. Covers R1.1 to R1.6 and the merged
  * R1.3 B / R1.4 "ready to depart" view; R1.10 is this same screen in the Field theme.
  */
-export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadError, forceJustSaved, outboxPreview }: RunScreenProps = {}) {
+export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadError, forceJustSaved, outboxPreview, photoStateOverride }: RunScreenProps = {}) {
   const t = useT();
   const api = useDriverApi();
   const navigate = useNavigate();
@@ -57,6 +60,8 @@ export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadE
   const now = useNow();
   const { run, refresh } = useDriverRun(RUN_DATE);
   const outbox = useOutboxOpen();
+  const livePhotos = usePhotoState(run);
+  const photos = photoStateOverride ?? livePhotos;
 
   const [downloading, setDownloading] = useState(Boolean(forcedProgress));
   const [progress, setProgress] = useState(forcedProgress ?? { done: 0, total: 0 });
@@ -344,9 +349,23 @@ export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadE
     // Nothing left on the phone: R1.7 (a stop under review) and R1.8 (Dispatch decided), or the
     // same screen with no notice once everything is plainly synced. While records still wait it is R3.9 / R3.10.
     const synced = connectivity.waitingCount === 0 && connectivity.status !== "offline";
-    const hasNews = synced && (openConflict !== undefined || resolved.length > 0);
+    const hasNews = synced && (openConflict !== undefined || resolved.length > 0 || photos.failures.length > 0);
     const lastResolved = resolved[resolved.length - 1];
-    const bar = openConflict ? (
+    const failure = photos.failures[0];
+    const bar = failure ? (
+      <StatusBar
+        tone="failed"
+        aside={
+          <StatusBarButton icon="refresh-cw" onClick={() => void connectivityStore.sendNow()}>
+            {t("run.retry")}
+          </StatusBarButton>
+        }
+      >
+        <button type="button" className={styles.alertLink} onClick={() => navigate(`/driver/notifications/photo/${failure.blobId}`)}>
+          {t("run.photoFailedBar", { number: failure.stopNumber ?? 1 })}
+        </button>
+      </StatusBar>
+    ) : openConflict ? (
       <StatusBar tone="review" aside={<StatusBarButton onClick={() => outbox.setOpen(true)}>{t("action.view")}</StatusBarButton>}>
         <MonoText>{t("run.reviewing", { outletId: openConflict.outletId })}</MonoText>
       </StatusBar>
@@ -367,7 +386,7 @@ export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadE
         title={title}
         subtitle={`${t("run.allRecordedShort")} · ${t("run.planShort", { version: planVersion })}`}
         banner={synced ? bar : banner}
-        chip={hasNews ? { status: "synced", time: formatTime(connectivity.lastSyncAt ?? now) } : undefined}
+        chip={hasNews ? { status: "synced", time: formatTime(photos.failures.length > 0 ? (connectivity.lastFailureAt ?? now) : (connectivity.lastSyncAt ?? now)) } : undefined}
         pinned={
           <PinnedActionBar tone="plain" helperPosition="above" helper={synced ? t("run.finishHelperShort") : t("run.finishHelper")}>
             <Button icon="flag" onClick={() => navigate("/driver/finish")}>
@@ -380,10 +399,12 @@ export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadE
       >
         <div className={styles.syncedProgress}>
           <p className={styles.syncedCount}>{t("run.stopsDone", { done: run.stops.length, total: run.stops.length })}</p>
-          {synced ? (
+          {synced && photos.onPhoneCount === 0 ? (
             <Tag kind="success" icon="check">
               {t("run.allSynced")}
             </Tag>
+          ) : synced ? (
+            <RecordPill state="saved" label={t("run.onPhone", { count: photos.onPhoneCount })} />
           ) : (
             <RecordPill state="saved" label={t("run.onPhone", { count: connectivity.waitingCount })} />
           )}
@@ -398,7 +419,7 @@ export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadE
         <p className={styles.captionLabel}>{t("run.inTripHistory")}</p>
         <div className={styles.stopsList}>
           {run.stops.map((stop) => (
-            <CompletedStopRow key={stop.outletId} stop={stop} variant="synced" waiting={!synced} onOpen={() => navigate("/driver/history")} />
+            <CompletedStopRow key={stop.outletId} stop={stop} variant="synced" waiting={!synced} photoOnPhone={synced && photos.onPhoneOutlets.has(stop.outletId)} onOpen={() => navigate("/driver/history")} />
           ))}
         </div>
         {justSaved && (

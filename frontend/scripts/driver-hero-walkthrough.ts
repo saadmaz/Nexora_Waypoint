@@ -161,7 +161,7 @@ async function main() {
   await page.getByRole("switch", { name: "Simulate offline" }).click();
   await page.getByRole("button", { name: "Close" }).click();
   await context.setOffline(false);
-  await page.goto(`${base}/driver/run?at=06:40`, { waitUntil: "networkidle" });
+  await page.goto(`${base}/driver/run?at=06:40&presenter=1`, { waitUntil: "networkidle" });
   await page.waitForTimeout(800);
   check((await body()).includes("Offline"), "06:40: the phone is still offline behind the switch after a reload");
   check(!page.url().includes("sync-result"), "06:40: nothing syncs while Simulate offline is on");
@@ -170,6 +170,8 @@ async function main() {
   await page.getByRole("dialog", { name: "Outbox" }).waitFor({ timeout: 5_000 });
   await page.getByRole("switch", { name: "Simulate offline" }).click();
   await page.waitForTimeout(300);
+  // The presenter arms one failed photo upload, the WP-SYNC-409 branch (PRD section 13).
+  await page.getByRole("switch", { name: "Fail next photo upload" }).click();
   await page.getByRole("button", { name: "Send now" }).click();
 
   // R4.2 then R5.1: the catch-up opens the sync result once.
@@ -185,6 +187,34 @@ async function main() {
   await page.getByRole("button", { name: "Back to run" }).click();
   await page.waitForURL(/\/driver\/run/, { timeout: 5_000 });
   await page.waitForTimeout(800);
+
+  // R8.2: the photo of stop 1 could not be sent. The delivery record is safe; the photo stays on the phone.
+  text = await body();
+  check(text.includes("Couldn't send photo of stop 1. Kept on phone."), "R8.2: the run says the photo of stop 1 could not be sent");
+  check(text.includes("Delivered 05:42 · photo still on phone") && text.includes("Photo on phone"), "R8.2: OUT084 reads photo still on phone");
+  check(text.includes("1 on phone"), "R8.2: the run counts 1 on phone");
+  await page.getByRole("button", { name: "Couldn't send photo of stop 1. Kept on phone." }).click();
+  await page.waitForURL(/notifications\/photo\//, { timeout: 5_000 });
+  await page.waitForTimeout(400);
+  text = await body();
+  check(text.includes("Couldn't send photo of stop 1") && text.includes("Your photo is kept on this phone. We keep retrying whenever you have signal."), "R8.3: what failed and what is safe");
+  check(text.includes("Photo · OUT084"), "R8.3: names the photo");
+  check(/Delivery record\s+Synced 06:4\d/i.test(text), "R8.3: the delivery record is already synced");
+  check(text.includes("Ref WP-SYNC-409"), "R8.3: carries the reference WP-SYNC-409");
+  await page.getByRole("button", { name: "View outbox" }).click();
+  await page.getByRole("dialog", { name: "Outbox" }).waitFor({ timeout: 5_000 });
+  check((await page.getByRole("dialog", { name: "Outbox" }).innerText()).includes("1 photo didn't send. Retrying automatically every 30 s."), "R4.3 2: the Outbox says a photo didn't send and the records stay Synced");
+  await page.getByRole("button", { name: "Close" }).click();
+  await page.getByRole("dialog", { name: "Outbox" }).waitFor({ state: "detached", timeout: 5_000 });
+
+  // Try again sends the photo now; with the failure spent it goes, and the driver is taken back to the run.
+  await page.getByRole("button", { name: "Try again" }).click();
+  await page.waitForURL(/\/driver\/run/, { timeout: 15_000 });
+  await page.waitForTimeout(800);
+  text = await body();
+  check(!text.includes("Couldn't send photo"), "R8.3: after Try again the photo is sent and the alert is gone");
+  check(text.includes("Dispatch is reviewing your delivery at OUT084. Nothing for you to do."), "R1.7: the run is back to the stop under review");
+  check(!text.includes("photo still on phone"), "R8.2: no stop has a photo left on the phone");
   text = await body();
   check(text.includes("Dispatch is reviewing your delivery at OUT084. Nothing for you to do."), "R1.7: the run shows the stop under review");
   check(text.includes("Sent for review") && text.includes("All synced"), "R1.7: OUT084 reads Sent for review, the run reads All synced");

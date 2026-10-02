@@ -112,7 +112,8 @@ async function runOnce(options: RunOptions): Promise<SyncResult | undefined> {
   const all = await db.outbox.orderBy("seq").toArray();
   const toSend = all.filter((r) => dueNow(r, force));
   const owners = new Map(all.map((r) => [r.clientId, r]));
-  const blobs = (await db.blobs.toArray()).filter((b) => blobDue(b, force));
+  // One at a time, in the order the photos were taken (the table is keyed by a random id).
+  const blobs = (await db.blobs.toArray()).sort((a, b) => a.createdAt - b.createdAt).filter((b) => blobDue(b, force));
   if (toSend.length === 0 && !blobs.some((b) => ownerSynced(b, owners))) return undefined;
 
   connectivity.setSyncing(true);
@@ -211,6 +212,7 @@ async function runOnce(options: RunOptions): Promise<SyncResult | undefined> {
             uploadStatus: "failed",
             attempts: blob.attempts + 1,
             lastError: reason,
+            lastAttemptAt: nowMs(),
             nextAttemptAt: nowMs() + RETRY_AFTER_MS,
           });
           blobFailures.push({ id: blob.id, recordClientId: blob.recordClientId, reason });

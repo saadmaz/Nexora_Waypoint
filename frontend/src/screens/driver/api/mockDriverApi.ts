@@ -10,6 +10,9 @@ import {
   request,
   connectivity,
   enqueue,
+  attachBlob,
+  getBlob,
+  getRecord,
 } from "../../../field/offline";
 import {
   DEFAULT_RESOLUTION_AT,
@@ -147,6 +150,9 @@ async function noteServerContact(date: string, nowMs: number): Promise<void> {
   await writeDeviceState(date, local, nowMs);
 }
 
+/** The reference a failed upload quotes on R8.3. The mock has one for every failed send. */
+export const PHOTO_FAILURE_REFERENCE = "WP-SYNC-409";
+
 const processedClientIds = new Set<string>();
 
 /** Registers the driver's sync handlers and mock server ops once. Safe to call more than once.
@@ -210,15 +216,30 @@ export function registerDeviceNoticeSync(date: string, now: () => number): void 
     const nowMs = now();
     const local = await readDeviceState(date);
     if (result.blobFailures.length > 0) {
-      local.notices.unshift(
-        buildNotice({
-          kind: "photo_failed",
-          title: "Sync failed",
-          body: "Couldn't send photo of stop 1. Kept on phone.",
-          at: formatTime(nowMs),
-          reference: "WP-SYNC-409",
-        }),
-      );
+      for (const failure of result.blobFailures) {
+        const blob = await getBlob(failure.id);
+        const owner = blob?.recordClientId ? await getRecord(blob.recordClientId) : undefined;
+        const outletId = (owner?.payload as { outletId?: string } | undefined)?.outletId;
+        const stop = baseStops().find((s) => s.outletId === outletId);
+        const existing = local.notices.find((n) => n.kind === "photo_failed" && n.blobId === failure.id);
+        // The phone retries every 30 s; one notice per photo, with the time of the latest try.
+        if (existing) {
+          existing.at = formatTime(nowMs);
+          existing.read = false;
+          continue;
+        }
+        local.notices.unshift(
+          buildNotice({
+            kind: "photo_failed",
+            title: "Sync failed",
+            body: `Couldn't send photo of stop ${stop?.number ?? 1}. Kept on phone.`,
+            at: formatTime(nowMs),
+            reference: PHOTO_FAILURE_REFERENCE,
+            outletId,
+            blobId: failure.id,
+          }),
+        );
+      }
     } else if (result.conflicts === 0 && result.accepted > 0) {
       local.notices.unshift(buildNotice({ kind: "synced", title: `${result.accepted} records synced`, at: formatTime(nowMs) }));
     }
@@ -391,9 +412,16 @@ export function createMockDriverApi(now: () => number, options: MockDriverApiOpt
     await writeState(date, local);
 
     if (!isolated) {
-      for (const input of perOrder) {
+      // A stop's one photo and signature belong to its first record and upload only after that record
+      // has reached the server. They are tied to it before it is queued: queueing starts a sync at once,
+      // and a photo with no owner would be sent ahead of the delivery it proves.
+      const clientIds = perOrder.map(() => crypto.randomUUID());
+      const stopBlobIds = [...new Set(perOrder.flatMap((input) => [input.photoBlobId, input.signatureBlobId]).filter((id): id is string => Boolean(id)))];
+      await Promise.all(stopBlobIds.map((id) => attachBlob(id, clientIds[0])));
+      for (const [index, input] of perOrder.entries()) {
         const blobIds = [input.photoBlobId, input.signatureBlobId].filter((id): id is string => Boolean(id));
         await enqueue({
+          clientId: clientIds[index],
           type: "driver.outcome",
           payload: { date, outletId, ...input, at },
           actor: DRIVER_ACTOR_ID,

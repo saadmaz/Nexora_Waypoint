@@ -240,3 +240,9 @@
   height: 28px;
   border-radius: var(--radius-pill);
 }
+
+/* Figma draws the fact values in regular Archivo, with only the figures and times in Plex Mono. */
+.content dd {
+  font: var(--text-h3);
+  font-weight: 400;
+}

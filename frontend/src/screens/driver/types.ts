@@ -71,6 +71,8 @@ export type DriverNotice = {
   outletId?: string;
   /** "WP-SYNC-409", for a photo-upload failure (R8.3). */
   reference?: string;
+  /** The photo a `photo_failed` notice is about. */
+  blobId?: string;
 };
 
 export type DriverStop = Stop & {

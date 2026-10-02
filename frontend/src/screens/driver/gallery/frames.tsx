@@ -6,7 +6,9 @@ import { MeScreen } from "../me/MeScreen";
 import { OutcomeScreen } from "../outcome/OutcomeScreen";
 import { RunScreen } from "../run/RunScreen";
 import { StopScreen } from "../stop/StopScreen";
+import { PhotoFailureScreen } from "../sync/PhotoFailureScreen";
 import { SyncResultScreen, type SyncResultScreenProps } from "../sync/SyncResultScreen";
+import type { PhotoState } from "../sync/usePhotoState";
 import { fakeConnectivity } from "./fakeConnectivity";
 import { renderDriverFrame } from "./renderFrame";
 
@@ -211,6 +213,56 @@ const SYNC_FRAMES: GalleryFrame[] = [
     fakeConnectivity({ status: "syncing", waitingCount: 3 }),
     { viewOverride: { kind: "conflict" } },
   ),
+];
+
+/** OUT084's photo failed to send at 06:42; its delivery record reached Dispatch at 06:40 (R8.2, R8.3). */
+const HERO_PHOTO_FAILED: PhotoState = {
+  onPhoneOutlets: new Set(["OUT084"]),
+  onPhoneCount: 1,
+  loaded: true,
+  failures: [
+    {
+      blobId: "gallery-photo",
+      outletId: "OUT084",
+      stopNumber: 1,
+      takenAt: Date.parse(`${HERO_DATE}T05:42:00+05:30`),
+      lastTryAt: Date.parse(`${HERO_DATE}T06:42:00+05:30`),
+      deliverySyncedAt: Date.parse(`${HERO_DATE}T06:40:00+05:30`),
+    },
+  ],
+};
+
+const PHOTO_FRAMES: GalleryFrame[] = [
+  {
+    frameId: "R8.2",
+    figmaNodeId: "442:60467",
+    name: "R8.2 · 06:42 · Sync issue alert on the run",
+    width: 390,
+    height: 844,
+    clock: { date: HERO_DATE, time: "06:42" },
+    render: () =>
+      renderDriverFrame(
+        <RunScreen
+          connectivityOverride={fakeConnectivity({ status: "failed", lastFailureAt: Date.parse(`${HERO_DATE}T06:42:00+05:30`), lastSyncAt: Date.parse(`${HERO_DATE}T06:40:00+05:30`) })}
+          forceJustSaved={false}
+          photoStateOverride={HERO_PHOTO_FAILED}
+        />,
+        { theme: "dark", apiOptions: { seed: { ...ALL_RECORDED_SEED, knownServerVersion: 5 } } },
+      ),
+  },
+  {
+    frameId: "R8.3",
+    figmaNodeId: "442:60556",
+    name: "R8.3 · 06:42 · Notification detail, sync failed",
+    width: 390,
+    height: 844,
+    clock: { date: HERO_DATE, time: "06:42" },
+    render: () =>
+      renderDriverFrame(<PhotoFailureScreen blobIdOverride="gallery-photo" photoStateOverride={HERO_PHOTO_FAILED} />, {
+        theme: "dark",
+        apiOptions: { seed: { ...ALL_RECORDED_SEED, knownServerVersion: 5 } },
+      }),
+  },
 ];
 
 /**
@@ -800,4 +852,5 @@ export const DRIVER_FRAMES: GalleryFrame[] = [
   },
   ...OUTBOX_FRAMES,
   ...SYNC_FRAMES,
+  ...PHOTO_FRAMES,
 ];

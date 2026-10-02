@@ -12,6 +12,7 @@ import { MeScreen } from "./me/MeScreen";
 import { RunScreen } from "./run/RunScreen";
 import { OutcomeScreen } from "./outcome/OutcomeScreen";
 import { StopScreen } from "./stop/StopScreen";
+import { PhotoFailureScreen } from "./sync/PhotoFailureScreen";
 import { SyncResultScreen } from "./sync/SyncResultScreen";
 
 /** Where the driver's clock starts without `?at=`: the first frame, R1.3 A at 04:45 on the hero day. */
@@ -65,6 +66,7 @@ function DriverRoutes() {
         path="history"
         element={<PlaceholderScreen id="R7" title="History" note="Trip history, read-only. Built in driver prompt 5 (R7)." />}
       />
+      <Route path="notifications/photo/:blobId" element={<PhotoFailureScreen />} />
       <Route
         path="notifications"
         element={

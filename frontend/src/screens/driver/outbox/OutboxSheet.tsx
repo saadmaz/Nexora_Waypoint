@@ -30,6 +30,8 @@ export type OutboxSheetProps = {
   /** The scenario clock now, for the time at the top right of R4.1 and R4.2. */
   now: number;
   progress?: OutboxProgress;
+  /** Photos that could not be sent (R8.2): the bar says so even though every record is synced. */
+  photoFailures?: number;
   /** "Prototype · Simulate offline". Always on in the app; R4.2 and R4.3 are drawn without it. */
   showSimulate?: boolean;
   prototype?: OutboxPrototypeControls;
@@ -86,9 +88,9 @@ function plural(count: number, one: string, many: string, t: TFn): string {
  * device is doing (offline, sending, failed and retrying, sent for review, all synced) and the rows
  * say where each record is. Close always closes; Send now and Retry now call `sendNow()`.
  */
-export function OutboxSheet({ open, onOpenChange, rows, connectivity: snapshot, now, progress, showSimulate = true, prototype, onSendNow }: OutboxSheetProps) {
+export function OutboxSheet({ open, onOpenChange, rows, connectivity: snapshot, now, progress, photoFailures = 0, showSimulate = true, prototype, onSendNow }: OutboxSheetProps) {
   const t = useT();
-  const summary = summarise(rows);
+  const summary = summarise(rows, photoFailures);
   const mode = outboxMode(snapshot, summary);
   const waitingSheet = mode === "offline" || mode === "syncing";
   const lastSync = snapshot.lastSyncAt ? formatTime(snapshot.lastSyncAt) : "--:--";
@@ -113,7 +115,10 @@ export function OutboxSheet({ open, onOpenChange, rows, connectivity: snapshot, 
       );
     }
   } else if (mode === "failed") {
-    message = plural(summary.errors, "outbox.failedOne", "outbox.failed", t);
+    message =
+      summary.errors > 0
+        ? plural(summary.errors, "outbox.failedOne", "outbox.failed", t)
+        : plural(summary.failedPhotos, "outbox.photoFailedOne", "outbox.photoFailed", t);
     aside = (
       <StatusBarButton icon="refresh-cw" onClick={onSendNow}>
         {t("outbox.retryNow")}

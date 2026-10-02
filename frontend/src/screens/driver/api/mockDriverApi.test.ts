@@ -2,12 +2,13 @@ import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it } from "vitest";
 import { connectivity } from "../../../field/offline/connectivity";
 import { db } from "../../../field/offline/db";
+import { saveBlob, getBlob } from "../../../field/offline/blobs";
 import { listRecords } from "../../../field/offline/outbox";
-import { clearSyncHandlers, runSync } from "../../../field/offline/sync";
+import { clearSyncHandlers, registerBlobUploader, runSync } from "../../../field/offline/sync";
 import { setTimeSource } from "../../../field/offline/time";
 import { RUN_DATE } from "../fixtures";
 import type { DriverApi } from "./DriverApi";
-import { createMockDriverApi, registerDriverHandlers, resolveConflictNow } from "./mockDriverApi";
+import { createMockDriverApi, registerDeviceNoticeSync, registerDriverHandlers, resolveConflictNow, setFailNextUpload } from "./mockDriverApi";
 
 function at(time: string): number {
   return new Date(`${RUN_DATE}T${time}:00+05:30`).getTime();
@@ -135,5 +136,68 @@ describe("resolution", () => {
     const stop = run.stops.find((s) => s.outletId === "OUT084");
     expect(stop?.resolution?.decision).toBe("keep_delivery");
     expect(stop?.conflict).toBeUndefined();
+  });
+});
+
+describe("photos (driver prompt 4 section 4)", () => {
+  async function savePhotoOutcome(api: DriverApi): Promise<string> {
+    const photoBlobId = await saveBlob({ kind: "photo", blob: new Blob(["jpeg"], { type: "image/jpeg" }) });
+    await api.recordOutcome(RUN_DATE, "OUT084", [{ orderId: "ORD2001", outcome: "Delivered", unitsDelivered: 12, receiverName: "S. Fernando", photoBlobId }]);
+    return photoBlobId;
+  }
+
+  it("ties the photo to the stop's first record before it is queued, so it cannot go ahead of its delivery", async () => {
+    const api = createMockDriverApi(now);
+    const photoBlobId = await savePhotoOutcome(api);
+    const [record] = await listRecords();
+    expect((await getBlob(photoBlobId))?.recordClientId).toBe(record.clientId);
+  });
+
+  it("uploads the photo only after its record has reached the server", async () => {
+    const api = createMockDriverApi(now);
+    await savePhotoOutcome(api);
+    const ownerWhenUploaded: (string | undefined)[] = [];
+    registerBlobUploader(async (_blob, owner) => {
+      ownerWhenUploaded.push(owner?.status);
+      return "uploaded";
+    });
+    await runSync();
+    expect(ownerWhenUploaded).toEqual(["accepted"]);
+  });
+
+  it("a failed upload keeps the record Synced, keeps the photo on the phone and retries it", async () => {
+    registerDeviceNoticeSync(RUN_DATE, now);
+    const api = createMockDriverApi(now);
+    const photoBlobId = await savePhotoOutcome(api);
+
+    setFailNextUpload(true);
+    const first = await runSync();
+    expect(first?.accepted).toBe(1);
+    expect(first?.blobFailures).toHaveLength(1);
+    expect((await listRecords())[0].status).toBe("accepted");
+    const failed = await getBlob(photoBlobId);
+    expect(failed?.uploadStatus).toBe("failed");
+    expect(failed?.lastAttemptAt).toBe(clock);
+
+    // The retry waits 30 s, or goes at once on "Retry now".
+    const retried = await runSync({ force: true });
+    expect(retried?.blobFailures).toHaveLength(0);
+    expect((await getBlob(photoBlobId))?.uploadStatus).toBe("uploaded");
+  });
+
+  it("raises one notice per failed photo, naming its stop, however many times the phone retries", async () => {
+    registerDeviceNoticeSync(RUN_DATE, now);
+    const api = createMockDriverApi(now);
+    await savePhotoOutcome(api);
+    setFailNextUpload(true);
+    await runSync();
+    setFailNextUpload(true);
+    await runSync({ force: true });
+
+    const failures = (await api.getNotices(RUN_DATE)).filter((n) => n.kind === "photo_failed");
+    expect(failures).toHaveLength(1);
+    expect(failures[0].body).toBe("Couldn't send photo of stop 1. Kept on phone.");
+    expect(failures[0].outletId).toBe("OUT084");
+    expect(failures[0].reference).toBe("WP-SYNC-409");
   });
 });

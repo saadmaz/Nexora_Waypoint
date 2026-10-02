@@ -16,10 +16,12 @@ export type CompletedStopRowProps = {
   onOpen?: () => void;
   /** The "synced" row while the stop's records still wait on the phone (R3.9, R3.10): cloud icon and a Saved on phone pill. */
   waiting?: boolean;
+  /** The stop's records are with Dispatch but its photo is still on the phone (R8.2). */
+  photoOnPhone?: boolean;
 };
 
 /** A done stop's row on the Run screen: the same summary, worded for the moment it is shown. */
-export function CompletedStopRow({ stop, variant, onOpen, waiting }: CompletedStopRowProps) {
+export function CompletedStopRow({ stop, variant, onOpen, waiting, photoOnPhone }: CompletedStopRowProps) {
   const t = useT();
   const summary = summarizeStopOutcome(stop);
   if (!summary) return null;
@@ -54,12 +56,16 @@ export function CompletedStopRow({ stop, variant, onOpen, waiting }: CompletedSt
             <Mono>{stop.outletId}</Mono> · {stop.outletName}
           </span>
           <span className={styles.meta}>
-            {summary.receiverName
-              ? t("outcome.deliveredSignedBy", { outcome: summary.outcome, time: summary.savedAt, name: summary.receiverName })
-              : `${summary.outcome} ${summary.savedAt}`}
+            {photoOnPhone
+              ? t("run.photoStillOnPhone", { outcome: summary.outcome, time: summary.savedAt })
+              : summary.receiverName
+                ? t("outcome.deliveredSignedBy", { outcome: summary.outcome, time: summary.savedAt, name: summary.receiverName })
+                : `${summary.outcome} ${summary.savedAt}`}
           </span>
           {waiting ? (
             <RecordPill state="saved" />
+          ) : photoOnPhone ? (
+            <RecordPill state="saved" label={t("run.photoOnPhone")} />
           ) : underReview ? (
             <Tag kind="review" icon="alert-triangle">
               {t("outbox.stateReview")}
