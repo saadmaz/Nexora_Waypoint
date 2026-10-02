@@ -11,10 +11,10 @@ import type { Session, SignInResult } from "./types";
  * Answers in 300 to 600 ms like the field transport, so the loading state is real and
  * visible rather than a flash. Tests answer at once.
  *
- * One demo password for all four accounts (PRD v3 section 4c): the README accounts table
- * lists it, and the env var that replaces it belongs to the backend branch.
+ * One demo password for all four accounts (PRD v3 section 4c). It is the value the backend
+ * seeds from `DEMO_PASSWORD` in `.env.example`, so the mock and the real API accept the same one.
  */
-const DEMO_PASSWORD = "waypoint";
+const DEMO_PASSWORD = "waypoint-demo";
 
 const latency: [number, number] = import.meta.env.MODE === "test" ? [0, 0] : [300, 600];
 
