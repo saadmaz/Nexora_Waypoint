@@ -1,0 +1,314 @@
+/* Sign-in, frames G1.1 to G1.5. Phone is the base; the desktop card (G1.1) overrides it. */
+.page {
+  --gap: 16px;
+  --control-h: 56px;
+  /* Figma's automatic line height for Archivo, measured on G1.2. The browser's `normal` is 1.088 and
+     drifts 2 px down the card. */
+  --lh: 1.08;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
+  padding: var(--space-6) 0 0;
+}
+
+.fill {
+  min-height: 100dvh;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  box-sizing: border-box;
+  width: min(390px, 100%);
+  padding: var(--space-8) var(--space-5);
+}
+
+/* Desktop: one centred card on the page, as G1.1. Controls are 40 px as drawn; a touch screen keeps 44. */
+.page[data-layout="desktop"] {
+  --gap: 18px;
+  --control-h: 40px;
+  justify-content: center;
+  padding: var(--space-8) var(--space-4);
+}
+
+@media (pointer: coarse) {
+  .page[data-layout="desktop"] {
+    --control-h: 44px;
+  }
+}
+
+.page[data-layout="desktop"] .card {
+  width: min(440px, 100%);
+  padding: var(--space-8);
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-1);
+}
+
+/* The shared Button reads its height and label size from these two tokens, so the desktop card
+   matches the frame without a second button. */
+.page[data-layout="desktop"] {
+  --size-button-md: var(--control-h);
+  --text-button-md: 600 14px / 20px var(--font-sans);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+}
+
+.diamond {
+  width: 12px;
+  height: 12px;
+  background: var(--signal);
+  transform: rotate(45deg);
+}
+
+.brandName {
+  font: 700 20px / var(--lh) var(--font-sans);
+  color: var(--ink);
+}
+
+.title {
+  margin: 0;
+  font: 700 28px / var(--lh) var(--font-sans);
+  color: var(--ink);
+}
+
+/* G1.5: sign-in needs a connection once. */
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: 14px var(--space-4);
+  background: var(--signal-soft);
+  border-radius: var(--radius-lg);
+  color: var(--ink);
+}
+
+.noticeIcon {
+  display: flex;
+  flex: 0 0 20px;
+  color: var(--warning);
+}
+
+.noticeText {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.noticeTitle {
+  margin: 0;
+  font: 600 14px / var(--lh) var(--font-sans);
+}
+
+.noticeBody {
+  margin: 0;
+  font: var(--text-body-sm);
+}
+
+.form {
+  display: contents;
+}
+
+/* The fieldset only exists to disable the form while a request is in flight. */
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font: 600 13px / var(--lh) var(--font-sans);
+  color: var(--ink);
+}
+
+.input {
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--control-h);
+  padding: 0 14px;
+  background: var(--surface-1);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  color: var(--ink);
+  font: var(--text-body);
+  transition: border-color var(--duration-colour) ease, box-shadow var(--duration-colour) ease;
+}
+
+.input::placeholder {
+  color: var(--ink-muted);
+  opacity: 1;
+}
+
+/* An email address is an identifier, so what the person types is set in Plex Mono (G1.4). */
+.emailInput:not(:placeholder-shown) {
+  font-family: var(--font-mono);
+}
+
+/* A 2 px ring in the focus colour, drawn as the 1 px border plus 1 px inset so nothing moves. */
+.input:focus-visible {
+  outline: none;
+  border-color: var(--focus);
+  box-shadow: inset 0 0 0 1px var(--focus);
+}
+
+.input[aria-invalid="true"],
+.input[aria-invalid="true"]:focus-visible {
+  border-color: var(--danger);
+  box-shadow: inset 0 0 0 1px var(--danger);
+}
+
+.input:disabled {
+  color: var(--ink);
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font: 500 13px / var(--lh) var(--font-sans);
+  color: var(--danger);
+}
+
+.divider {
+  width: 100%;
+  height: 1px;
+  margin: 0;
+  border: 0;
+  background: var(--line);
+}
+
+.demo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.demoHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.demoHeading {
+  margin: 0;
+  font: 600 12px / var(--lh) var(--font-sans);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.tag {
+  padding: 2px 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  font: 600 12px / var(--lh) var(--font-sans);
+  color: var(--ink);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--control-h);
+  padding: 0 14px;
+  background: var(--surface-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--duration-colour) ease;
+}
+
+.row:hover:not(:disabled) {
+  background: var(--line);
+}
+
+.row:disabled {
+  cursor: not-allowed;
+}
+
+.rowIcon {
+  display: flex;
+  flex: 0 0 18px;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+}
+
+.rowIcon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.rowText {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.rowName {
+  overflow: hidden;
+  font: 600 14px / var(--lh) var(--font-sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowEmail {
+  overflow: hidden;
+  font: 400 12px / var(--lh) var(--font-mono);
+  color: var(--ink-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowChevron {
+  display: flex;
+  flex: 0 0 16px;
+  color: var(--ink-muted);
+}

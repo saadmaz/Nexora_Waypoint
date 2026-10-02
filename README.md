@@ -830,7 +830,7 @@ Import from `field/offline`. One IndexedDB, `waypoint-field`: `outbox`, `cache`,
 
 The frames every role passes through before its own screens: sign-in (G1), the role picker (G2), per-role sessions and the one presenter control the judge walkthrough drives. Branch: `feature/auth`, cut from `develop`, frontend only. There is no backend yet, so everything runs against a mock. The brief is [`claude/field-build/06-app-shell.md`](claude/field-build/06-app-shell.md).
 
-**Status:** A0 and A3 built (`tsc -b`, `oxlint`, `vitest run`, `vite build` all clean; 31 tests, 10 of them new). A3 landed before A1 and A2 because the Figma connection was down; its routes answer with placeholders until those phases replace them. A1, A2 and A4 to A6 are not started, so there is nothing to compare against Figma yet.
+**Status:** A0, A1 and A3 built (`tsc -b`, `oxlint`, `vitest run`, `vite build` all clean; 39 tests, 18 of them in `screens/auth`). A3 landed before A1 and A2 because the Figma connection was down; `/start` and `/auth/_states` answer with placeholders until A2 and A6 replace them. A2 and A4 to A6 are not started.
 
 ### Accounts
 
@@ -889,11 +889,31 @@ There are five G1 and four G2 frames, as PRD v3 section 3 says. The conventions 
 - **The G2 corner labels** (`DISPATCHER · LIGHT`, `LOADER · DARK`, `DRIVER · DARK`, `STORE · LIGHT`) name the theme of the role app each card opens, which is the per-role table in PRD v3 section 6. `/start` itself stays Light · office, and `/sign-in` is Light on desktop and Dark at phone width.
 - **G2.1 names two screens** ("Opens D1 Queue / D6 Operations") but the card goes to `/dispatcher/queue`. The line is kept as drawn because it is descriptive text.
 
+### Sign-in (A1)
+
+`/sign-in` is one screen, `SignInScreen`, that draws every G1 frame from props: the layout (desktop or phone), a wrong password, offline and busy. `SignInRoute` owns the state and talks to the AuthApi through `getAuthApi()`, which is where `VITE_AUTH_API` is read. It throws in `api` mode until the real client exists, so nobody signs in against the mock by accident.
+
+- **Files** (`src/screens/auth/`): `SignInScreen.tsx` and its CSS module, `SignInRoute.tsx`, `signInStrings.ts` (every string, copied from Figma), `useIsPhone.ts`, `useSignInConnectivity.ts`, `authClient.ts`, and `gallery/` (the frame registry and the page).
+- **Gallery and compare.** `/auth/_states` lists the five frames at their Figma size; `?frame=G1.4` draws one. `npm run compare -- auth G1.1 G1.2 G1.3 G1.4 G1.5` screenshots them beside `.figma/<id>.png` (it needs `npm run dev` running).
+- **Retry.** A wrong password or an unknown email shows "Email or password is wrong." under the password, keeps the email, clears the password and puts focus back on it. Attempts are not counted and nothing locks.
+- **Offline.** `navigator.onLine` events are fed into the field `connectivity` store by `useSignInConnectivity`, because the field runtime that normally does this does not run on `/sign-in`. Offline shows the G1.5 notice and disables Sign in; an existing session is never touched.
+- **Loading.** The form is a disabled `fieldset` and the button is busy. The button keeps its box, so nothing moves.
+- **Demo accounts.** Tapping a row signs in at once with the demo password. Offline it only fills the fields.
+
+**How it was checked.** Each frame was captured at 1x and diffed against its Figma PNG: every frame has the exact Figma size, every box edge (card, inputs, button, rows, notice) is within 1 px, and what remains is text and icon anti-aliasing plus a 1 px offset on the Prototype tag. The behaviour was driven in Chromium: wrong password then retry, no lockout, unknown email, no layout shift while loading, the four demo rows, four roles in four tabs of one browser, `/` redirecting a signed-in browser, the Dark phone theme and offline blocking and recovery. That script is scratch; the permanent four-role Playwright check comes in A6.
+
 ### Departures from the brief
 
 - **Offline detection** reads the field `connectivity` object, not `navigator.onLine` directly. It wraps the browser's online state and adds "Simulate offline", which the walkthrough uses, so sign-in agrees with the rest of the app about being offline.
 - **The API pattern** follows `api/StoreApi.ts` and `mockStoreApi.ts`. The brief points at `LoaderApi` and `mockLoaderApi.ts`, which live on the unmerged `feature/loader`.
 - **`Role`** is the existing union in `domain/status.ts`; no second one was declared.
+- **The wrong-password message is a plain statement.** The brief asked for an error that names what to do. G1.4 draws "Email or password is wrong." and Figma wins.
+- **Line height is 1.08**, not the project's fixed 34 and 24. The frames set the sign-in text to automatic line height, and the browser's own `normal` (1.088) drifts 2 px down the card. 1.08 was measured against G1.2 and lines every box up exactly.
+- **The desktop button is the shared `Button`**, medium, with its height and label size overridden through the `--size-button-md` and `--text-button-md` tokens inside the sign-in screen (40 px and 14 px, as G1.1). No second button was built and no shared file changed.
+- **The disabled Sign in is the shared Button's 50%**; G1.5 draws 40%.
+- **The demo row icons are 18 px**, as drawn. The shared `Icon` has no 18 size, so the SVG is sized in the sign-in CSS.
+- **The email value is set in Plex Mono**, as G1.4 draws it, with the placeholder in Archivo.
+- Sign-in assumptions where Figma is silent (demo row behaviour, the live theme, desktop control height, focus on load, empty submit) are in PRD section 4d under "App shell assumptions", unnumbered for central numbering.
 
 ### Shared files this role has changed
 
@@ -905,7 +925,7 @@ There are five G1 and four G2 frames, as PRD v3 section 3 says. The conventions 
 ### Phases
 
 - [x] A0 `AuthApi`, mock, `session.ts`, types (10 tests)
-- [ ] A1 G1 sign-in, five states, desktop and phone, retry, offline
+- [x] A1 G1 sign-in, five states, desktop and phone, retry, offline (8 new tests)
 - [ ] A2 G2 `/start`, four role cards
 - [x] A3 router: `/sign-in`, `/start`, `/` redirect, `/auth/_states` (placeholders until A1, A2 and A6)
 - [ ] A4 one shared presenter panel in `app/presenter/`, replacing the Store's copy
@@ -916,6 +936,9 @@ There are five G1 and four G2 frames, as PRD v3 section 3 says. The conventions 
 
 - The Store keeps `app/scenarioClock.ts` and the field apps keep `field/clock/clock.ts`. Two clocks, not unified here; whoever wires the real API should merge them.
 - The vitest session tests stub `window.localStorage` because the test environment is `node`. A browser-level check of the four-tab sign-in comes with the Playwright script in A6.
+- **Real client, wire format.** Over the wire the backend sends camelCase (`accessToken`, `expiresAt`, `displayName`), because its `ApiModel` has a camelCase alias generator. The real `AuthApi` maps those to `Session`; the field names in `types.ts` already match.
+- **A server error has no frame.** `SignInFailureReason` is `invalid_credentials` or `offline`. A `5xx`, or a `429` if the backend adds rate limiting, would need a third reason and copy, and Figma draws neither. Decide with the real client.
+- **Generic sign-in weight.** The sign-in button label renders at the shared token's 600; the Figma dump names it Bold. Check it against the Store's buttons in the A6 compare pass.
 
 ---
 
