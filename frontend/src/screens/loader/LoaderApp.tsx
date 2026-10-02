@@ -4,7 +4,9 @@ import { HERO_EVENING_DATE } from "../../field/clock/clock";
 import { FieldRuntime } from "../../field/FieldRuntime";
 import { PlaceholderScreen } from "../../field/PlaceholderScreen";
 import { RoleRoot } from "../../shared/RoleRoot";
+import { DockContainer } from "./dock/DockContainer";
 import { LoaderGallery } from "./gallery/LoaderGallery";
+import { LoaderProvider } from "./LoaderProvider";
 
 /** Waypoint Load always works in the dark (field conventions section 1): a shared dock tablet at night. */
 const LOADER_THEME = "dark";
@@ -14,8 +16,8 @@ const LOADER_START = { date: HERO_EVENING_DATE, time: "23:45" };
 
 /**
  * The Loader role root: `/loader/*`. The state gallery sits outside the runtime and the clock,
- * because each of its frames fakes its own. Every route answers with a placeholder until prompt 2
- * builds the screen.
+ * because each of its frames fakes its own. L1 Dock is built; L2 to L4 still answer with a
+ * placeholder.
  */
 export function LoaderApp() {
   return (
@@ -27,7 +29,9 @@ export function LoaderApp() {
           <ClockProvider start={LOADER_START}>
             <FieldRuntime>
               <RoleRoot theme={LOADER_THEME}>
-                <LoaderRoutes />
+                <LoaderProvider>
+                  <LoaderRoutes />
+                </LoaderProvider>
               </RoleRoot>
             </FieldRuntime>
           </ClockProvider>
@@ -41,10 +45,7 @@ function LoaderRoutes() {
   return (
     <Routes>
       <Route index element={<Navigate to="dock" replace />} />
-      <Route
-        path="dock"
-        element={<PlaceholderScreen id="L1" title="Dock" note="The dock: plan version, acknowledgement and vehicles to load. Built in the loader prompt (L1)." />}
-      />
+      <Route path="dock" element={<DockContainer />} />
       <Route
         path="vehicles/:vehicleId/trips/:trip"
         element={

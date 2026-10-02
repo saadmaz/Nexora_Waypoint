@@ -1060,6 +1060,8 @@ Start with these. Add a row the day a visible difference from the Day 5 frames i
 | DP-14 | GPS permission prompt and the permission-refused case have no frame | A short plain explanation at Start route; refused → R9.2 layout with planned distances | Driver prompt 05 |
 | DP-15 | Driver shows Dark in every frame | Light · office when the phone prefers light, as the R1.9 copy says | V31 |
 | DP-16 | S1.3 B (15:42) and S1.3 D (15:45) both read "20 min left" on the cutoff alert | The countdown is computed from the scenario clock: 18 min at 15:42 and 15 min at 15:45 | Q14: every number is computed; a live countdown cannot match two static frames |
+| DP-17 | L1.1's locked cards are bare; L1.5's locked cards show "Acknowledge vN first" and a disabled button | The detail line and button render only on a card carrying a Changed/No change tag, bare otherwise | Reproduces both frames exactly from one rule instead of one per frame; loader prompt 02 |
+| DP-18 | VEH035 reads "3 of 4 orders checked" at 00:10 (L1.3) and "3 of 5" at 02:56 (L1.4), with no event between them that checks a 5th order | The state gallery keeps both numbers verbatim (per-frame fixture); the live dock computes VEH035's progress for real, starting at 0, since it is not part of either hero story | Q14: the two frame numbers are not reconcilable with one running total; loader prompt 02 |
 
 ## 19. Build order, deliverables and open decisions
 
