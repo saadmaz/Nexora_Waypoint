@@ -141,3 +141,60 @@ def test_query_parameter_names_match_the_contract():
 
     assert {"from", "to"} <= params("/api/v1/loader/docks/{dock}/diff")
     assert {"from", "to"} <= params("/api/v1/store/deliveries")
+
+
+# What each DispatcherApi operation returns, by the name of its view in the generated ``schema.ts``. The screens'
+# types in ``frontend/src/api/DispatcherApi.ts`` are checked against these in ``dispatcherContract.ts``.
+DISPATCHER_VIEWS = {
+    "getQueue": "QueueView",
+    "getOrderHistory": "OrderHistory",
+    "getCapacity": "CapacityView",
+    "getPlan": "PlanView",
+    "redraftPlan": "PlanView",
+    "validateMove": "MoveResult",
+    "saveMoves": "PlanView",
+    "listDeferrals": "DeferralsView",
+    "notifyDeferrals": "NotifyDeferralsOut",
+    "releasePlan": "PlanView",
+    "listAcknowledgements": "AcknowledgementsView",
+    "getLiveBoard": "LiveBoardView",
+    "deferStop": "DeferStopResult",
+    "getInbox": "InboxView",
+    "getConflict": "ConflictView",
+    "askStore": "ConflictView",
+    "resolveConflict": "ConflictView",
+    "getExceptionForReview": "ExceptionView",
+    "decideException": "ExceptionView",
+    "getForecast": "ForecastView",
+}
+
+
+def _dispatcher_operations() -> dict[str, tuple[str, str]]:
+    """operationId -> (method, path) for every dispatcher route."""
+    return {
+        op["operationId"]: (method.upper(), path)
+        for path, item in app.openapi()["paths"].items()
+        if path.startswith(f"{API}/dispatcher/")
+        for method, op in item.items()
+    }
+
+
+def test_every_dispatcher_operation_declares_its_view():
+    paths = app.openapi()["paths"]
+    found = {}
+    for operation_id, (method, path) in _dispatcher_operations().items():
+        ok = paths[path][method.lower()]["responses"]["200"]["content"]["application/json"]["schema"]
+        found[operation_id] = ok.get("$ref", "").rsplit("/", 1)[-1]
+    assert found == DISPATCHER_VIEWS
+
+
+@pytest.mark.parametrize("operation_id", sorted(DISPATCHER_VIEWS))
+def test_every_dispatcher_operation_needs_a_token(operation_id):
+    """The role guard runs before anything else, so an unsigned request is a 401 even with no database."""
+    from fastapi.testclient import TestClient
+
+    method, template = _dispatcher_operations()[operation_id]
+    url = re.sub(r"\{[^}]+\}", "1", template)
+    res = TestClient(app).request(method, url)
+    assert res.status_code == 401, res.text
+    assert set(res.json()) == {"code", "message", "details"}
