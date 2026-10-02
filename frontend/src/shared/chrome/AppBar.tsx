@@ -20,7 +20,7 @@ export function AppBar({ right, bell }: { right?: ReactNode; bell?: BellProps })
   return (
     <header className={styles.appbar}>
       <span className={styles.brand}>
-        <span className={styles.diamond} aria-hidden />
+        <img className={styles.diamond} src="/nexora-logo.svg" alt="" aria-hidden="true" />
         <span className={styles.brandText}>
           <strong>Waypoint</strong> Store
         </span>

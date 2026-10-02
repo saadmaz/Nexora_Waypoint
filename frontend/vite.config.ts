@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => ({
     // one visit the app opens with no network (field conventions section 11).
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.svg", "waypoint-icon.svg"],
+      includeAssets: ["nexora-logo.svg", "nexora-logo.png"],
       manifest: {
         name: "Waypoint",
         short_name: "Waypoint",
@@ -24,8 +24,8 @@ export default defineConfig(({ mode }) => ({
         background_color: "#0e1113",
         theme_color: "#07090a",
         icons: [
-          { src: "waypoint-icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
-          { src: "waypoint-icon.svg", sizes: "any", type: "image/svg+xml", purpose: "maskable" },
+          { src: "nexora-logo.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
+          { src: "nexora-logo.svg", sizes: "any", type: "image/svg+xml", purpose: "maskable" },
         ],
       },
       workbox: {
