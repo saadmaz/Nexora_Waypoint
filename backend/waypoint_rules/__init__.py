@@ -29,6 +29,7 @@ from .deferrals import (
 from .lifecycle import IllegalTransition, OrderEvent, allowed_events, transition
 from .model import District, Order, Outlet, Plan, RefData, Trip, Vehicle, VehicleDay
 from .moves import CheckItem, Move, MoveResult, TripSummary, validate_move, why_this_vehicle
+from .planner import DraftDeferral, DraftStop, DraftTrip, OutletHistory, PlanDraft, draft_plan
 from .reconcile import (
     DeviceRecord,
     Outcome,
@@ -63,6 +64,9 @@ __all__ = [
     "DeferralType",
     "DeviceRecord",
     "District",
+    "DraftDeferral",
+    "DraftStop",
+    "DraftTrip",
     "DockType",
     "Frees",
     "IllegalTransition",
@@ -75,7 +79,9 @@ __all__ = [
     "OrderStatus",
     "Outcome",
     "Outlet",
+    "OutletHistory",
     "Plan",
+    "PlanDraft",
     "Recommendation",
     "Reconciled",
     "RecordType",
@@ -103,6 +109,7 @@ __all__ = [
     "check_trip",
     "check_vehicle_day",
     "classify_deferral",
+    "draft_plan",
     "frees",
     "headline",
     "hhmm",

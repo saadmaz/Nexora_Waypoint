@@ -75,6 +75,22 @@ def continuity(outlet_id: str) -> str:
     return f"{outlet_id} was deferred yesterday; the continuity guard protects it"
 
 
+def no_legal_vehicle(
+    needs: list[str], largest_label: str | None, largest_kg: float | None, depot: str
+) -> str:
+    """Deferred · capacity (PRD §4b), e.g. ORD1020: "van_only and 1,250 kg; the largest Peliyagoda reefer van
+    carries 1,040 kg; whole orders can't split."."""
+    what = " and ".join(needs)
+    if largest_label is None or largest_kg is None:
+        return f"{what}; {depot.title()} has no vehicle that can take it; whole orders can't split."
+    return f"{what}; the largest {depot.title()} {largest_label} carries {_kg(largest_kg)} kg; whole orders can't split."
+
+
+def no_vehicle_free(depot: str) -> str:
+    """Deferred · policy when a vehicle could carry the order but none is free for the whole morning."""
+    return f"Every vehicle that could carry this order is busy or out of service at {depot.title()} today"
+
+
 #: Human names for rule IDs (for tags and logs, not for refusals).
 RULE_NAMES: dict[RuleId, str] = {
     RuleId.KG: "Weight capacity",
