@@ -53,6 +53,8 @@ let blobUploader: BlobUploader | undefined;
 const resultListeners = new Set<(result: SyncResult) => void>();
 let lastResult: SyncResult | undefined;
 let running: Promise<SyncResult | undefined> | undefined;
+/** A call that arrived while a run was in flight: the run goes round again once it is done. */
+let rerun: RunOptions | undefined;
 
 /** A role registers how each of its record types is sent, for example `registerSyncHandler("driver.arrival", …)`. */
 export function registerSyncHandler(type: string, handler: SyncHandler): void {
@@ -242,14 +244,29 @@ async function runOnce(options: RunOptions): Promise<SyncResult | undefined> {
 
 /**
  * Sends what is waiting, in the order it was saved. One run at a time: a second call while a run
- * is in flight joins it, so pressing "Send now" repeatedly sends nothing twice. Resolves to the
- * run's summary, or undefined when there was nothing to do or the device is offline.
+ * is in flight joins it, so pressing "Send now" repeatedly sends nothing twice. A call that joins a
+ * run may have been made because a record was just saved, which that run never saw, so the run
+ * goes round once more when it finishes. Resolves to the run's summary, or undefined when there
+ * was nothing to do or the device is offline.
  */
 export function runSync(options: RunOptions = {}): Promise<SyncResult | undefined> {
-  if (running) return running;
-  running = runOnce(options).finally(() => {
-    running = undefined;
-  });
+  if (running) {
+    rerun = { force: (rerun?.force ?? false) || (options.force ?? false) };
+    return running;
+  }
+  running = (async () => {
+    try {
+      let result = await runOnce(options);
+      while (rerun) {
+        const next = rerun;
+        rerun = undefined;
+        result = (await runOnce(next)) ?? result;
+      }
+      return result;
+    } finally {
+      running = undefined;
+    }
+  })();
   return running;
 }
 

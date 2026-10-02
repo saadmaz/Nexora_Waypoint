@@ -1,5 +1,5 @@
 import "fake-indexeddb/auto";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { scaledSize, saveBlob } from "./blobs";
 import { connectivity } from "./connectivity";
 import { db } from "./db";
@@ -51,6 +51,27 @@ describe("outbox", () => {
 });
 
 describe("sync engine", () => {
+  it("sends a record saved while a run is in flight without waiting for the next timer", async () => {
+    const sent: string[] = [];
+    let release: (() => void) | undefined;
+    registerSyncHandler("driver.arrival", async (r) => {
+      sent.push(r.clientId);
+      if (r.clientId === "first") await new Promise<void>((resolve) => (release = resolve));
+      return { result: "accepted" };
+    });
+    await record("driver.arrival", "first");
+    const firstRun = runSync();
+    await vi.waitFor(() => expect(sent).toEqual(["first"]));
+
+    await record("driver.arrival", "second");
+    const joined = runSync();
+    release?.();
+    await Promise.all([firstRun, joined]);
+
+    expect(sent).toEqual(["first", "second"]);
+    expect((await getRecord("second"))?.status).toBe("accepted");
+  });
+
   it("puts a record left `sending` by a reload back in the queue and sends it once", async () => {
     await connectivity.setSimulatedOffline(true);
     await record("driver.arrival", "stranded");
