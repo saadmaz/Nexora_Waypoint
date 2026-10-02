@@ -7,6 +7,7 @@ import { enqueue, getRecord, listRecords, refreshWaitingCount } from "./outbox";
 import {
   RETRY_AFTER_MS,
   clearSyncHandlers,
+  requeueInterrupted,
   hasWork,
   onSyncResult,
   registerBlobUploader,
@@ -50,6 +51,26 @@ describe("outbox", () => {
 });
 
 describe("sync engine", () => {
+  it("puts a record left `sending` by a reload back in the queue and sends it once", async () => {
+    await connectivity.setSimulatedOffline(true);
+    await record("driver.arrival", "stranded");
+    await db.outbox.where("clientId").equals("stranded").modify({ status: "sending", attempts: 1 });
+    expect(await hasWork()).toBe(false);
+
+    expect(await requeueInterrupted()).toBe(1);
+    expect((await getRecord("stranded"))?.status).toBe("waiting");
+    expect((await getRecord("stranded"))?.attempts).toBe(0);
+
+    const sent: string[] = [];
+    registerSyncHandler("driver.arrival", async (r) => {
+      sent.push(r.clientId);
+      return { result: "accepted" };
+    });
+    await connectivity.setSimulatedOffline(false);
+    await runSync();
+    expect(sent).toEqual(["stranded"]);
+  });
+
   it("flushes the outbox in order when the device comes back online", async () => {
     const sent: string[] = [];
     registerSyncHandler("driver.arrival", async (r) => {

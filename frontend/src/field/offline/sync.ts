@@ -262,6 +262,21 @@ export async function hasWork(): Promise<boolean> {
   return blobs.some((b) => blobDue(b, false) && ownerSynced(b, owners));
 }
 
+/**
+ * A record is `sending` only while a run is answering it. If the page was reloaded or killed in
+ * that moment the record is stranded: nothing is sending it and nothing would ever retry it. Put
+ * those back to `waiting`; the server answers `duplicate` if it did get the first send.
+ */
+export async function requeueInterrupted(): Promise<number> {
+  if (running) return 0;
+  const stranded = (await db.outbox.toArray()).filter((r) => r.status === "sending");
+  for (const record of stranded) {
+    await db.outbox.where("clientId").equals(record.clientId).modify({ status: "waiting", attempts: Math.max(0, record.attempts - 1) });
+  }
+  if (stranded.length > 0) await refreshWaitingCount();
+  return stranded.length;
+}
+
 let interval: ReturnType<typeof setInterval> | undefined;
 let removeOnlineListener: (() => void) | undefined;
 
@@ -288,6 +303,11 @@ export function startSyncEngine(options: { syncOnEnqueue?: boolean } = {}): () =
       window.removeEventListener("offline", onOffline);
     };
   }
+
+  // Whatever a previous page left half-sent goes back in the queue, then a run picks it up.
+  void requeueInterrupted().then((count) => {
+    if (count > 0) void runSync();
+  });
 
   interval = setInterval(() => {
     void hasWork().then((work) => {
