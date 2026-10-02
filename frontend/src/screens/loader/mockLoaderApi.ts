@@ -28,19 +28,7 @@ const PELIYAGODA_VEHICLES = ["VEH003", "VEH035", "VEH011"];
 const PELIYAGODA_VEHICLES_V4 = ["VEH036", "VEH035", "VEH011"];
 const KANDY_VEHICLES = ["VEH039"];
 
-type Exception = {
-  id: string;
-  type: FlagExceptionInput["type"];
-  vehicleId: string;
-  trip: 1 | 2;
-  orderIds: string[];
-  unitsShort?: number;
-  note?: string;
-  status: "reviewing" | "decided";
-  decidedVersion?: number;
-  decidedBy?: string;
-  decidedAt?: string;
-};
+type Exception = ExceptionView;
 
 /** Latency and offline behaviour the mock applies to every call (field conventions section 10). */
 async function simulateNetwork(): Promise<void> {
@@ -84,18 +72,26 @@ export function createMockLoaderApi(nowMs: () => number): LoaderApi {
       .at(-1);
   }
 
-  /** Resolves the VEH003 exception into plan v4 once the clock (or the dev control) says it is time. */
+  /**
+   * Resolves the VEH003 exception into plan v4 once the clock (or the dev control) says it is time.
+   * Every other flag only gets marked seen at that moment (PRD v3.1 G-14): no decision, no new version.
+   */
   function settle(): void {
+    const due = manualResolve || nowMs() >= decisionAtMs;
+    if (!due) return;
+    const stamp = formatTime(Math.max(nowMs(), decisionAtMs));
+    for (const other of exceptions.values()) {
+      const isVehicleCheck = other.vehicleId === "VEH003" && other.type === "Vehicle check failed";
+      if (!isVehicleCheck && !other.seenAt) other.seenAt = stamp;
+    }
     const ex = veh003Exception();
     if (!ex || ex.status === "decided") return;
-    if (manualResolve || nowMs() >= decisionAtMs) {
-      ex.status = "decided";
-      ex.decidedVersion = 4;
-      ex.decidedBy = "Kumari";
-      ex.decidedAt = formatTime(Math.max(nowMs(), decisionAtMs));
-      tags.set("VEH003", ["Replaced"]);
-      tags.set("VEH036", ["Available"]);
-    }
+    ex.status = "decided";
+    ex.decidedVersion = 4;
+    ex.decidedBy = "Kumari";
+    ex.decidedAt = stamp;
+    tags.set("VEH003", ["Replaced"]);
+    tags.set("VEH036", ["Available"]);
   }
 
   function currentVersion(): number {
@@ -287,11 +283,29 @@ export function createMockLoaderApi(nowMs: () => number): LoaderApi {
     },
 
     async flagException(input: FlagExceptionInput) {
-      const { type, vehicleId, trip, orderIds, unitsShort, note, personId } = input;
+      const { type, vehicleId, trip, orderIds, unitsShort, note, reason, personId, personName, blobIds } = input;
       const id = `EXC${exceptionSeq++}`;
-      exceptions.set(id, { id, type, vehicleId, trip, orderIds, unitsShort, note, status: "reviewing" });
+      exceptions.set(id, {
+        id,
+        type,
+        vehicleId,
+        trip,
+        orderIds,
+        unitsShort,
+        note,
+        reason,
+        raisedBy: personName,
+        raisedAt: formatTime(nowMs()),
+        status: "reviewing",
+      });
       if (type === "Vehicle check failed") tags.set(vehicleId, ["Held"]);
-      await enqueue({ type: "loader.exception", payload: { ...input, id }, actor: personId, planVersionOnDevice: currentVersion() });
+      await enqueue({
+        type: "loader.exception",
+        payload: { ...input, id },
+        actor: personId,
+        planVersionOnDevice: currentVersion(),
+        blobIds,
+      });
       return id;
     },
 
