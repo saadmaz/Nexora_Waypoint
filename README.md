@@ -832,7 +832,7 @@ Import from `field/offline`. One IndexedDB, `waypoint-field`: `outbox`, `cache`,
 
 Nimal's app: today's stops, offline-first, one decision at a time. Built in `frontend/`. Branch: `feature/driver`, cut from `develop` after `feature/field-foundation` merged. Driver prompt 3 (`claude/field-build/03-driver-core.md`) covers the shell and the hero delivery path (R1 Route, R2 Stop detail, R3 Record outcome, the Me tab); the outbox sheet, sync, conflicts and notifications (R4, R5, R8) are prompt 4, and problems, history, the GPS tracker, finish run and calendar days (R6, R7, R9, R10) are prompt 5.
 
-**Status:** R1 to R3 and the Me tab are built, checked and pushed. D0 to D5 (below) are done.
+**Status:** R1 to R3, the Me tab and driver prompt 4 (R4 Outbox, R5 Sync result, R8 Notifications, the conflict and its resolution) are built, checked and pushed. D0 to D5 and O1 to O6 (below) are done, except the physical-phone check, which needs a person with a phone (see "Real devices").
 
 ### How to run
 
@@ -843,7 +843,13 @@ npm run dev              # http://localhost:5173
 npm run dev:https        # self-signed HTTPS on the LAN: the real camera needs a secure context on a phone
 npm run compare -- driver R1.1 R3.1   # frame screenshots beside Figma (needs the dev server and .figma/<id>.png)
 npm run test:hero        # the hero path end to end against a running dev server (see "Checks run")
+npm run test:hero -- --partial   # the same, ending with the presenter's "Keep as Partial (10 of 12)"
+npm test                 # vitest, 55 tests
+npm run build && npm run preview   # then, in another terminal:
+npm run test:offline -- --base http://localhost:4173   # the production build opens with no network
 ```
+
+Add `?presenter=1` to any driver URL to get the presenter controls in the Outbox sheet (see "The Outbox").
 
 | Route | Screen |
 |---|---|
@@ -853,7 +859,9 @@ npm run test:hero        # the hero path end to end against a running dev server
 | `/driver/me` | R1.9 Me tab |
 | `/driver/issues` | R6 Issues (placeholder; driver prompt 5) |
 | `/driver/history` | R7 History (placeholder; driver prompt 5) |
-| `/driver/notifications` | R8 Notifications (placeholder; driver prompt 4) |
+| `/driver/notifications` | R8.1 Notifications, R8.4 when empty |
+| `/driver/notifications/photo/:blobId` | R8.3 Photo failure detail |
+| `/driver/sync-result?view=conflict`, `synced`, `resolved` | R5 Sync result |
 | `/driver/finish` | R9 Finish run (placeholder; driver prompt 5) |
 | `/driver/_states` | The state gallery (dev only; `?frame=ID` renders one frame full screen) |
 
@@ -873,11 +881,11 @@ The `t(key, params)` dictionary (`i18n.ts`) is complete in English and routes ev
 
 ### Offline and the Kandy corridor
 
-`DriverProvider` runs a real connectivity gate (`field/offline`'s `connectivity.setGate`) that closes at Tue 29 Sep 05:17 and does not reopen in this prompt's scope (driver prompt 4 adds the 06:40 reconnect and the sync result screens). This is independent of a real network drop: the Playwright hero walkthrough exercises both, dropping the browser's own connection with `context.setOffline(true)` as well as letting the scripted gate do its job, and both agree once the clock passes 05:17.
+`DriverProvider` runs a real connectivity gate (`field/offline`'s `connectivity.setGate`) that closes at Tue 29 Sep 05:17 and reopens at 06:40, the **coverage profile**: the Kandy gap. The presenter's "Kandy corridor coverage gap" switch (under `?presenter=1`) turns the profile on and off, and **Simulate offline** in the Outbox holds the phone offline whatever the clock says. This is independent of a real network drop: the Playwright hero walkthrough exercises both, dropping the browser's own connection with `context.setOffline(true)` as well as letting the scripted gate do its job, and both agree once the clock passes 05:17.
 
-`getRun` reads the phone's own cache and never throws offline, since the route has to be usable with no signal by design; writes (`acknowledgePlan`, `startRoute`, `recordArrival`, `recordOutcome`) update that same cache at once, so the screen reflects them immediately, and queue an outbox record (`driver.ack`, `driver.startRoute`, `driver.arrival`, `driver.outcome`) that the shared sync engine sends once it can. The mock server simply accepts everything in this prompt; driver prompt 4 adds the conflict rule.
+`getRun` reads the phone's own cache and never throws offline, since the route has to be usable with no signal by design; writes (`acknowledgePlan`, `startRoute`, `recordArrival`, `recordOutcome`) update that same cache at once, so the screen reflects them immediately, and queue an outbox record (`driver.ack`, `driver.startRoute`, `driver.arrival`, `driver.outcome`) that the shared sync engine sends once it can. The mock server applies the v5 conflict rule from driver prompt 4 (see "Sync result and the conflict").
 
-Known gap: records already waiting when the app opens online are sent by the 30 s timer or the next `online` event, not at once. Nothing is lost, but a reload leaves them for up to 30 s. Whether opening the app should sync at once is a call for the team; it would also change the walkthrough's offline reloads, which load a page online for a moment.
+**Known gap, a team call:** records already waiting when the app opens online are sent by the 30 s timer or the next `online` event, not at once. Nothing is lost, but a reload leaves them for up to 30 s. Syncing at start would be friendlier on a phone, but it would also change the hero walkthrough's offline reloads, which load a page online for a moment, so it is left as is until the team decides.
 
 ### The Outbox (driver prompt 4, O2)
 
@@ -905,7 +913,7 @@ A stop's photo and signature belong to its first record and upload only after th
 A failed upload never fails its record. The record reads Synced, the photo stays on the phone, and the phone retries it every 30 s (or at once on Retry or Try again).
 
 - **R8.2, the alert on the run.** "Couldn't send photo of stop 1. Kept on phone." with Retry. The alert text opens R8.3; Retry sends now. The progress pill reads "1 on phone", and the stop reads "Delivered 05:42 · photo still on phone" with a "Photo on phone" pill. The alert takes the bar's slot ahead of the under-review notice, since it is the one the driver can act on; the stop's own pill still shows a stop under review.
-- **R8.3, the detail** (`sync/PhotoFailureScreen.tsx`, route `/driver/notifications/photo/:blobId`): what failed, what is safe, when it was taken, the last try, when the delivery record synced, and the reference WP-SYNC-409. Try again sends now; View outbox opens the sheet, whose bar reads "1 photo didn't send. Retrying automatically every 30 s." When the photo gets through the driver is taken back to the run and the alert is gone. The notifications list (O5) will link its "Sync failed" entry to the same route.
+- **R8.3, the detail** (`sync/PhotoFailureScreen.tsx`, route `/driver/notifications/photo/:blobId`): what failed, what is safe, when it was taken, the last try, when the delivery record synced, and the reference WP-SYNC-409. Try again sends now; View outbox opens the sheet, whose bar reads "1 photo didn't send. Retrying automatically every 30 s." When the photo gets through the driver is taken back to the run and the alert is gone. The notifications list links its "Sync failed" entry to the same route.
 - **One notice per photo.** The phone retries every 30 s, so the "Sync failed" notice is kept once per photo with the time of the latest try, and names the real stop from the photo's record (it used to say stop 1 for every photo).
 - **A failed photo is not a failed sync.** The R5.S 2 "Sync failed" screen is for records that did not send; a photo that will not send is the run's alert, and R5.1 still shows the records that got through.
 
@@ -917,6 +925,20 @@ R8.1 (`notices/NotificationsScreen.tsx`, route `/driver/notifications`) lists on
 - **Opening one** marks it read and leads where the navigation map says: resolved to R5.3, sent for review to R5.1, sync failed to R8.3, records synced to the Outbox. Plan and load entries are information only. "Mark all read" clears the count and the bell badge.
 - **Born read:** the plan release and the load confirmation are things the server told the phone before the day began, so they arrive read; the bell counts what needs a look. The same goes for "You went offline".
 - **A batch, not every record:** "N records synced" appears when two or more arrivals or deliveries go out together. One record sent from the road a moment after it is saved raises nothing.
+
+### Real devices, the service worker and the iOS note (driver prompt 4, O6)
+
+- **Offline after one visit.** The production build registers a service worker (`vite-plugin-pwa`). `npm run test:offline` checks it: after one visit it sets the browser offline, reloads, and checks that the cached run is on screen, that a departure recorded offline survives a reload, and that the Me tab shows storage used. This passes on desktop Chromium.
+- **Storage.** `startFieldRuntime` asks `navigator.storage.persist()` at first run; the browser decides, and desktop Chromium usually says no for a new origin. The Me tab shows "N MB used" from `navigator.storage.estimate()`.
+- **iOS has no Background Sync API.** Safari on iPhone will not wake the app to send records. Syncing happens only while the app is open: on the `online` event, on the 30 s timer, and on "Send now". A driver who records a stop in a dead zone and closes the app sends nothing until the app is opened again with coverage. The app does not register a background sync on Android either, so it behaves the same way there.
+- **The physical-phone check has not been done.** It needs a person with a phone. Checklist, on a production build served over HTTPS (`npm run build`, then any HTTPS host):
+  1. Android (Chrome) and iPhone (Safari): open the app once with coverage, then Add to Home Screen and open it from the icon.
+  2. Acknowledge plan v4 and start the route, with coverage.
+  3. Turn airplane mode on at "05:17" (or turn on Simulate offline in the Outbox).
+  4. Record the whole of stop 1 with a real photo from the real camera, a receiver name and Delivered for both orders, then stop 2.
+  5. Kill the app from the app switcher. Reopen it with airplane mode still on: the run, the five waiting records and the Outbox must all be there.
+  6. Turn airplane mode off. Open the app and press "Send now" if nothing moves within 30 s. Watch R4.2, then R5.1.
+  7. Note anything that differs: the camera permission prompt, the keyboard covering the receiver name, the bars sitting under the browser chrome, the storage reading on the Me tab.
 
 ### Camera, signature and receiver name
 
@@ -938,7 +960,7 @@ Driver prompt 4 (`claude/field-build/04-driver-offline.md`):
 - [x] O3 R5 Sync result (R5.1 to R5.3, R5.S 1 to 4), R1.7 and R1.8 on real data, the 30 s conflict poll
 - [x] O4 photo upload after records (attached before queueing, in capture order), R8.2 and R8.3 failure branch with retry
 - [x] O5 R8 Notifications list (R8.1), empty (R8.4), the bell count, mark read
-- [ ] O6 gallery, compare, remaining tests, real-device check
+- [x] O6 gallery, compare, remaining tests, the offline production-build check, README. The physical-phone check is written down above and still needs a person with a phone
 
 ### Departures from the Designathon design
 
@@ -965,13 +987,20 @@ Figma wins on UI and copy (field conventions section 2); where it was silent or 
 - **Camera and Receiver name drop the tab bar; Signature keeps it**, matching what each frame actually draws (R3.2, R3.3 omit it; R3.11 does not).
 - **The Prototype row stays on the live Outbox in every state.** R4.2 and R4.3 draw the sheet without it, but it is the only way to turn Simulate offline on while online, so the app always shows it. Their gallery frames pass `showSimulate: false` so they still match Figma.
 - **"Send now" is pressable offline.** Figma draws it enabled on R4.1 (offline), and the prompt says it is only possible online; it stays enabled and does nothing until coverage returns, rather than greying out a button the frame shows live.
+- **No prototype timers.** Figma's "Times out to" links (R4.2 to R5.1 after 2.5 s, R1.7 to R5.3 after 5 s, R8.2 to R5.3 after 5 s, R5.S 4 to R5.2, R1.3 B to R1.4, R1.5 to R1.6) are not built as timers. Each screen follows the data instead: R5.1 opens when a catch-up sync finishes, R5.3 when Dispatch's decision reaches the phone, and R8.2 stays until the photo sends.
+- **R1.3 A, R1.3 B and R1.4 were compared in O6 and are not pixel-matched.** Their copy and order match, but Figma draws the plan card with a bold title and a smaller button, the loader line as a green card with a check (R1.3 B, R1.4) or as a clock line above an amber Start route (R1.3 A), amber "Will wait" tags and, on R1.4, Navigate after the tags. The build keeps the shared Card, Button and Tag components from the foundation as they are. Left as a departure rather than reworked at the end of the build.
+- **The run's progress bar is teal and plain,** where Figma draws amber segments and, on R1.5, an "All synced" pill (see also the "All synced" line above).
+- **Icons fixed in O6:** Arrive has the map-pin, Problem the alert triangle, and the Issues tab the alert circle, as drawn. The Issues tab's red count badge (R3.5 C) is not built, since Issues is prompt 5.
+- **Behind the R4 sheet** Figma draws the run's subtitle as "2 of 2 stops done · Kandy" and a collapsed stop card; the build's dimmed run reads "All recorded · Plan v4" with the real cards. Both are behind the scrim.
+- **Mono text is regular weight where Figma draws Medium** (IBM Plex Mono is loaded in regular only).
+- **The live app now fills the screen** (`DriverShell`: `height: 100dvh` outside the gallery), so a long screen such as R5.1 scrolls inside the main area and the pinned bar and tab bar stay at the bottom. Gallery frames keep a minimum height so a tall frame grows, as the compare script expects.
 - **The chip says "Synced HH:MM" after a catch-up with news, and "Online" otherwise.** R1.7, R1.8, R4.3 1, R4.3 3, R5.1 and R5.3 draw "Synced" with a time; R5.2 and R5.S 3 draw "Online". The build shows "Synced" with the last sync time on the run, R5.1 and R5.3 while a stop is under review or resolved, and "Online" everywhere else once departed. The Figma frames do not state a rule, so this is inferred.
 - **Syncing and Failed are the plain muted outline on the phone chip,** as R5.S 2 and R5.S 4 draw them, not amber or red. The loader's tablet chip is unchanged.
 
 ### Shared files this role has changed
 
 - `frontend/src/domain/field.ts`: `Stop` gains optional `parkingNote` and `unloadMinutes` (additive; R1 and R2's "Rear dock, normal parking. Allow about 15 min to unload.").
-- `frontend/package.json`: one new script, `test:hero`. No dependency or version change.
+- `frontend/package.json`: two new scripts, `test:hero` and `test:offline`. No dependency or version change.
 - `frontend/src/field/components/BottomSheet`: a `flush` variant (full-bleed body, 40 px grabber) and a `headerAside` slot, a z-index so the sheet and scrim sit above the shell's bars, a plain scrim in the non-modal gallery case (Radix draws none), and the flush sheet opens focused on itself. Existing sheets are unchanged.
 - `frontend/src/field/components/ConnectivityChip`: `progress` ("3 / 5") and a `retrying` status ("Retrying 1"). Additive.
 - `frontend/src/field/offline/blobs.ts` and `db.ts`: `useBlobs()` (null until the first read) and `lastAttemptAt` on a blob, for "Last try". Additive.
@@ -982,14 +1011,14 @@ Figma wins on UI and copy (field conventions section 2); where it was silent or 
 - `frontend/src/field/offline/sync.ts`: a call that joins a run already in flight now makes the run go round once more when it finishes. A record saved while a run was sending was never in that run's list and waited for the 30 s timer, which left "Departed" unsent in the hero walkthrough about one run in three. One new unit test.
 - `frontend/src/field/offline/sync.ts`: `requeueInterrupted()`, called when the engine starts. A record left `sending` by a reload or a killed app was never retried; it now goes back to `waiting` and is sent (the server answers `duplicate` if the first send landed). One new unit test.
 
-### Checks run (D5)
+### Checks run (D5 and O6)
 
-- `npm run typecheck`, `npm run lint` and `npm run build` are clean on every commit.
-- Every registered gallery frame (1 × R1.1 to R1.S, 9 × R2, 13 × R3) was read by hand against the Figma file's own text (the read-only `use_figma` dump script, field conventions section 3) and matches, including the exact wording of every banner, stat tile and pinned-bar helper.
-- Eight frames across R1, R2 and R3 (R1.1, R1.5, R1.6, R2.1, R2.2 B, R3.1, R3.5 B, R3.9) were pixel-compared against real Figma screenshots with `npm run compare`. Three real mismatches turned up and were fixed: the connectivity chip and the bell were in the wrong order, "Departed" was a plain label instead of the shared status pill (and was stretching full width before `align-self: flex-start`), and the chosen outcome chip had no check mark. The remaining frames were not pixel-compared, only text-verified as above.
-- The hero path (PRD H5 to H14) was played twice: once by hand in a real browser, and once as `npm run test:hero` (`scripts/driver-hero-walkthrough.ts`), 18 checks, all green, including a genuine `context.setOffline(true)` disconnect at 05:17 on top of the scripted Kandy gate.
-- The sunlight switch, text size and language settings were checked for persistence across a reload.
-- Not done, and worth knowing before the judge walkthrough: the live camera viewfinder has only been exercised via the file-input fallback (no camera in headless Chromium or in this session's environment), not on a physical phone over `npm run dev:https`; and R1.7/R1.8 have no live trigger, only the gallery layout.
+- `npm run typecheck`, `npm run lint` and `npm run build` are clean on every commit. `npm test`: 55 tests in 6 files (the conflict rule, grouping by stop, duplicates, the counts on R5 equal the outbox, a photo failure keeps its record Synced, resolution and partial resolution, notices, the outbox mode precedence, the requeue and rerun engine fixes).
+- `npm run test:hero` plays 04:45 to 06:46 at 390 x 844 and passes with 64 checks (10 of 10 runs earlier in O6, plus the runs after the final changes): the offline spell, the five waiting records, the 06:40 reconnect, R5.1, the WP-SYNC-409 photo failure and its recovery, R1.7, the 06:44 resolution, R5.3, R1.8 and R8.1. `-- --partial` ends with the presenter's partial resolution instead and passes with 63. The photo failure is one section of the hero script, not a second script: it needs the same 05:42 record and the same 06:40 sync, so splitting it would only repeat them.
+- `npm run test:offline` passes against the production build (service worker, cached run, a record saved offline survives a reload, storage on the Me tab).
+- Pixel-compared with `npm run compare` against Figma screenshots: R1.1, R1.3 A, R1.3 B, R1.4, R1.5, R1.6, R1.7, R1.8, R2.1, R2.2 B, R2.S 1, R3.1, R3.5 B, R3.5 C, R3.7, R3.9, R3.10, R4.1, R4.2, R4.3 1 to 3, R5.1 to R5.3, R5.S 1 to 4 and R8.1 to R8.4. R4, R5 and R8 match apart from the accepted items above; R1.3 A, R1.3 B, R1.4, R1.5, R1.6, R3.5 C and R3.7 differ as listed under the departures. The other R2 and R3 frames were text-verified in D5, not pixel-compared again.
+- Earlier, in D5: every registered R1 to R3 frame was read against the Figma file's own text; the sunlight switch, text size and language settings were checked for persistence across a reload.
+- **Not done:** the physical-phone check (see "Real devices"); the live camera viewfinder has only run through the file-input fallback; no vitest covers `useSyncWatcher` itself (there is no React testing library in the project), and the hero script is what shows R5.3 queued once.
 
 ---
 
