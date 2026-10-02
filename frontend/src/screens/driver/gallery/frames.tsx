@@ -6,6 +6,7 @@ import { MeScreen } from "../me/MeScreen";
 import { OutcomeScreen } from "../outcome/OutcomeScreen";
 import { RunScreen } from "../run/RunScreen";
 import { StopScreen } from "../stop/StopScreen";
+import { SyncResultScreen, type SyncResultScreenProps } from "../sync/SyncResultScreen";
 import { fakeConnectivity } from "./fakeConnectivity";
 import { renderDriverFrame } from "./renderFrame";
 
@@ -26,6 +27,20 @@ const OUT084_OUTCOMES = {
   ORD2002: { orderId: "ORD2002", outcome: "Delivered" as const, unitsDelivered: 8, receiverName: "S. Fernando", savedAt: "05:42" },
 };
 
+
+const SYNCED_0641 = fakeConnectivity({ status: "online", lastSyncAt: Date.parse(`${HERO_DATE}T06:41:00+05:30`) });
+const SYNCED_0645 = fakeConnectivity({ status: "online", lastSyncAt: Date.parse(`${HERO_DATE}T06:45:00+05:30`) });
+
+/** The conflict Dispatch's plan v5 raised on OUT084 when the sync ran at 06:41, as the mock server builds it. */
+const HERO_CONFLICT = {
+  conflictId: "gallery-conflict",
+  serverVersion: 5,
+  change: "Deferred · store request, 05:21, by Kumari",
+  changedAt: "05:21",
+  changedBy: "Kumari",
+  at: "06:41",
+};
+const HERO_RESOLUTION = { decision: "keep_delivery" as const, by: "Kumari", at: "06:44" };
 
 /** The hero run's six outbox rows (R4), each in the state a frame draws it in. */
 function heroRows(states: Partial<Record<"arrival084" | "ord2001" | "ord2002" | "arrival087" | "ord2003", OutboxRowState>> = {}): OutboxRow[] {
@@ -110,6 +125,91 @@ const OUTBOX_FRAMES: GalleryFrame[] = [
     "06:45",
     fakeConnectivity({ status: "online", lastSyncAt: Date.parse(`${HERO_DATE}T06:45:00+05:30`) }),
     { rows: heroRows({ arrival084: "synced", ord2001: "synced", ord2002: "synced", arrival087: "synced", ord2003: "synced" }), showSimulate: false },
+  ),
+];
+
+/** The six R5 states use the run's five records (the departure left before coverage dropped, so R5 does not list it). */
+function syncRows(states: Parameters<typeof heroRows>[0] = {}): OutboxRow[] {
+  return heroRows(states).filter((row) => row.kind !== "departed");
+}
+
+function syncFrame(
+  frameId: string,
+  figmaNodeId: string,
+  name: string,
+  time: string,
+  connectivity: ReturnType<typeof fakeConnectivity>,
+  props: SyncResultScreenProps,
+  seed: Record<string, unknown> = {},
+): GalleryFrame {
+  return {
+    frameId,
+    figmaNodeId,
+    name,
+    width: 390,
+    height: 844,
+    clock: { date: HERO_DATE, time },
+    render: () =>
+      renderDriverFrame(<SyncResultScreen connectivityOverride={connectivity} {...props} />, {
+        theme: "dark",
+        apiOptions: { seed: { ...ALL_RECORDED_SEED, knownServerVersion: 5, ...seed } },
+      }),
+  };
+}
+
+const SYNCED_0640 = fakeConnectivity({ status: "online", lastSyncAt: Date.parse(`${HERO_DATE}T06:40:00+05:30`) });
+
+const SYNC_FRAMES: GalleryFrame[] = [
+  syncFrame(
+    "R5.1",
+    "442:59014",
+    "R5.1 · 06:40 · Sync result, conflict sent to Dispatch",
+    "06:40",
+    SYNCED_0640,
+    { viewOverride: { kind: "conflict", outletId: "OUT084" }, rowsOverride: syncRows({ arrival084: "synced", ord2001: "review", ord2002: "review", arrival087: "synced", ord2003: "synced" }) },
+    { conflicts: { OUT084: HERO_CONFLICT } },
+  ),
+  syncFrame(
+    "R5.2",
+    "442:59107",
+    "R5.2 · 06:45 · Sync result, all synced",
+    "06:45",
+    ONLINE,
+    { viewOverride: { kind: "synced" }, rowsOverride: syncRows({ arrival084: "synced", ord2001: "synced", ord2002: "synced", arrival087: "synced", ord2003: "synced" }) },
+  ),
+  syncFrame(
+    "R5.3",
+    "442:59186",
+    "R5.3 · 06:44 · Sync result, resolved",
+    "06:44",
+    fakeConnectivity({ status: "online", lastSyncAt: Date.parse(`${HERO_DATE}T06:44:00+05:30`) }),
+    { viewOverride: { kind: "resolved", outletId: "OUT084" } },
+    { resolutions: { OUT084: HERO_RESOLUTION } },
+  ),
+  syncFrame(
+    "R5.S-1",
+    "442:59254",
+    "R5.S · 1 · 06:41 · Offline again",
+    "06:41",
+    fakeConnectivity({ status: "offline", waitingCount: 2, lastSyncAt: Date.parse(`${HERO_DATE}T06:40:00+05:30`) }),
+    { viewOverride: { kind: "conflict" } },
+  ),
+  syncFrame(
+    "R5.S-2",
+    "442:59307",
+    "R5.S · 2 · 06:42 · Error, sync failed",
+    "06:42",
+    fakeConnectivity({ status: "failed", waitingCount: 1, lastFailureAt: Date.parse(`${HERO_DATE}T06:42:00+05:30`) }),
+    { viewOverride: { kind: "conflict" } },
+  ),
+  syncFrame("R5.S-3", "442:59366", "R5.S · 3 · Empty, nothing to sync", "06:50", ONLINE, { viewOverride: { kind: "empty" } }),
+  syncFrame(
+    "R5.S-4",
+    "442:59413",
+    "R5.S · 4 · Loading",
+    "06:42",
+    fakeConnectivity({ status: "syncing", waitingCount: 3 }),
+    { viewOverride: { kind: "conflict" } },
   ),
 ];
 
@@ -254,57 +354,28 @@ export const DRIVER_FRAMES: GalleryFrame[] = [
   {
     frameId: "R1.7",
     figmaNodeId: "442:56405",
-    name: "R1.7 · Under review (after sync) — layout only, driver prompt 4 supplies the data",
+    name: "R1.7 · 06:41 · Under review (after sync)",
     width: 390,
     height: 844,
     clock: { date: HERO_DATE, time: "06:41" },
     render: () =>
-      renderDriverFrame(
-        <RunScreen
-          connectivityOverride={ONLINE}
-          reviewNotice={{ body: "Dispatch is reviewing your delivery at OUT084. Nothing for you to do.", action: "View" }}
-        />,
-        {
-          theme: "dark",
-          apiOptions: {
-            seed: {
-              downloadedVersion: 4,
-              acknowledgedVersion: 4,
-              departedAt: "05:10",
-              stops: {
-                OUT084: { arrivalAt: "05:26", outcomes: OUT084_OUTCOMES },
-                OUT087: { arrivalAt: "05:48", outcomes: { ORD2003: { orderId: "ORD2003", outcome: "Delivered", unitsDelivered: 9, savedAt: "05:58" } } },
-              },
-            },
-          },
-        },
-      ),
+      renderDriverFrame(<RunScreen connectivityOverride={SYNCED_0641} forceJustSaved={false} />, {
+        theme: "dark",
+        apiOptions: { seed: { ...ALL_RECORDED_SEED, knownServerVersion: 5, conflicts: { OUT084: HERO_CONFLICT } } },
+      }),
   },
   {
     frameId: "R1.8",
     figmaNodeId: "442:56492",
-    name: "R1.8 · Resolved notice — layout only, driver prompt 4 supplies the data",
+    name: "R1.8 · 06:45 · Resolved notice",
     width: 390,
     height: 844,
     clock: { date: HERO_DATE, time: "06:45" },
     render: () =>
-      renderDriverFrame(
-        <RunScreen connectivityOverride={ONLINE} reviewNotice={{ body: "OUT084 - resolved: delivered. Kumari kept your delivery at 06:44." }} />,
-        {
-          theme: "dark",
-          apiOptions: {
-            seed: {
-              downloadedVersion: 4,
-              acknowledgedVersion: 4,
-              departedAt: "05:10",
-              stops: {
-                OUT084: { arrivalAt: "05:26", outcomes: OUT084_OUTCOMES },
-                OUT087: { arrivalAt: "05:48", outcomes: { ORD2003: { orderId: "ORD2003", outcome: "Delivered", unitsDelivered: 9, savedAt: "05:58" } } },
-              },
-            },
-          },
-        },
-      ),
+      renderDriverFrame(<RunScreen connectivityOverride={SYNCED_0645} forceJustSaved={false} />, {
+        theme: "dark",
+        apiOptions: { seed: { ...ALL_RECORDED_SEED, knownServerVersion: 5, resolutions: { OUT084: HERO_RESOLUTION } } },
+      }),
   },
   {
     frameId: "R2.1",
@@ -728,4 +799,5 @@ export const DRIVER_FRAMES: GalleryFrame[] = [
       ),
   },
   ...OUTBOX_FRAMES,
+  ...SYNC_FRAMES,
 ];

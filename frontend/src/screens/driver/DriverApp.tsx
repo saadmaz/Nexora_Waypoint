@@ -12,6 +12,7 @@ import { MeScreen } from "./me/MeScreen";
 import { RunScreen } from "./run/RunScreen";
 import { OutcomeScreen } from "./outcome/OutcomeScreen";
 import { StopScreen } from "./stop/StopScreen";
+import { SyncResultScreen } from "./sync/SyncResultScreen";
 
 /** Where the driver's clock starts without `?at=`: the first frame, R1.3 A at 04:45 on the hero day. */
 const DRIVER_START = { date: HERO_DATE, time: "04:45" };
@@ -53,6 +54,7 @@ function DriverRoutes() {
     <Routes>
       <Route index element={<Navigate to="run" replace />} />
       <Route path="run" element={<RunScreen />} />
+      <Route path="sync-result" element={<SyncResultScreen />} />
       <Route path="stops/:stopId" element={<StopScreen />} />
       <Route path="stops/:stopId/outcome" element={<OutcomeScreen />} />
       <Route

@@ -1,102 +1,5 @@
 /* R4 Outbox (Figma 442:58541 to 442:58955). The sheet itself is the flush BottomSheet. */
 
-.bar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  min-height: 48px;
-  padding: var(--space-3) var(--gutter-phone);
-  font: var(--text-body);
-  color: var(--ink);
-}
-
-.barIcon,
-.spin {
-  display: inline-flex;
-  flex: 0 0 20px;
-}
-
-.spin {
-  animation: spin 1s linear infinite;
-}
-
-.barText {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.barAside {
-  flex: 0 0 auto;
-  font: var(--text-caption);
-  white-space: nowrap;
-}
-
-/* Offline sits on chrome with an amber icon in every theme, like the run's banner. */
-.bar_offline {
-  background: var(--chrome);
-  color: var(--on-chrome);
-}
-
-.bar_offline .barIcon {
-  color: var(--signal);
-}
-
-.bar_offline .barAside {
-  color: var(--on-chrome-muted);
-}
-
-.bar_syncing {
-  background: var(--route-soft);
-}
-
-.bar_syncing .spin {
-  color: var(--route);
-}
-
-.bar_syncing .barAside {
-  color: var(--ink-muted);
-}
-
-.bar_failed {
-  background: var(--danger-soft);
-}
-
-.bar_failed .barIcon {
-  color: var(--danger);
-}
-
-.bar_review {
-  background: var(--signal-soft);
-}
-
-.bar_review .barIcon {
-  color: var(--signal);
-}
-
-.bar_synced {
-  background: var(--success-soft);
-}
-
-.bar_synced .barIcon {
-  color: var(--success);
-}
-
-.retry {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  height: 44px;
-  padding: 0 12px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-md);
-  background: var(--surface-1);
-  color: var(--ink);
-  font: var(--text-pill);
-  cursor: pointer;
-}
-
 .summary {
   margin: 0;
   padding: var(--space-3) var(--gutter-phone);
@@ -158,43 +61,6 @@
 .note {
   font: var(--text-caption);
   color: var(--ink-muted);
-}
-
-.pill {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 4px;
-  height: 28px;
-  padding: 0 10px;
-  border-radius: var(--radius-pill);
-  font: var(--text-pill);
-  white-space: nowrap;
-}
-
-.pillSaved {
-  background: var(--offline-soft);
-  color: var(--offline);
-}
-
-.pillSending {
-  background: var(--route-soft);
-  color: var(--route);
-}
-
-.pillSynced {
-  background: var(--success-soft);
-  color: var(--success);
-}
-
-.pillReview {
-  background: var(--signal-soft);
-  border: 1.5px solid var(--signal);
-  color: var(--ink);
-}
-
-.pillReview svg {
-  color: var(--signal);
 }
 
 .empty {
@@ -318,16 +184,4 @@
   border: 0;
   background: var(--route);
   color: var(--on-route);
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .spin {
-    animation: none;
-  }
 }

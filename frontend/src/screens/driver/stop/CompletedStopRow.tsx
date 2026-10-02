@@ -1,3 +1,5 @@
+import { Icon } from "../../../shared/ui/Icon";
+import { RecordPill } from "../outbox/RecordPill";
 import { Mono } from "../../../shared/ui/Mono";
 import { Tag } from "../../../shared/ui/Tag";
 import { useT } from "../context/DriverContext";
@@ -8,12 +10,16 @@ import styles from "./CompletedStopRow.module.css";
 export type CompletedStopRowProps = {
   stop: DriverStop;
   /** Mid-run (R3.5 C, R3.7): "moved to trip history" plus "saved on phone, syncs later" or the
-   * issue line. All-recorded (R3.9, R3.10): the outlet name plus "signed {name}" and a tag. */
-  variant: "midRun" | "allDone";
+   * issue line. Synced: the all-recorded card (R3.9, R3.10, R1.7, R1.8). */
+  variant: "midRun" | "synced";
+  /** The synced row is a button: it opens the trip history entry (prompt 5; a hook for now). */
+  onOpen?: () => void;
+  /** The "synced" row while the stop's records still wait on the phone (R3.9, R3.10): cloud icon and a Saved on phone pill. */
+  waiting?: boolean;
 };
 
 /** A done stop's row on the Run screen: the same summary, worded for the moment it is shown. */
-export function CompletedStopRow({ stop, variant }: CompletedStopRowProps) {
+export function CompletedStopRow({ stop, variant, onOpen, waiting }: CompletedStopRowProps) {
   const t = useT();
   const summary = summarizeStopOutcome(stop);
   if (!summary) return null;
@@ -34,21 +40,40 @@ export function CompletedStopRow({ stop, variant }: CompletedStopRowProps) {
     );
   }
 
-  return (
-    <div className={styles.row}>
-      <div>
-        <p className={styles.title}>
-          <Mono>{stop.outletId}</Mono> · {stop.outletName}
-        </p>
-        <p className={styles.meta}>
-          {summary.receiverName
-            ? t("outcome.deliveredSignedBy", { outcome: summary.outcome, time: summary.savedAt, name: summary.receiverName })
-            : `${summary.outcome} ${summary.savedAt}`}
-        </p>
-      </div>
-      <Tag kind="success" icon="check">
-        {t("stop.savedOnPhone")}
-      </Tag>
-    </div>
-  );
+  if (variant === "synced") {
+    // R1.7 and R1.8: after the sync each stop reads as what happened to it, with a way into history.
+    const underReview = Boolean(stop.conflict && !stop.resolution);
+    const partial = stop.resolution?.decision === "keep_partial";
+    return (
+      <button type="button" className={[styles.row, styles.syncedRow].join(" ")} onClick={onOpen}>
+        <span className={waiting ? styles.syncedCloud : styles.syncedCheck}>
+          <Icon name={waiting ? "cloud" : "check"} size={20} />
+        </span>
+        <span className={styles.syncedStack}>
+          <span className={styles.syncedTitle}>
+            <Mono>{stop.outletId}</Mono> · {stop.outletName}
+          </span>
+          <span className={styles.meta}>
+            {summary.receiverName
+              ? t("outcome.deliveredSignedBy", { outcome: summary.outcome, time: summary.savedAt, name: summary.receiverName })
+              : `${summary.outcome} ${summary.savedAt}`}
+          </span>
+          {waiting ? (
+            <RecordPill state="saved" />
+          ) : underReview ? (
+            <Tag kind="review" icon="alert-triangle">
+              {t("outbox.stateReview")}
+            </Tag>
+          ) : (
+            <Tag kind={summary.isIssue ? "danger" : "success"} icon="check">
+              {partial ? t("sync.pillPartial") : summary.outcome}
+            </Tag>
+          )}
+        </span>
+        <Icon name="chevron-right" size={20} />
+      </button>
+    );
+  }
+
+  return null;
 }

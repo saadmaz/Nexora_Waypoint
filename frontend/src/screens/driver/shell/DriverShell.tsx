@@ -4,12 +4,14 @@ import { formatTime } from "../../../field/clock/clock";
 import { useFieldClock, useNow } from "../../../field/clock/useClock";
 import { ConnectivityChip, FieldTabBar, FieldTopBar, NotificationBell, type ChipStatus, type FieldTab } from "../../../field/components";
 import { connectivity as connectivityStore, useConnectivity, type ConnectivitySnapshot } from "../../../field/offline";
-import { useCoverageGap, useDriverSettings, useT } from "../context/DriverContext";
+import { useCoverageGap, useDriverSettings, useOutboxOpen, useT } from "../context/DriverContext";
 import { RUN_DATE } from "../fixtures";
 import { resolveConflictNow, setFailNextUpload } from "../api/mockDriverApi";
 import { OutboxSheet, type OutboxProgress, type OutboxPrototypeControls } from "../outbox/OutboxSheet";
 import type { OutboxRow } from "../outbox/outboxModel";
 import { useOutboxView } from "../outbox/useOutboxView";
+import { useSyncViewRedirect } from "../sync/useSyncViewRedirect";
+import { useSyncWatcher } from "../sync/useSyncWatcher";
 import styles from "./DriverShell.module.css";
 
 type DriverTabKey = "run" | "issues" | "history" | "me";
@@ -44,6 +46,8 @@ export type DriverShellProps = {
    * of reading the live singleton. The single-frame `?frame=` view (what the compare script shoots)
    * is unaffected either way. */
   connectivityOverride?: ConnectivitySnapshot;
+  /** Sets the chip outright, for the result screens that say "Synced 06:40" or "Failed 06:42". */
+  chip?: { status: ChipStatus; time?: string };
   /** The state gallery only: the Outbox rows and progress for a frame, in place of the phone's own
    * outbox, and whether the sheet starts open (R4 frames draw it open over the run). */
   outboxPreview?: { rows: OutboxRow[]; progress?: OutboxProgress; showSimulate?: boolean; open?: boolean };
@@ -65,6 +69,7 @@ export function DriverShell({
   pinned,
   showTabBar = true,
   connectivityOverride,
+  chip,
   outboxPreview,
   children,
 }: DriverShellProps) {
@@ -76,8 +81,15 @@ export function DriverShell({
   const connectivity = connectivityOverride ?? liveConnectivity;
   const now = useNow();
   const clock = useFieldClock();
-  const [outboxOpen, setOutboxOpen] = useState(outboxPreview?.open ?? false);
+  const shared = useOutboxOpen();
+  const [previewOpen, setPreviewOpen] = useState(outboxPreview?.open ?? false);
+  const outboxOpen = outboxPreview ? previewOpen : shared.open;
+  const setOutboxOpen = outboxPreview ? setPreviewOpen : shared.setOpen;
   const view = useOutboxView(connectivity.status === "syncing");
+  useSyncWatcher(view.run);
+  // A finished sync shows once, on the Run screen or over an open Outbox, never while recording.
+  const recording = location.pathname.endsWith("/outcome");
+  useSyncViewRedirect(!outboxPreview && !recording && (outboxOpen || location.pathname === "/driver/run"), () => setOutboxOpen(false));
   const rows = outboxPreview?.rows ?? view.rows;
   const progress = outboxPreview ? outboxPreview.progress : view.progress;
   const coverageGap = useCoverageGap();
@@ -98,8 +110,9 @@ export function DriverShell({
       }
     : undefined;
 
-  const status = chipStatus(connectivity, preDeparture);
-  const chipTime = status === "synced" ? now : status === "failed" ? (connectivity.lastFailureAt ?? now) : undefined;
+  const status = chip?.status ?? chipStatus(connectivity, preDeparture);
+  const chipTime =
+    chip?.time ?? (status === "synced" ? formatTime(now) : status === "failed" ? formatTime(connectivity.lastFailureAt ?? now) : undefined);
 
   const activeTab: DriverTabKey = location.pathname.startsWith("/driver/issues")
     ? "issues"
@@ -122,7 +135,7 @@ export function DriverShell({
         <NotificationBell count={0} onClick={() => navigate("/driver/notifications")} />
         <ConnectivityChip
           status={status}
-          time={chipTime !== undefined ? formatTime(chipTime) : undefined}
+          time={chipTime}
           count={connectivity.waitingCount}
           progress={progress}
           onClick={() => setOutboxOpen(true)}

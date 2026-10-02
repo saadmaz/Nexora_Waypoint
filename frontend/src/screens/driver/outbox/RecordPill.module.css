@@ -1,0 +1,38 @@
+/* The 28 px record pill on the Outbox rows and the sync result lists. */
+
+.pill {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--radius-pill);
+  font: var(--text-pill);
+  white-space: nowrap;
+}
+
+.saved {
+  background: var(--offline-soft);
+  color: var(--offline);
+}
+
+.sending {
+  background: var(--route-soft);
+  color: var(--route);
+}
+
+.synced {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.review {
+  background: var(--signal-soft);
+  border: 1.5px solid var(--signal);
+  color: var(--ink);
+}
+
+.review svg {
+  color: var(--signal);
+}

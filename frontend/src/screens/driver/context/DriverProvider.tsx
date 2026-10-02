@@ -4,6 +4,7 @@ import { connectivity, getSetting, setSetting } from "../../../field/offline";
 import type { Theme } from "../../../shared/theme";
 import { createMockDriverApi, registerDeviceNoticeSync, registerDriverHandlers, type MockDriverApiOptions } from "../api/mockDriverApi";
 import { RUN_DATE } from "../fixtures";
+import { startSyncViewTracking } from "../sync/syncView";
 import type { DriverSettings, Language, TextSize } from "../types";
 import { DriverContext, type DriverContextValue } from "./DriverContext";
 
@@ -59,10 +60,17 @@ export function DriverProvider({ children, apiOptions, initialSettings }: Driver
 
   const [settings, setSettings] = useState<DriverSettings>({ ...DEFAULT_SETTINGS, ...initialSettings });
   const [coverageGapEnabled, setCoverageGapEnabledState] = useState(false);
+  const [outboxOpen, setOutboxOpen] = useState(false);
 
   useEffect(() => {
     registerDriverHandlers(clock.nowMs);
     registerDeviceNoticeSync(RUN_DATE, clock.nowMs);
+  }, [clock]);
+
+  useEffect(() => {
+    // The state gallery draws its own frames; only the real app watches for finished syncs.
+    if (clock.fixed) return;
+    return startSyncViewTracking();
   }, [clock]);
 
   useEffect(() => {
@@ -134,8 +142,8 @@ export function DriverProvider({ children, apiOptions, initialSettings }: Driver
   const theme: Theme = settings.sunlight ? "field" : preferredScheme;
 
   const value = useMemo<DriverContextValue>(
-    () => ({ api, settings, setSunlight, setTextSize, setLanguage, theme, coverageGapEnabled, setCoverageGapEnabled }),
-    [api, settings, setSunlight, setTextSize, setLanguage, theme, coverageGapEnabled, setCoverageGapEnabled],
+    () => ({ api, settings, setSunlight, setTextSize, setLanguage, theme, coverageGapEnabled, setCoverageGapEnabled, outboxOpen, setOutboxOpen }),
+    [api, settings, setSunlight, setTextSize, setLanguage, theme, coverageGapEnabled, setCoverageGapEnabled, outboxOpen],
   );
 
   return <DriverContext.Provider value={value}>{children}</DriverContext.Provider>;

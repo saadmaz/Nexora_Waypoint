@@ -1,22 +1,24 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { formatDate, formatTime } from "../../../field/clock/clock";
 import { useNow } from "../../../field/clock/useClock";
 import { DriverStopCard, OfflineBanner, PinnedActionBar } from "../../../field/components";
 import { useConnectivity, type ConnectivitySnapshot } from "../../../field/offline";
-import { Alert } from "../../../shared/ui/Alert";
 import { Button } from "../../../shared/ui/Button";
 import { Card } from "../../../shared/ui/Card";
 import { Icon } from "../../../shared/ui/Icon";
 import { Mono } from "../../../shared/ui/Mono";
+import { MonoText } from "../../../shared/ui/MonoText";
 import { LoadingSkeleton, StateScreen } from "../../../shared/ui/StateScreen";
 import { StatusPill } from "../../../shared/ui/StatusPill";
 import { Tag } from "../../../shared/ui/Tag";
-import { useDriverApi, useT } from "../context/DriverContext";
+import { useDriverApi, useOutboxOpen, useT } from "../context/DriverContext";
 import { useDriverRun } from "../context/useDriverRun";
 import { RUN_DATE } from "../fixtures";
 import { buildOfflineBanner } from "../offlineBanner";
 import { DriverShell, type DriverShellProps } from "../shell/DriverShell";
+import { RecordPill } from "../outbox/RecordPill";
+import { StatusBar, StatusBarButton } from "../outbox/StatusBar";
 import { CompletedStopRow } from "../stop/CompletedStopRow";
 import { StopOrdersSummary, StopSchedule } from "../stopComponents";
 import { isChilled, openMapsFor, primaryStopIndex, stopDone, stopPlace, willWaitMinutes } from "../stopFormat";
@@ -36,9 +38,6 @@ export type RunScreenProps = {
   /** The state gallery only: R3.9 (true, the just-saved toast) vs R3.10 (false, settled) when every
    * stop is already seeded done on mount, which the real app never does in one render. */
   forceJustSaved?: boolean;
-  /** The state gallery only: R1.7 and R1.8's review notice layout. The sync result that would
-   * really drive this is driver prompt 4's; there is no live trigger for it yet. */
-  reviewNotice?: { body: string; action?: string };
   /** The state gallery only; see `DriverShellProps.outboxPreview`. */
   outboxPreview?: DriverShellProps["outboxPreview"];
 };
@@ -48,14 +47,16 @@ export type RunScreenProps = {
  * comes from the run data, connectivity and the clock. Covers R1.1 to R1.6 and the merged
  * R1.3 B / R1.4 "ready to depart" view; R1.10 is this same screen in the Field theme.
  */
-export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadError, forceJustSaved, reviewNotice, outboxPreview }: RunScreenProps = {}) {
+export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadError, forceJustSaved, outboxPreview }: RunScreenProps = {}) {
   const t = useT();
   const api = useDriverApi();
   const navigate = useNavigate();
+  const location = useLocation();
   const liveConnectivity = useConnectivity();
   const connectivity = connectivityOverride ?? liveConnectivity;
   const now = useNow();
   const { run, refresh } = useDriverRun(RUN_DATE);
+  const outbox = useOutboxOpen();
 
   const [downloading, setDownloading] = useState(Boolean(forcedProgress));
   const [progress, setProgress] = useState(forcedProgress ?? { done: 0, total: 0 });
@@ -71,9 +72,19 @@ export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadE
   // one frame; `forceJustSaved` picks R3.9 (toast) or R3.10 (settled) for that case directly.
   const [justSaved, setJustSaved] = useState(forceJustSaved ?? false);
   const wasAllDone = useRef(forceJustSaved !== undefined ? allDone : false);
+  // "Saved on this phone" shows when the last outcome has just been saved: either it was saved on
+  // this screen's watch, or the outcome screen sent the driver here to say so. Opening the run
+  // later, or coming back from the sync result, finds the stops already done and says nothing.
+  const arrivedSaved = Boolean((location.state as { justSaved?: boolean } | null)?.justSaved);
+  const runSeen = useRef(false);
 
+  const hasRun = run !== null;
   useEffect(() => {
-    if (forceJustSaved !== undefined) return undefined;
+    if (forceJustSaved !== undefined || !hasRun) return undefined;
+    if (!runSeen.current) {
+      runSeen.current = true;
+      if (!arrivedSaved) wasAllDone.current = allDone;
+    }
     if (allDone && !wasAllDone.current) {
       wasAllDone.current = true;
       setJustSaved(true);
@@ -82,7 +93,7 @@ export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadE
     }
     if (!allDone) wasAllDone.current = false;
     return undefined;
-  }, [allDone, forceJustSaved]);
+  }, [allDone, forceJustSaved, hasRun, arrivedSaved]);
 
   async function handlePlanAction() {
     if (!run || version === undefined) return;
@@ -328,43 +339,74 @@ export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadE
   const primaryIndex = primaryStopIndex(run.stops);
 
   if (allDone) {
+    const openConflict = run.stops.find((stop) => stop.conflict && !stop.resolution);
+    const resolved = run.stops.filter((stop) => stop.resolution);
+    // Nothing left on the phone: R1.7 (a stop under review) and R1.8 (Dispatch decided), or the
+    // same screen with no notice once everything is plainly synced. While records still wait it is R3.9 / R3.10.
+    const synced = connectivity.waitingCount === 0 && connectivity.status !== "offline";
+    const hasNews = synced && (openConflict !== undefined || resolved.length > 0);
+    const lastResolved = resolved[resolved.length - 1];
+    const bar = openConflict ? (
+      <StatusBar tone="review" aside={<StatusBarButton onClick={() => outbox.setOpen(true)}>{t("action.view")}</StatusBarButton>}>
+        <MonoText>{t("run.reviewing", { outletId: openConflict.outletId })}</MonoText>
+      </StatusBar>
+    ) : lastResolved?.resolution ? (
+      <StatusBar tone="synced">
+        <MonoText>
+          {t(lastResolved.resolution.decision === "keep_partial" ? "run.resolvedPartialBar" : "run.resolvedBar", {
+            outletId: lastResolved.outletId,
+            by: lastResolved.resolution.by,
+            time: lastResolved.resolution.at,
+          })}
+        </MonoText>
+      </StatusBar>
+    ) : undefined;
+
     return (
       <DriverShell
         title={title}
         subtitle={`${t("run.allRecordedShort")} · ${t("run.planShort", { version: planVersion })}`}
-        banner={banner}
-        connectivityOverride={connectivityOverride} outboxPreview={outboxPreview}
+        banner={synced ? bar : banner}
+        chip={hasNews ? { status: "synced", time: formatTime(connectivity.lastSyncAt ?? now) } : undefined}
         pinned={
-          <PinnedActionBar helper={t("run.finishHelper")}>
-            <Button onClick={() => navigate("/driver/finish")}>{t("action.finishRun")}</Button>
+          <PinnedActionBar tone="plain" helperPosition="above" helper={synced ? t("run.finishHelperShort") : t("run.finishHelper")}>
+            <Button icon="flag" onClick={() => navigate("/driver/finish")}>
+              {t("action.finishRun")}
+            </Button>
           </PinnedActionBar>
         }
+        connectivityOverride={connectivityOverride}
+        outboxPreview={outboxPreview}
       >
-        <p className={styles.statusLine}>{t("run.stopsDone", { done: run.stops.length, total: run.stops.length })}</p>
+        <div className={styles.syncedProgress}>
+          <p className={styles.syncedCount}>{t("run.stopsDone", { done: run.stops.length, total: run.stops.length })}</p>
+          {synced ? (
+            <Tag kind="success" icon="check">
+              {t("run.allSynced")}
+            </Tag>
+          ) : (
+            <RecordPill state="saved" label={t("run.onPhone", { count: connectivity.waitingCount })} />
+          )}
+        </div>
+        <div className={styles.segments} aria-hidden>
+          {run.stops.map((stop) => (
+            <span key={stop.outletId} className={styles.segment} />
+          ))}
+        </div>
         <h2 className={styles.heading}>{t("run.allRecorded")}</h2>
-        <p className={styles.body}>{t("run.allRecordedBody")}</p>
+        <p className={styles.body}>{synced ? t("run.syncedBody") : t("run.allRecordedBody")}</p>
+        <p className={styles.captionLabel}>{t("run.inTripHistory")}</p>
+        <div className={styles.stopsList}>
+          {run.stops.map((stop) => (
+            <CompletedStopRow key={stop.outletId} stop={stop} variant="synced" waiting={!synced} onOpen={() => navigate("/driver/history")} />
+          ))}
+        </div>
         {justSaved && (
           <div className={styles.savedBanner}>
-            <Icon name="check" size={16} />
+            <Icon name="cloud" size={20} />
             {t("run.savedToast")}
           </div>
         )}
-        {reviewNotice && (
-          <Alert tone="conflict">
-            {reviewNotice.body}
-            {reviewNotice.action && (
-              <Button variant="ghost" size="medium" auto>
-                {reviewNotice.action}
-              </Button>
-            )}
-          </Alert>
-        )}
-        <p className={styles.caption}>{t("run.inTripHistory")}</p>
-        <div className={styles.stopsList}>
-          {run.stops.map((stop) => (
-            <CompletedStopRow key={stop.outletId} stop={stop} variant="allDone" />
-          ))}
-        </div>
       </DriverShell>
     );
   }

@@ -15,6 +15,9 @@ export type DriverContextValue = {
   /** The Kandy corridor coverage gap dev setting (driver prompt 4 section 4), off by default. */
   coverageGapEnabled: boolean;
   setCoverageGapEnabled: (enabled: boolean) => void;
+  /** The R4 Outbox sheet. Lifted here so "View" on R1.7 can open it from the run screen. */
+  outboxOpen: boolean;
+  setOutboxOpen: (open: boolean) => void;
 };
 
 export const DriverContext = createContext<DriverContextValue | undefined>(undefined);
@@ -37,6 +40,11 @@ export function useDriverSettings() {
 export function useCoverageGap(): { enabled: boolean; setEnabled: (enabled: boolean) => void } {
   const { coverageGapEnabled, setCoverageGapEnabled } = useDriverContext();
   return { enabled: coverageGapEnabled, setEnabled: setCoverageGapEnabled };
+}
+
+export function useOutboxOpen(): { open: boolean; setOpen: (open: boolean) => void } {
+  const { outboxOpen, setOutboxOpen } = useDriverContext();
+  return { open: outboxOpen, setOpen: setOutboxOpen };
 }
 
 /** Bound to the current language; falls back to English, then the key itself. */

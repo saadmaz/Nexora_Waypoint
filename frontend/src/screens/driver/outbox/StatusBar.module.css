@@ -1,0 +1,111 @@
+/* The coloured bar under a top bar or a sheet title: offline, sending, failed, sent for review, all synced.
+   Shared by the R4 Outbox, the R5 sync result and the R1.7 / R1.8 notices. */
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 48px;
+  padding: var(--space-3) var(--gutter-phone);
+  font: var(--text-body);
+  color: var(--ink);
+}
+
+.barIcon,
+.spin {
+  display: inline-flex;
+  flex: 0 0 20px;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+.barText {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.barAside {
+  flex: 0 0 auto;
+  font: var(--text-caption);
+  white-space: nowrap;
+}
+
+/* Offline sits on chrome with an amber icon in every theme, like the run's banner. */
+.bar_offline {
+  background: var(--chrome);
+  color: var(--on-chrome);
+}
+
+.bar_offline .barIcon {
+  color: var(--signal);
+}
+
+.bar_offline .barAside {
+  color: var(--on-chrome-muted);
+}
+
+.bar_syncing {
+  background: var(--route-soft);
+}
+
+.bar_syncing .spin {
+  color: var(--route);
+}
+
+.bar_syncing .barAside {
+  color: var(--ink-muted);
+}
+
+.bar_failed {
+  background: var(--danger-soft);
+}
+
+.bar_failed .barIcon {
+  color: var(--danger);
+}
+
+.bar_review {
+  background: var(--signal-soft);
+}
+
+.bar_review .barIcon {
+  color: var(--signal);
+}
+
+.bar_synced {
+  background: var(--success-soft);
+}
+
+.bar_synced .barIcon {
+  color: var(--success);
+}
+
+.action {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  color: var(--ink);
+  font: var(--text-pill);
+  cursor: pointer;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation: none;
+  }
+}

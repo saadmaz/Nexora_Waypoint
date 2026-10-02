@@ -118,6 +118,8 @@ function buildConflictDetail(nowMs: number): ConflictDetail {
     conflictId: crypto.randomUUID(),
     serverVersion: PLAN_V5.v,
     change: `Deferred · ${V5_DEFERRAL.type}, ${V5_DEFERRAL.at}, by ${V5_DEFERRAL.by}`,
+    changedAt: V5_DEFERRAL.at,
+    changedBy: V5_DEFERRAL.by,
     at: formatTime(nowMs),
   };
 }

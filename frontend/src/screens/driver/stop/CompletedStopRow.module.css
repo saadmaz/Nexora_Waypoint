@@ -23,3 +23,40 @@
   font: var(--text-body-sm);
   color: var(--ink-muted);
 }
+
+/* R1.7 and R1.8: a 64 px card with a green check, the outlet, the outcome and a status pill. */
+.syncedRow {
+  justify-content: flex-start;
+  min-height: 64px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+
+.syncedCheck {
+  display: inline-flex;
+  flex: 0 0 20px;
+  color: var(--success);
+}
+
+.syncedStack {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+
+.syncedTitle {
+  font: var(--text-button-md);
+  color: var(--ink);
+}
+
+.syncedCloud {
+  display: inline-flex;
+  flex: 0 0 20px;
+  color: var(--ink-muted);
+}

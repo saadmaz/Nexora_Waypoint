@@ -38,6 +38,10 @@ export type ConflictDetail = {
   serverVersion: number;
   /** "Deferred · store request, 05:21, by Kumari". */
   change: string;
+  /** "HH:MM", when Dispatch made the change the phone never received (05:21). */
+  changedAt: string;
+  /** Who made it ("Kumari"). */
+  changedBy: string;
   /** "HH:MM", device time the conflict was created (when the sync ran). */
   at: string;
 };

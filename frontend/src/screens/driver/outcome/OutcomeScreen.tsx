@@ -167,7 +167,7 @@ export function OutcomeScreen({ connectivityOverride, stopIdOverride, subviewOve
     } finally {
       setSaving(false);
     }
-    navigate("/driver/run");
+    navigate("/driver/run", { state: { justSaved: true } });
   }
 
   if (!run) {

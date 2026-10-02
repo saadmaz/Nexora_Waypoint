@@ -886,6 +886,16 @@ The connectivity chip on every driver screen opens the R4 Outbox sheet (`screens
 - **Presenter controls** appear in the sheet only under `?presenter=1`: the Kandy corridor coverage gap switch, "Fail next photo upload", and "Dispatch resolves now: Keep delivery" or "Keep as Partial (10 of 12)" while a conflict is open.
 - The chip gains two drawn variants: "3 / 5" while syncing, and "Retrying 1" while a failed record waits for its automatic retry.
 
+### Sync result and the conflict (driver prompt 4, O3)
+
+R5 (`screens/driver/sync/SyncResultScreen.tsx`, route `/driver/sync-result?view=conflict|synced|resolved`) says plainly how the run stands after a sync. It is one screen with seven frames: what went out and what went to Dispatch (R5.1), all synced (R5.2), Dispatch's decision (R5.3), and offline again, sync failed, nothing to sync and loading (R5.S). Every count is read from the same rows the Outbox shows (`outboxRows`), so the two cannot disagree. R5.1's two conflicting orders are one row, "Delivered ORD2001 + ORD2002", and the 05:21 and "store's request" wording comes from the conflict the mock server returned (`ConflictDetail.changedAt` and `changedBy`, added for this).
+
+**When it shows** (`sync/syncView.ts`). Only a catch-up run counts: the phone had been offline with records waiting, the run was not cut short, something went out, and nothing failed. A single record sent from the road a moment after it is saved is not a "sync result". The result is queued once and shown the next time the driver is on the Run screen, or over an open Outbox. The outcome screens never enable it, so it can never interrupt R3 while recording. It survives a reload while unseen, and so does "the phone was offline", so an app killed offline still tells the driver once it syncs. A resolution from Dispatch queues R5.3 once per stop.
+
+**While a conflict is open** and the phone is online, `useSyncWatcher` (mounted by the shell, so on every driver screen) asks `getNotices` every 30 s of scenario time and after every sync. When Dispatch's decision lands on a stop the run switches from R1.7 to R1.8 by itself and R5.3 shows once.
+
+**R1.7 and R1.8 are real.** The run screen's all-recorded layout reads the stops: a stop with an open conflict is "Sent for review" with the amber bar and View (which opens the Outbox on the conflict); a resolved stop reads Delivered, or Partial, with the green bar. While records still wait it is R3.9 and R3.10, the same layout with "5 on phone" and Saved on phone pills. `RunScreen`'s gallery-only `reviewNotice` prop is gone. Frames R1.7, R1.8 and R5.1 to R5.S 4 are in `/driver/_states` and were compared against Figma with `npm run compare`.
+
 ### Camera, signature and receiver name
 
 `CameraCapture` opens a real `getUserMedia({ video: { facingMode: "environment" } })` viewfinder with a shutter; if the camera is unavailable or permission is refused it falls back to `<input type="file" accept="image/*" capture="environment">`, per field conventions and PRD A58. Headless Chromium has no camera, so every photo in the gallery, the hero walkthrough and this PR's own testing went through the file-input fallback; the live viewfinder path has not been tried on a physical phone in this PR (do that over `npm run dev:https` before the judge walkthrough). Captured photos are compressed with the shared `compressImage` (JPEG, longest edge 1600 px, quality 0.7, PRD A57) and stored with `saveBlob`. `SignaturePad` is a pointer-events canvas saved as a PNG blob. `ReceiverNameForm` offers per-outlet recent-name chips from the fixtures.
@@ -903,7 +913,7 @@ Driver prompt 4 (`claude/field-build/04-driver-offline.md`):
 
 - [x] O1 mock server: plan v5, the conflict rule, grouping by stop, notices, the 06:44 resolution, dev controls, the coverage profile
 - [x] O2 R4 Outbox sheet, Simulate offline, Send now and Retry now (frames R4.1, R4.2, R4.3 1 to 3)
-- [ ] O3 R5 Sync result, R1.7 and R1.8 on real data
+- [x] O3 R5 Sync result (R5.1 to R5.3, R5.S 1 to 4), R1.7 and R1.8 on real data, the 30 s conflict poll
 - [ ] O4 photo upload after records, R8.2 and R8.3
 - [ ] O5 R8 Notifications
 - [ ] O6 gallery, compare, remaining tests, real-device check
@@ -920,12 +930,18 @@ Figma wins on UI and copy (field conventions section 2); where it was silent or 
 - **Call store has no action.** The dataset has no outlet phone numbers, and field conventions section 8 bars inventing one ("use Peliyagoda dispatch desk" is the pattern for a dispatch contact, not a store's). The button is drawn but does nothing yet.
 - **One shared Proof of delivery section, even in the per-order grid (R3.4).** Figma draws a single photo, receiver name and optional signature for the whole stop in every outcome layout, including when orders have different outcomes, so a Damaged order's "take a photo of the damage" instruction points at that same single capture rather than a second one.
 - **Other reuses the Refused pattern exactly** (reason chips, a name field, "Dispatch will decide"), as driver prompt 3 section 6 directs, since no frame draws it.
-- **R1.7 and R1.8 are gallery-only layouts.** Both are registered in `/driver/_states` with fixture data shaped the way driver prompt 4's sync result will supply it (`RunScreen`'s `reviewNotice` prop), but nothing in this prompt produces a real review or resolution notice, since that needs the conflict rule and a plan v5 the phone does not yet know about (by design: "the phone never learns about plan v5 in this prompt").
+- **(Superseded by O3) R1.7 and R1.8 were gallery-only layouts.** Both are registered in `/driver/_states` with fixture data shaped the way driver prompt 4's sync result will supply it (`RunScreen`'s `reviewNotice` prop), but nothing in this prompt produces a real review or resolution notice, since that needs the conflict rule and a plan v5 the phone does not yet know about (by design: "the phone never learns about plan v5 in this prompt").
 - **ORD2003's weight and volume are not drawn anywhere** (only its 9-unit count is, on R1.2 and R2.3). Estimated from ORD2002's per-unit rate (45 kg / 0.6 m³ for 8 ambient units) as 51 kg / 0.68 m³ for 9 units.
+- **R3.9 and R3.10 were realigned in O3.** Prompt 3 built them as a plain list with a green "Saved on phone" tag. The Figma frames are the same card layout as R1.7: progress row with a "5 on phone" pill, two segments, an uppercase "In trip history" label, and cards with a cloud icon, the outcome and a Saved on phone pill. The helper line sits above Finish run, and the "Delivery saved on this phone" toast is the dark card with an amber cloud after the list. It now shows only when the last outcome was just saved, not on every reopen.
+- **R5.1's rows are in save order,** not Figma's (Arrival OUT084, Delivered ORD2003, Arrival OUT087, then the conflict). The order in the frame follows no rule the data has.
+- **R5.3 for a Partial resolution** has no frame. It reuses the layout with the title "Kept as Partial at OUT084", the body "Dispatch kept your delivery at OUT084 as Partial · 07:05." (the prompt's copy), a Partial pill on each order, and R1.8's bar reads "OUT084 - resolved: delivered as Partial. Kumari kept your delivery at 07:05."
+- **"Call Dispatch" on R5.S 2 has no action,** like "Call store": the dataset has no dispatch desk number and none is invented. The failed screen reuses the reference WP-SYNC-409 that R8.3 uses for a photo.
+- **The bell has no count yet** (R1.7 draws 2, R1.8 draws 3). That is O5.
 - **Camera and Receiver name drop the tab bar; Signature keeps it**, matching what each frame actually draws (R3.2, R3.3 omit it; R3.11 does not).
 - **The Prototype row stays on the live Outbox in every state.** R4.2 and R4.3 draw the sheet without it, but it is the only way to turn Simulate offline on while online, so the app always shows it. Their gallery frames pass `showSimulate: false` so they still match Figma.
 - **"Send now" is pressable offline.** Figma draws it enabled on R4.1 (offline), and the prompt says it is only possible online; it stays enabled and does nothing until coverage returns, rather than greying out a button the frame shows live.
-- **R4.3 1 and R4.3 3 draw the chip as "Synced 06:41" and "Synced 06:45".** The shell still says "Online" once departed (see the chip wording note above); the compare pass in O6 decides whether a post-sync "Synced HH:MM" belongs there.
+- **The chip says "Synced HH:MM" after a catch-up with news, and "Online" otherwise.** R1.7, R1.8, R4.3 1, R4.3 3, R5.1 and R5.3 draw "Synced" with a time; R5.2 and R5.S 3 draw "Online". The build shows "Synced" with the last sync time on the run, R5.1 and R5.3 while a stop is under review or resolved, and "Online" everywhere else once departed. The Figma frames do not state a rule, so this is inferred.
+- **Syncing and Failed are the plain muted outline on the phone chip,** as R5.S 2 and R5.S 4 draw them, not amber or red. The loader's tablet chip is unchanged.
 
 ### Shared files this role has changed
 
@@ -933,6 +949,9 @@ Figma wins on UI and copy (field conventions section 2); where it was silent or 
 - `frontend/package.json`: one new script, `test:hero`. No dependency or version change.
 - `frontend/src/field/components/BottomSheet`: a `flush` variant (full-bleed body, 40 px grabber) and a `headerAside` slot, a z-index so the sheet and scrim sit above the shell's bars, a plain scrim in the non-modal gallery case (Radix draws none), and the flush sheet opens focused on itself. Existing sheets are unchanged.
 - `frontend/src/field/components/ConnectivityChip`: `progress` ("3 / 5") and a `retrying` status ("Retrying 1"). Additive.
+- `frontend/src/field/components/PinnedActionBar`: `helperPosition` ("above" for R1.7, R1.8, R3.9, R3.10). Additive.
+- `frontend/src/field/components/ConnectivityChip.module.css`: the phone chip's Syncing and Failed are the muted outline (R5.S 2, R5.S 4).
+- `frontend/src/field/offline/sync.ts`: a call that joins a run already in flight now makes the run go round once more when it finishes. A record saved while a run was sending was never in that run's list and waited for the 30 s timer, which left "Departed" unsent in the hero walkthrough about one run in three. One new unit test.
 - `frontend/src/field/offline/sync.ts`: `requeueInterrupted()`, called when the engine starts. A record left `sending` by a reload or a killed app was never retried; it now goes back to `waiting` and is sent (the server answers `duplicate` if the first send landed). One new unit test.
 
 ### Checks run (D5)

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useOutbox } from "../../../field/offline";
 import { useDriverRun } from "../context/useDriverRun";
 import { RUN_DATE } from "../fixtures";
+import type { DriverRun } from "../types";
 import { outboxRows, type OutboxRow } from "./outboxModel";
 import type { OutboxProgress } from "./OutboxSheet";
 
@@ -11,6 +12,8 @@ export type OutboxView = {
   progress?: OutboxProgress;
   /** The outlet whose conflict is still open, for the presenter's "Dispatch resolves now". */
   openConflictOutletId?: string;
+  /** The run behind the rows, for callers that also need it (the sync watcher). */
+  run: DriverRun | null;
 };
 
 /**
@@ -36,5 +39,5 @@ export function useOutboxView(syncing: boolean): OutboxView {
 
   const progress = syncing && nextTotal > 0 ? { done: Math.max(0, nextTotal - pending), total: nextTotal } : undefined;
   const openConflictOutletId = (run?.stops ?? []).find((stop) => stop.conflict && !stop.resolution)?.outletId;
-  return { rows, progress, openConflictOutletId };
+  return { rows, progress, openConflictOutletId, run };
 }

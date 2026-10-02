@@ -1,11 +1,13 @@
 import { formatTime } from "../../../field/clock/clock";
 import { BottomSheet, FieldSwitch } from "../../../field/components";
 import { connectivity, type ConnectivitySnapshot } from "../../../field/offline";
-import { Icon, type IconName } from "../../../shared/ui/Icon";
+import { Icon } from "../../../shared/ui/Icon";
 import { Mono } from "../../../shared/ui/Mono";
 import { useT } from "../context/DriverContext";
 import type { TFn } from "../stopFormat";
-import { outboxMode, summarise, type OutboxMode, type OutboxRow, type OutboxRowState } from "./outboxModel";
+import { RecordPill } from "./RecordPill";
+import { StatusBar, StatusBarAside, StatusBarButton, type StatusBarTone } from "./StatusBar";
+import { outboxMode, summarise, type OutboxMode, type OutboxRow } from "./outboxModel";
 import styles from "./OutboxSheet.module.css";
 
 export type OutboxProgress = { done: number; total: number };
@@ -34,14 +36,6 @@ export type OutboxSheetProps = {
   onSendNow: () => void;
 };
 
-const PILL: Record<OutboxRowState, { icon: IconName; key: string; className: string }> = {
-  saved: { icon: "cloud", key: "outbox.stateSaved", className: "pillSaved" },
-  sending: { icon: "refresh-cw", key: "outbox.stateSending", className: "pillSending" },
-  synced: { icon: "check", key: "outbox.stateSynced", className: "pillSynced" },
-  review: { icon: "alert-triangle", key: "outbox.stateReview", className: "pillReview" },
-  retrying: { icon: "cloud", key: "outbox.stateSaved", className: "pillSaved" },
-};
-
 function RowLabel({ row, t }: { row: OutboxRow; t: TFn }) {
   if (row.kind === "departed") return <>{t("outbox.departed")}</>;
   const word = row.kind === "arrival" ? t("outbox.arrival") : row.outcomeWord;
@@ -59,7 +53,6 @@ function rowNote(row: OutboxRow, t: TFn): string | undefined {
 }
 
 function OutboxRowView({ row, t }: { row: OutboxRow; t: TFn }) {
-  const pill = PILL[row.state];
   const note = rowNote(row, t);
   return (
     <li className={[styles.row, note && styles.rowNote].filter(Boolean).join(" ")}>
@@ -70,20 +63,17 @@ function OutboxRowView({ row, t }: { row: OutboxRow; t: TFn }) {
         </span>
         {note && <span className={styles.note}>{note}</span>}
       </span>
-      <span className={[styles.pill, styles[pill.className]].filter(Boolean).join(" ")}>
-        <Icon name={pill.icon} size={14} />
-        {t(pill.key)}
-      </span>
+      <RecordPill state={row.state} />
     </li>
   );
 }
 
-const BAR_ICON: Record<OutboxMode, IconName> = {
-  syncing: "refresh-cw",
-  offline: "wifi-off",
-  failed: "alert-circle",
-  review: "alert-triangle",
-  synced: "check",
+const BAR_TONE: Record<OutboxMode, StatusBarTone> = {
+  syncing: "syncing",
+  offline: "offline",
+  failed: "failed",
+  review: "review",
+  synced: "synced",
 };
 
 function plural(count: number, one: string, many: string, t: TFn): string {
@@ -110,25 +100,24 @@ export function OutboxSheet({ open, onOpenChange, rows, connectivity: snapshot, 
   let aside: React.ReactNode = null;
   if (mode === "offline") {
     message = t("banner.offlineSaved", { count: summary.pending });
-    aside = <span className={styles.barAside}>{t("banner.offlineLastSync", { time: lastSync })}</span>;
+    aside = <StatusBarAside>{t("banner.offlineLastSync", { time: lastSync })}</StatusBarAside>;
   } else if (mode === "syncing") {
     message = plural(count, "outbox.sendingOne", "outbox.sending", t);
     if (progress) {
       aside = (
-        <span className={styles.barAside}>
+        <StatusBarAside>
           <Mono>
             {progress.done} / {progress.total}
           </Mono>
-        </span>
+        </StatusBarAside>
       );
     }
   } else if (mode === "failed") {
     message = plural(summary.errors, "outbox.failedOne", "outbox.failed", t);
     aside = (
-      <button type="button" className={styles.retry} onClick={onSendNow}>
-        <Icon name="refresh-cw" size={16} />
+      <StatusBarButton icon="refresh-cw" onClick={onSendNow}>
         {t("outbox.retryNow")}
-      </button>
+      </StatusBarButton>
     );
   } else if (mode === "review") {
     message = t("outbox.review", {
@@ -150,13 +139,9 @@ export function OutboxSheet({ open, onOpenChange, rows, connectivity: snapshot, 
       headerAside={waitingSheet ? <Mono>{formatTime(now)}</Mono> : undefined}
       flush
     >
-      <div className={[styles.bar, styles[`bar_${mode}`]].join(" ")} role="status" aria-live="polite">
-        <span className={mode === "syncing" ? styles.spin : styles.barIcon}>
-          <Icon name={BAR_ICON[mode]} size={20} />
-        </span>
-        <span className={styles.barText}>{message}</span>
-        {aside}
-      </div>
+      <StatusBar tone={BAR_TONE[mode]} aside={aside}>
+        {message}
+      </StatusBar>
 
       {showSummary && (
         <p className={styles.summary}>{plural(summary.pending, "outbox.waitingOne", "outbox.waiting", t)}</p>

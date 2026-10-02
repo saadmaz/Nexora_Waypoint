@@ -141,6 +141,7 @@ async function main() {
   await page.getByRole("button", { name: /Offline/ }).first().click();
   await page.getByRole("dialog", { name: "Outbox" }).waitFor({ timeout: 5_000 });
   const outbox = (await page.getByRole("dialog", { name: "Outbox" }).innerText()).replace(/\s+/g, " ");
+  if (!outbox.includes("5 records waiting - they")) console.log("OUTBOX>", outbox);
   check(outbox.includes("5 records waiting - they send automatically when you're back in coverage."), "R4.1: five records waiting, sends automatically");
   check(/05:10 Departed Synced/.test(outbox), "R4.1: Departed 05:10 is Synced (it left before coverage dropped)");
   check(["Arrival OUT084", "Delivered ORD2001", "Delivered ORD2002", "Arrival OUT087", "Delivered ORD2003"].every((row) => outbox.includes(row)), "R4.1: the five waiting records are listed");
@@ -151,6 +152,63 @@ async function main() {
   check((await page.getByRole("dialog", { name: "Outbox" }).innerText()).includes("5 records waiting"), "R4.1: Send now while offline sends nothing and loses nothing");
   await page.getByRole("button", { name: "Close" }).click();
   await page.getByRole("dialog", { name: "Outbox" }).waitFor({ state: "detached", timeout: 5_000 });
+
+  // H15, 06:40: coverage returns. The app's own Simulate offline switch is what holds the phone
+  // offline across the reload (a browser-level setOffline would also block the page load), and
+  // Send now is the driver pressing the button once the switch is off.
+  await page.getByRole("button", { name: /Offline/ }).first().click();
+  await page.getByRole("dialog", { name: "Outbox" }).waitFor({ timeout: 5_000 });
+  await page.getByRole("switch", { name: "Simulate offline" }).click();
+  await page.getByRole("button", { name: "Close" }).click();
+  await context.setOffline(false);
+  await page.goto(`${base}/driver/run?at=06:40`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(800);
+  check((await body()).includes("Offline"), "06:40: the phone is still offline behind the switch after a reload");
+  check(!page.url().includes("sync-result"), "06:40: nothing syncs while Simulate offline is on");
+
+  await page.getByRole("button", { name: /Offline/ }).first().click();
+  await page.getByRole("dialog", { name: "Outbox" }).waitFor({ timeout: 5_000 });
+  await page.getByRole("switch", { name: "Simulate offline" }).click();
+  await page.waitForTimeout(300);
+  await page.getByRole("button", { name: "Send now" }).click();
+
+  // R4.2 then R5.1: the catch-up opens the sync result once.
+  await page.waitForURL(/sync-result\?view=conflict/, { timeout: 15_000 });
+  await page.waitForTimeout(500);
+  text = await body();
+  check(text.includes("3 synced · 1 stop (2 orders) sent for review"), "R5.1: 3 synced, 1 stop (2 orders) sent for review");
+  check(text.includes("Dispatch deferred OUT084 at 05:21 at the store's request, while you were offline."), "R5.1: says Dispatch deferred OUT084 at 05:21, while the driver was offline");
+  check(text.includes("Your delivery record is safe."), "R5.1: the delivery record is safe");
+  check(text.includes("Delivered ORD2001 + ORD2002"), "R5.1: the two orders of OUT084 are one row");
+  check(text.includes("Kumari · Dispatch"), "R5.1: who already knows");
+
+  await page.getByRole("button", { name: "Back to run" }).click();
+  await page.waitForURL(/\/driver\/run/, { timeout: 5_000 });
+  await page.waitForTimeout(800);
+  text = await body();
+  check(text.includes("Dispatch is reviewing your delivery at OUT084. Nothing for you to do."), "R1.7: the run shows the stop under review");
+  check(text.includes("Sent for review") && text.includes("All synced"), "R1.7: OUT084 reads Sent for review, the run reads All synced");
+  await page.getByRole("button", { name: "View", exact: true }).click();
+  await page.getByRole("dialog", { name: "Outbox" }).waitFor({ timeout: 5_000 });
+  check((await page.getByRole("dialog", { name: "Outbox" }).innerText()).includes("1 stop (2 orders) sent for review. Nothing for you to do."), "R4.3 1: View opens the Outbox on the conflict");
+  await page.getByRole("button", { name: "Close" }).click();
+
+  // H16, 06:44: Dispatch keeps the delivery. The phone is polling, so the resolution arrives by itself.
+  await page.goto(`${base}/driver/run?at=06:45`, { waitUntil: "networkidle" });
+  await page.waitForURL(/sync-result\?view=resolved/, { timeout: 15_000 });
+  await page.waitForTimeout(500);
+  text = await body();
+  check(text.includes("Delivered at OUT084") && text.includes("Dispatch kept your delivery at OUT084 · 06:44."), "R5.3: Dispatch kept your delivery at OUT084 · 06:44");
+  await page.getByRole("button", { name: "Back to run" }).click();
+  await page.waitForURL(/\/driver\/run/, { timeout: 5_000 });
+  await page.waitForTimeout(800);
+  text = await body();
+  check(text.includes("OUT084 - resolved: delivered. Kumari kept your delivery at 06:44."), "R1.8: the run shows the resolved notice");
+  check(!text.includes("Sent for review"), "R1.8: no stop is still under review");
+  check(!text.includes("Delivery saved on this phone"), "R1.8: coming back to the run does not repeat the just-saved toast");
+  await page.goto(`${base}/driver/run?at=06:46`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(1500);
+  check(!page.url().includes("sync-result"), "R5.3 shows once: reopening the run does not show it again");
 
   await browser.close();
 
