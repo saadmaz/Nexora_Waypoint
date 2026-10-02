@@ -1,0 +1,145 @@
+.heading {
+  font: var(--text-h2);
+  color: var(--ink);
+}
+
+.body {
+  font: var(--text-body);
+  color: var(--ink-muted);
+}
+
+.caption {
+  font: var(--text-body-sm);
+  color: var(--ink-muted);
+}
+
+.departedPill {
+  align-self: flex-start;
+}
+
+.cardStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.progressTrack {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--route);
+  transition: width var(--duration-colour) ease;
+}
+
+.statusLine {
+  font: var(--text-body-sm);
+  color: var(--ink-muted);
+}
+
+.departedLine {
+  font: var(--text-body);
+  color: var(--ink);
+}
+
+.stopsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.actionRow {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.actionRow > * {
+  flex: 1 1 0;
+}
+
+.completedRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+
+.completedTitle {
+  font: var(--text-h3);
+  color: var(--ink);
+}
+
+.completedMeta {
+  font: var(--text-body-sm);
+  color: var(--ink-muted);
+}
+
+.savedBanner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--chrome);
+  color: var(--on-chrome);
+  border-radius: var(--radius-md);
+  font: var(--text-h3);
+  font-weight: 400;
+}
+
+.savedBanner svg {
+  flex: 0 0 auto;
+  color: var(--signal);
+}
+
+/* R1.7 and R1.8: "2 of 2 stops done" with the All synced pill, and one green segment per stop. */
+.syncedProgress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.syncedCount {
+  flex: 1 1 auto;
+  font: var(--text-button-md);
+  color: var(--ink);
+}
+
+.segments {
+  display: flex;
+  gap: 4px;
+  margin-top: calc(-1 * var(--space-2));
+}
+
+.segment {
+  flex: 1 1 0;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--success);
+}
+
+/* "In trip history" on R1.7 and R1.8 is the small uppercase label. */
+.captionLabel {
+  font: var(--text-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+/* R8.2: the alert text on the bar is itself the way into R8.3. */
+.alertLink {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}

@@ -2,12 +2,14 @@
 .overlay {
   position: fixed;
   inset: 0;
+  z-index: 40;
   background: color-mix(in srgb, var(--chrome) 60%, transparent);
   animation: fadeIn var(--duration-colour) ease;
 }
 
 .content {
   position: fixed;
+  z-index: 41;
   left: 0;
   right: 0;
   bottom: 0;
@@ -63,6 +65,38 @@
 
 .description {
   font: var(--text-body);
+  color: var(--ink-muted);
+}
+
+/* R4 Outbox: 40 px grabber, 8 px above and 12 px below the title, rows full width. */
+.flush {
+  gap: 0;
+  padding: 0 0 env(safe-area-inset-bottom);
+}
+
+.flush .grabber {
+  flex: 0 0 4px;
+  width: 40px;
+  margin: var(--space-2) 0;
+}
+
+.flush .header {
+  padding: 0 var(--gutter-phone) 12px;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.titleRow .title {
+  flex: 1 1 auto;
+}
+
+.aside {
+  flex: 0 0 auto;
+  font: var(--text-data);
   color: var(--ink-muted);
 }
 
