@@ -14,7 +14,12 @@ export type FieldQueryState<T> =
   | { status: "ready"; value: T; stale: boolean; updatedAt: number }
   | { status: "error" };
 
-export type FieldQueryResult<T> = FieldQueryState<T> & { retry: () => void };
+export type FieldQueryResult<T> = FieldQueryState<T> & {
+  /** Read again from a clean slate: the screen goes back to loading. For the error screen's Retry button. */
+  retry: () => void;
+  /** Read again in the background: the current screen stays until the answer arrives. For polling and after a write. */
+  refresh: () => void;
+};
 
 export function useFieldQuery<T>(key: string | null, fetcher: () => Promise<T>): FieldQueryResult<T> {
   // Keeps the latest fetcher without making it an effect dependency: only `key` (and `retry`,
@@ -38,6 +43,7 @@ export function useFieldQuery<T>(key: string | null, fetcher: () => Promise<T>):
     setState({ status: "loading" });
     setVersion((v) => v + 1);
   }, []);
+  const refresh = useCallback(() => setVersion((v) => v + 1), []);
 
   useEffect(() => {
     if (!key) return;
@@ -48,15 +54,17 @@ export function useFieldQuery<T>(key: string | null, fetcher: () => Promise<T>):
         await putCache(key, value, nowMs());
         if (!cancelled) setState({ status: "ready", value, stale: false, updatedAt: nowMs() });
       } catch (error) {
+        // A background refresh that fails keeps what is on screen; only a first read becomes an error.
+        const failed = (prev: FieldQueryState<T>): FieldQueryState<T> => (prev.status === "ready" ? prev : { status: "error" });
         if (error instanceof NetworkError) {
           const cached = await getCache<T>(key);
           if (!cancelled) {
             if (cached) setState({ status: "ready", value: cached.value, stale: true, updatedAt: cached.updatedAt });
-            else setState({ status: "error" });
+            else setState(failed);
           }
           return;
         }
-        if (!cancelled) setState({ status: "error" });
+        if (!cancelled) setState(failed);
       }
     })();
     return () => {
@@ -66,5 +74,5 @@ export function useFieldQuery<T>(key: string | null, fetcher: () => Promise<T>):
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, version]);
 
-  return { ...state, retry };
+  return { ...state, retry, refresh };
 }
