@@ -1,5 +1,0 @@
-/* Dates and counts are figures, so Plex Mono, at 12 px to fit the 340 px side panel (S1.6). */
-.figure {
-  font-family: var(--font-mono);
-  font-size: 12px;
-}
