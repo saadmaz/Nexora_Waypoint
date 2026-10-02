@@ -18,6 +18,12 @@
   padding-bottom: var(--space-6);
 }
 
+/* R1.9 "Large": 1.15x (field conventions section 3, A56). `zoom` scales the body content's type
+   and spacing together so nothing clips; the top bar and tab bar stay the chrome's own size. */
+.mainLarge {
+  zoom: 1.15;
+}
+
 .outboxBody {
   padding: 0 var(--gutter-phone) var(--space-6);
   color: var(--ink-muted);

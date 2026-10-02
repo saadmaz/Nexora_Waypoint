@@ -4,7 +4,7 @@ import { formatTime } from "../../../field/clock/clock";
 import { useNow } from "../../../field/clock/useClock";
 import { BottomSheet, ConnectivityChip, FieldTabBar, FieldTopBar, NotificationBell, type ChipStatus, type FieldTab } from "../../../field/components";
 import { useConnectivity, type ConnectivitySnapshot } from "../../../field/offline";
-import { useT } from "../context/DriverContext";
+import { useDriverSettings, useT } from "../context/DriverContext";
 import styles from "./DriverShell.module.css";
 
 type DriverTabKey = "run" | "issues" | "history" | "me";
@@ -59,6 +59,7 @@ export function DriverShell({
   children,
 }: DriverShellProps) {
   const t = useT();
+  const { settings } = useDriverSettings();
   const navigate = useNavigate();
   const location = useLocation();
   const liveConnectivity = useConnectivity();
@@ -96,7 +97,7 @@ export function DriverShell({
         />
       </FieldTopBar>
       {banner}
-      <main className={styles.main}>{children}</main>
+      <main className={[styles.main, settings.textSize === "large" && styles.mainLarge].filter(Boolean).join(" ")}>{children}</main>
       {pinned}
       {showTabBar && <FieldTabBar tabs={tabs} active={activeTab} onSelect={(key) => navigate(`/driver/${key}`)} />}
       <BottomSheet open={outboxOpen} onOpenChange={setOutboxOpen} title="Outbox" description="What's waiting to send.">
