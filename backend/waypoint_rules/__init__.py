@@ -47,6 +47,7 @@ from .schedule import (
     ServiceDay,
     is_offline,
     lateness_risk,
+    next_plan_at,
     service_day_for,
     store_arrival,
 )
@@ -127,6 +128,7 @@ __all__ = [
     "impact_on_store",
     "lateness_risk",
     "legal_vehicles",
+    "next_plan_at",
     "order_vehicle_violations",
     "planned_clock",
     "planned_fuel",

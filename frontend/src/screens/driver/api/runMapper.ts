@@ -57,11 +57,37 @@ function brandOf(outletName: string): Brand {
   return BRANDS.find((brand) => outletName.includes(brand)) ?? "Fresh";
 }
 
+/** A run package that is a run: `state` "run" with its run fields present. */
+type ServerRun = RunOut & { vehicleId: string; tripNo: number; planVersion: number; stops: RunStop[] };
+type RunStop = NonNullable<RunOut["stops"]>[number];
+
+/** The server has no run for this driver that day (Sunday, holiday, plan not released, no trip). PRD v3 section 15. */
+export class NoRunError extends Error {
+  readonly reason: string;
+  readonly nextPlanAt: string | null;
+
+  constructor(reason: string, nextPlanAt: string | null) {
+    super(`No run: ${reason}`);
+    this.name = "NoRunError";
+    this.reason = reason;
+    this.nextPlanAt = nextPlanAt;
+  }
+}
+
+/** The package as a run, or a `NoRunError` for a day without one. */
+export function requireRun(out: RunOut): ServerRun {
+  const { vehicleId, tripNo, planVersion } = out;
+  if (out.state === "no_run" || vehicleId == null || tripNo == null || planVersion == null) {
+    throw new NoRunError(out.noRun?.reason ?? "no_trip", out.noRun?.nextPlanAt ?? null);
+  }
+  return { ...out, vehicleId, tripNo, planVersion, stops: out.stops ?? [] };
+}
+
 function hhmm(iso: string | null | undefined): string {
   return iso ? formatTime(Date.parse(iso)) : "";
 }
 
-function mapOrder(stop: RunOut["stops"][number]): PlannedOrder {
+function mapOrder(stop: RunStop): PlannedOrder {
   return {
     id: stop.orderId,
     outletId: stop.outletId,
@@ -75,9 +101,9 @@ function mapOrder(stop: RunOut["stops"][number]): PlannedOrder {
 }
 
 /** Groups the server's per-order rows into the driver's per-outlet stops, in the order the truck visits them. */
-export function mapStops(out: RunOut): DriverStop[] {
+export function mapStops(out: ServerRun): DriverStop[] {
   const rows = [...out.stops].sort((a, b) => a.seq - b.seq);
-  const byOutlet = new Map<string, RunOut["stops"]>();
+  const byOutlet = new Map<string, RunStop[]>();
   for (const row of rows) byOutlet.set(row.outletId, [...(byOutlet.get(row.outletId) ?? []), row]);
 
   return [...byOutlet.values()].map((group, index): DriverStop => {
@@ -104,7 +130,8 @@ function allLoaded(stops: DriverStop[]): boolean {
   return live.length > 0 && live.every((order) => LOADED_OR_LATER.has(order.status));
 }
 
-export function mapRun(out: RunOut, depot: DepotId, local: LocalRunState): DriverRun {
+export function mapRun(pkg: RunOut, depot: DepotId, local: LocalRunState): DriverRun {
+  const out = requireRun(pkg);
   const serverStops = mapStops(out);
   const stops = serverStops.map((stop): DriverStop => {
     const state = local.stops[stop.outletId];

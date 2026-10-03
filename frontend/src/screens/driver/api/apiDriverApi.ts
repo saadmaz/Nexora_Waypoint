@@ -25,7 +25,7 @@ import {
   writeDeviceState,
   sortNotices,
 } from "./mockDriverApi";
-import { conflictFromServer, mapNotice, mapRun, SERVER_NOTICE_PREFIX } from "./runMapper";
+import { conflictFromServer, mapNotice, mapRun, requireRun, SERVER_NOTICE_PREFIX } from "./runMapper";
 
 type RunOut = components["schemas"]["RunOut"];
 type MeOut = components["schemas"]["MeOut"];
@@ -138,7 +138,7 @@ export function createApiDriverApi(now: () => number): DriverApi {
     const pkg = await refresh(date);
     onProgress?.(2, 2);
     const local = await readDeviceState(date);
-    local.downloadedVersion = pkg.run.planVersion;
+    local.downloadedVersion = requireRun(pkg.run).planVersion;
     await writeDeviceState(date, local, now());
   }
 
@@ -164,6 +164,8 @@ export function createApiDriverApi(now: () => number): DriverApi {
       const outletId = typeof notice.link?.outletId === "string" ? notice.link.outletId : undefined;
       if (notice.tag !== "resolved" || !outletId || local.resolutions[outletId]) continue;
       const link = notice.link ?? {};
+      // Keeping the deferral is not a kept delivery. The notice still lists it; the stop has no screen for it yet.
+      if (link.decision === "keep_deferral") continue;
       local.resolutions[outletId] = {
         decision: link.decision === "keep_partial" ? "keep_partial" : "keep_delivery",
         by: typeof link.by === "string" ? link.by : "Dispatch",

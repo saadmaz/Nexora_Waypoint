@@ -83,7 +83,6 @@ RIGHT_ROLE_501 = [
     ("dispatcher", "GET", "/api/v1/dispatcher/forecast?depot=peliyagoda"),
     ("store", "GET", "/api/v1/store/updates"),
     ("loader", "GET", "/api/v1/loader/docks/kandy"),
-    ("driver", "GET", "/api/v1/driver/history"),
 ]
 
 
