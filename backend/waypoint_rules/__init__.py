@@ -137,6 +137,7 @@ __all__ = [
     "lateness_risk",
     "legal_vehicles",
     "minutes_pools",
+    "next_plan_at",
     "order_vehicle_violations",
     "planned_clock",
     "planned_fuel",
