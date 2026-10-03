@@ -87,6 +87,10 @@ def continuity(outlet_id: str) -> str:
     return f"{outlet_id} was deferred yesterday; the continuity guard protects it"
 
 
+def continuity_unrepaired(order_id: str, outlet_id: str, reason: str) -> str:
+    return f"{order_id} ({outlet_id}) was deferred yesterday; no legal insertion or bounded one-order repair succeeded. {reason}"
+
+
 def no_legal_vehicle(
     needs: list[str], largest_label: str | None, largest_kg: float | None, depot: str
 ) -> str:

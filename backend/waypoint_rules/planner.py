@@ -15,8 +15,8 @@ The steps, in order:
    most days since served, then the order ID.
 5. **Build trips** greedily on the best-fit legal vehicle, adding orders in priority order while every rule
    still passes. A second trip leaves after the first one is back.
-6. **Policy deferrals.** What is left over is *Deferred · policy*. Because trips fill in priority order, the
-   orders left out are the ones with the lowest impact on the store, and a protected order is never one of them.
+6. **Policy deferrals.** Bounded continuity insertion/swap/relocation repairs protected orders first.
+   Unprotected exchanges use store impact per binding unit. Unrepairable continuity is explicitly warned.
 7. **Explain.** Each deferral carries its type, the rule that bound, a reason line, its impact on the store,
    what it frees and its next run.
 
@@ -28,6 +28,7 @@ close, then outlet ID, then order ID. Orders for one outlet are therefore adjace
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
+from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime, time, timedelta
 from math import fsum
@@ -43,7 +44,7 @@ from .constraints import (
     trip_brand,
     usable_vehicles,
 )
-from .deferrals import Frees, Impact, classify_deferral, frees, impact_on_store
+from .deferrals import Frees, Impact, binding_freed, classify_deferral, frees, impact_on_store, policy_deferral_key
 from .model import Order, Plan, RefData, Trip, Vehicle, VehicleDay
 from .schedule import next_operating_day
 from .vocab import MAX_TRIPS_PER_VEHICLE, Binding, Brand, DeferralType, RuleId, Temp
@@ -234,6 +235,106 @@ def feasible_insertions(
     return out
 
 
+def _insert(plan: Plan, insertion: FeasibleInsertion, order_id: str) -> Plan:
+    after = deepcopy(plan)
+    for trip in insertion.trips:
+        after.trips[trip.key] = trip
+    after.deferred.remove(order_id)
+    return after
+
+
+def _replace_orders(plan: Plan, key: tuple[str, int], remove: str, add: str,
+                    orders: dict[str, Order], ref: RefData) -> Plan:
+    after = deepcopy(plan)
+    target = after.trips[key]
+    target.order_ids.remove(remove)
+    target.order_ids.append(add)
+    after.deferred.remove(add)
+    after.deferred.append(remove)
+    for trip in _retime(after.trips_of(key[0]), orders, ref, plan.service_date):
+        after.trips[trip.key] = trip
+    return after
+
+
+def repair_continuity(
+    plan: Plan, orders: dict[str, Order], ref: RefData, vehicle_days: Mapping[str, VehicleDay],
+    *, eligible: set[str] | None = None,
+) -> Plan:
+    """Bounded deterministic repair: existing insertion, one unprotected swap, then relocation.
+
+    Every accepted candidate passes complete plan validation. Stable vehicle/trip/order traversal
+    accepts the first repair; physical impossibility never overrides rules. The caller records
+    explicit warnings for protected orders still deferred. Input is never mutated.
+    """
+    result = deepcopy(plan)
+    protected = sorted(oid for oid in plan.deferred if orders[oid].deferred_yesterday
+                       and (eligible is None or oid in eligible)
+                       and classify_deferral(orders[oid], ref) is DeferralType.POLICY)
+    for oid in protected:
+        inserted = next((c for c in feasible_insertions(orders[oid], result, orders, ref, vehicle_days)
+                         if (c.vehicle_id, c.trip_no) in result.trips), None)
+        if inserted is not None:
+            result = _insert(result, inserted, oid)
+            continue
+        repaired: Plan | None = None
+        for key in sorted(result.trips):
+            for displaced in sorted(result.trips[key].order_ids):
+                if orders[displaced].deferred_yesterday:
+                    continue
+                trial = _replace_orders(result, key, displaced, oid, orders, ref)
+                if check_plan(trial, orders, ref, vehicle_days):
+                    continue
+                relocated = next((c for c in feasible_insertions(orders[displaced], trial, orders, ref, vehicle_days)
+                                  if (c.vehicle_id, c.trip_no) != key and (c.vehicle_id, c.trip_no) in trial.trips), None)
+                repaired = _insert(trial, relocated, displaced) if relocated is not None else trial
+                break
+            if repaired is not None:
+                break
+        if repaired is not None:
+            result = repaired
+    return result
+
+
+def _policy_replacements(
+    plan: Plan, eligible: set[str], orders: dict[str, Order], ref: RefData, days: Mapping[str, VehicleDay],
+) -> Plan:
+    """One bounded exchange per waiting order, strictly reducing store impact on the binding resource.
+
+    Whole-plan checks prove enough actual resource is freed, including windows/return sequencing.
+    A protected order is never displaced. Equal keys retain the stable greedy allocation.
+    """
+    result = plan
+    for oid in sorted(set(plan.deferred) & eligible, key=lambda o: _priority(o, orders, ref)):
+        if oid not in result.deferred or orders[oid].deferred_yesterday:
+            continue
+        choices: list[tuple[tuple[float, int, float, float, float, tuple[str, ...]], tuple[str, int], Plan]] = []
+        for key in sorted(result.trips):
+            trip = result.trips[key]
+            vehicle = ref.vehicles[trip.vehicle_id]
+            augmented = Trip(trip.vehicle_id, trip.trip_no, trip.depart_at, _sequence([*trip.order_ids, oid], orders, ref))
+            violations = check_trip(augmented, orders, ref, days.get(vehicle.id)) + check_vehicle_day(
+                vehicle, [t for t in result.trips_of(vehicle.id) if t.key != key] + [augmented], orders, ref, days.get(vehicle.id))
+            binding = next((_BINDING_OF_RULE[v.rule] for v in violations if v.rule in _BINDING_OF_RULE), None)
+            if binding is None:
+                continue
+            for displaced in sorted(trip.order_ids):
+                if orders[displaced].deferred_yesterday:
+                    continue
+                trial = _replace_orders(result, key, displaced, oid, orders, ref)
+                if check_plan(trial, orders, ref, days):
+                    continue
+                reduced = Trip(trip.vehicle_id, trip.trip_no, trip.depart_at, [o for o in trip.order_ids if o != displaced])
+                old_units = binding_freed(trip, reduced, orders, ref, vehicle, binding)
+                new_units = binding_freed(augmented, trip, orders, ref, vehicle, binding)
+                old_key = policy_deferral_key((displaced,), orders, freed=old_units, required=new_units)
+                waiting_key = policy_deferral_key((oid,), orders, freed=new_units, required=new_units)
+                if old_key < waiting_key:
+                    choices.append((old_key, key, trial))
+        if choices:
+            result = min(choices, key=lambda item: (item[0], item[1]))[2]
+    return result
+
+
 def _vehicle_rank(
     insertion: FeasibleInsertion, order: Order, orders: dict[str, Order], ref: RefData,
     *, chilled_remains: bool, legal_ambient_exists: bool,
@@ -365,6 +466,8 @@ def _plan_depot(
             for trip in chosen.trips:
                 plan.trips[trip.key] = trip
             plan.deferred.remove(oid)
+    plan = repair_continuity(plan, pool, ref, vdays, eligible=set(placeable))
+    plan = _policy_replacements(plan, set(placeable), pool, ref, vdays)
     for state in states:
         state.trips = plan.trips_of(state.vehicle.id)
     for oid in placeable:
@@ -376,9 +479,10 @@ def _plan_depot(
                        and ref.outlets[pool[trip.order_ids[0]].outlet_id].district == outlet.district]
         result.policy[oid] = _explain(oid, group_trips, pool, ref, depot)
         if pool[oid].deferred_yesterday:
-            result.warnings.append(
-                f"{oid} ({pool[oid].outlet_id}) was deferred yesterday and is deferred again: {result.policy[oid][1]}"
-            )
+            binding, reason = result.policy[oid]
+            warning = msg.continuity_unrepaired(oid, pool[oid].outlet_id, reason)
+            result.policy[oid] = (binding, warning)
+            result.warnings.append(warning)
     return result
 
 

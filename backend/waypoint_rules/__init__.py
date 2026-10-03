@@ -58,6 +58,7 @@ from .planner import (
     PlanDraft,
     draft_plan,
     feasible_insertions,
+    repair_continuity,
 )
 from .reconcile import (
     DeviceRecord,
@@ -95,6 +96,7 @@ from .vocab import (
 )
 
 __all__ = [
+    "repair_continuity",
     "FeasibleInsertion",
     "feasible_insertions",
     "capable_vehicles",
