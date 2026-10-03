@@ -1,3 +1,4 @@
+import { roleApiMode } from "../../../api/http/config";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { DriverOutcome } from "../../../domain/field";
@@ -213,7 +214,8 @@ export function OutcomeScreen({ connectivityOverride, stopIdOverride, subviewOve
         <ReceiverNameForm
           outletId={stop.outletId}
           initialName={receiverName}
-          recentNames={RECENT_RECEIVERS[stop.outletId] ?? []}
+          // The suggestions are demo names; against the real API there is no history of receivers to suggest from yet.
+          recentNames={roleApiMode("driver") === "api" ? [] : (RECENT_RECEIVERS[stop.outletId] ?? [])}
           onSave={(name) => {
             setReceiverName(name);
             setSubview("form");

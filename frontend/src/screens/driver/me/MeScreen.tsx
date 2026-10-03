@@ -4,7 +4,9 @@ import { Card } from "../../../shared/ui/Card";
 import { Facts } from "../../../shared/ui/Facts";
 import { Tag } from "../../../shared/ui/Tag";
 import { LogOutButton } from "../../auth/AccountMenu";
-import { DRIVER, VEHICLE } from "../fixtures";
+import { accountName } from "../../auth/accountName";
+import { useDriverRun } from "../context/useDriverRun";
+import { RUN_DATE } from "../fixtures";
 import { useDriverSettings, useT } from "../context/DriverContext";
 import { DriverShell } from "../shell/DriverShell";
 import type { Language, TextSize } from "../types";
@@ -27,6 +29,9 @@ export type MeScreenProps = {
 export function MeScreen({ storageOverride }: MeScreenProps) {
   const t = useT();
   const { settings, setSunlight, setTextSize, setLanguage } = useDriverSettings();
+  // Who is signed in and the vehicle on today's run: from the session and the run, not from the fixture.
+  const { run } = useDriverRun(RUN_DATE);
+  const vehicleId = run?.vehicle.id ?? "";
   const [storage, setStorage] = useState(storageOverride ?? "…");
 
   useEffect(() => {
@@ -51,9 +56,9 @@ export function MeScreen({ storageOverride }: MeScreenProps) {
   ];
 
   return (
-    <DriverShell title={t("me.title")} subtitle={`Run 1 · ${VEHICLE.id}`}>
+    <DriverShell title={t("me.title")} subtitle={run ? `Run ${run.runNo} · ${vehicleId}` : undefined}>
       <p className={styles.identity}>
-        {DRIVER.name} · {VEHICLE.id}
+        {[accountName("driver"), vehicleId].filter(Boolean).join(" · ")}
       </p>
 
       <Card padded>

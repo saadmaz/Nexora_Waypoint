@@ -11,8 +11,8 @@ from datetime import date, datetime
 from fastapi import APIRouter
 
 from ..deps import Db, Driver
-from ..errors import not_implemented
 from ..schemas.driver import DriverHistoryRowOut, NoticeOut, RunOut
+from ..services import field_views as views
 
 router = APIRouter(prefix="/driver", tags=["driver"])
 
@@ -23,16 +23,16 @@ def get_run(day: date, db: Db, user: Driver) -> RunOut:
 
     ``DriverApi.getRun`` and ``DriverApi.downloadRun`` are the same endpoint; ``downloadRun`` also caches it.
     """
-    raise not_implemented("getRun")
+    return views.run(db, user, day)
 
 
 @router.get("/notices", operation_id="getNotices", response_model=list[NoticeOut])
 def get_notices(db: Db, user: Driver, since: datetime | None = None) -> list[NoticeOut]:
     """R8: notices for this driver's vehicle, newest first."""
-    raise not_implemented("getNotices")
+    return views.notices(db, user, since)
 
 
 @router.get("/history", operation_id="getHistory", response_model=list[DriverHistoryRowOut])
 def get_history(db: Db, user: Driver) -> list[DriverHistoryRowOut]:
     """R7: this driver's past runs."""
-    raise not_implemented("getHistory")
+    return views.history(db, user)
