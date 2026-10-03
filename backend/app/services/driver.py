@@ -67,7 +67,7 @@ def notices(db: Session, user: CurrentUser, since: datetime | None) -> list[s.No
     """R8: this vehicle's notices newest first, in the phone's kinds. Notices the phone has no screen for are left out."""
     vehicle_id = _vehicle_of(user)
     out: list[s.NoticeOut] = []
-    for row in repo.notices(db, vehicle_id, since):
+    for row in repo.notices(db, vehicle_id, user.id, since):
         kind = views.notice_kind(row.tag, row.refs)
         if kind is None:
             continue

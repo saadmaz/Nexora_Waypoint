@@ -69,8 +69,12 @@ def hm(value: datetime | None) -> str | None:
 
 
 def stamp(value: datetime) -> str:
-    """An ISO time with the Colombo offset, as the order form shows ``receivedAt``."""
-    return value.astimezone(COLOMBO).replace(microsecond=0).isoformat()
+    """``receivedAt`` and ``updatedAt``: naive local ISO, the scenario's own wall clock (PRD §19 Time).
+
+    No offset. The store screens render these with ``clockTime()``, which reads ``getHours()``, so an offset would
+    make the same reply say 15:40 in Colombo and 11:10 in London. The mock sends ``2026-09-28T14:02:00``; so do we.
+    """
+    return repo.naive(value).replace(microsecond=0).isoformat()  # type: ignore[union-attr]
 
 
 def dock_label(dock_type: Any) -> str:
@@ -214,7 +218,9 @@ def load_facts(db: Session, outlet: reference.Outlet, orders: list[om.Order]) ->
         for a in db.scalars(select(AuditEvent).where(AuditEvent.entity_type == "exception", AuditEvent.type == AuditType.ISSUE_REPORTED, AuditEvent.entity_id.in_([str(e.id) for e in facts.issues]))):
             facts.issue_photo[int(a.entity_id)] = bool((a.payload or {}).get("photo"))
 
-    vehicles = {p.vehicle_id for p in facts.placed.values()}
+    # The planned vehicles, plus whichever one actually delivered: after a dock swap (VEH003 → VEH036) the
+    # proof names the vehicle on the driver's record, so its driver has to be in the map too.
+    vehicles = {p.vehicle_id for p in facts.placed.values()} | {r.vehicle_id for r in facts.outcomes.values() if r.vehicle_id}
     if vehicles:
         facts.drivers = {d.vehicle_id: d.name for d in db.scalars(select(people.Driver).where(people.Driver.vehicle_id.in_(vehicles)))}
         facts.depots = {v.id: v.depot_id for v in db.scalars(select(reference.Vehicle).where(reference.Vehicle.id.in_(vehicles)))}
@@ -348,6 +354,22 @@ def _answered(c: f.Conflict | None) -> bool:
     return c is not None and isinstance((c.server_snapshot or {}).get("storeReport"), dict)
 
 
+def _run_that_drove(facts: Facts, day: date, outcome: f.DeviceRecord | None, placement: Placement | None) -> f.Run | None:
+    """The run that actually carried the stop: the vehicle on the driver's record first, then the planned one.
+
+    ``facts.runs`` is keyed by the plan's ``(service_date, vehicle_id, trip_no)``. When the plan has moved on
+    (a deferral withdrawn, a reefer swapped at the dock) that key names a trip nobody drove, so fall back to
+    whichever run of the day belongs to the vehicle the delivery came from.
+    """
+    for vehicle_id in [outcome.vehicle_id if outcome else None, placement.vehicle_id if placement else None]:
+        if vehicle_id is None:
+            continue
+        runs = [run for (d, v, _), run in facts.runs.items() if d == day and v == vehicle_id and run.departed_at]
+        if runs:
+            return min(runs, key=lambda r: r.departed_at)  # type: ignore[arg-type,return-value]
+    return None
+
+
 def _journey(times: dict[str, str]) -> list[s.JourneyStepOut]:
     reached = [step for step in JOURNEY_STEPS if step in times]
     last = reached[-1] if reached else None
@@ -422,12 +444,18 @@ def _delivery(db: Session, facts: Facts, day: date, orders: list[om.Order], now:
         gate = facts.gates.get((placement.service_date, placement.vehicle_id, placement.trip_no))
         if gate:
             times["Loaded"] = hm(gate.confirmed_at) or ""
+    outcome = next((facts.outcomes[o.id] for o in orders if o.id in facts.outcomes), None)
+    # The run that carried the order, which is not always the one the latest plan names: after a deferral and a
+    # re-release the placement points at a fresh trip with no run, while the vehicle that drove is on the record.
     run = facts.runs.get((placement.service_date, placement.vehicle_id, placement.trip_no)) if placement else None
+    if run is None or run.departed_at is None:
+        run = _run_that_drove(facts, day, outcome, placement) or run
     if run and run.departed_at and any(shown[o.id] in DEPARTED_OR_LATER for o in orders):
         times["Departed"] = hm(run.departed_at) or ""
-    outcome = next((facts.outcomes[o.id] for o in orders if o.id in facts.outcomes), None)
     if outcome and any(shown[o.id] in DELIVERED_LIKE for o in orders):
         times["Delivered"] = hm(outcome.device_time or outcome.received_at) or ""
+        # A delivery proves the departure, even when the run row that recorded it has been planned away.
+        times.setdefault("Departed", times["Delivered"])
     receipts = [facts.receipts[o.id] for o in orders if o.id in facts.receipts]
     if receipts:
         times["Receipt confirmed"] = hm(max(r.confirmed_at for r in receipts)) or ""
@@ -449,7 +477,7 @@ def _delivery(db: Session, facts: Facts, day: date, orders: list[om.Order], now:
 
     review = None
     if conflict is not None and not answered:
-        snap, dev = conflict.server_snapshot or {}, conflict.device_snapshot or {}
+        dev = conflict.device_snapshot or {}
 
         def _t(value: Any) -> str:
             if isinstance(value, str):
@@ -459,10 +487,19 @@ def _delivery(db: Session, facts: Facts, day: date, orders: list[om.Order], now:
                     return ""
             return ""
 
-        review = {
-            "askedAt": _t(snap.get("askedAt")) or _t(dev.get("syncedAt")), "deliveredAt": _t(dev.get("deviceTime")),
-            "receivedBy": str(dev.get("receivedBy") or ""), "conflictId": str(conflict.id),
-        }
+        # "You asked Dispatch at HH:MM to hold today's delivery": the store's own request, which is the
+        # deferral it asked for, not the moment Dispatch opened the review.
+        asked_for_hold = next(
+            (facts.deferrals[o.id] for o in orders if o.id in facts.deferrals),
+            next((facts.withdrawn[o.id] for o in orders if o.id in facts.withdrawn), None),
+        )
+        review = s.ReviewOut(
+            asked_at=hm(asked_for_hold.decided_at) if asked_for_hold else "",
+            delivered_at=_t(dev.get("deviceTime")), received_by=str(dev.get("receivedBy") or ""),
+            conflict_id=str(conflict.id),
+            # A51: the question waits for D7.2. Until Dispatch asks, the store sees the explanation only.
+            asked=conflict.status is ConflictStatus.AWAITING_STORE,
+        )
 
     proof = None
     if outcome is not None and (conflict is not None or any(shown[o.id] in DELIVERED_LIKE for o in orders)):
@@ -472,9 +509,15 @@ def _delivery(db: Session, facts: Facts, day: date, orders: list[om.Order], now:
             rec = facts.outcomes.get(o.id)
             value = (rec.payload or {}).get("unitsDelivered") if rec else None
             units.append(value if isinstance(value, int) else o.units)
+        # The driver who signed it: the vehicle's driver, else the name on the record itself. A vehicle with no
+        # driver row bound to it (a swap at the dock) must not leave the proof's driver blank.
+        driver = facts.drivers.get(outcome.vehicle_id or "") or (outcome.actor or "")
+        received_by = payload.get("receiverName")
+        if not received_by and conflict is not None:
+            received_by = (conflict.device_snapshot or {}).get("receivedBy")
         proof = s.ProofOfDeliveryOut(
-            received_by=str(payload.get("receiverName") or ""), at=hm(outcome.device_time or outcome.received_at) or "",
-            driver=facts.drivers.get(outcome.vehicle_id or "", ""), vehicle=outcome.vehicle_id or "", units=units,
+            received_by=str(received_by or ""), at=hm(outcome.device_time or outcome.received_at) or "",
+            driver=driver, vehicle=outcome.vehicle_id or "", units=units,
         )
 
     withdrawn = next((facts.withdrawn[o.id] for o in orders if o.id in facts.withdrawn), None)

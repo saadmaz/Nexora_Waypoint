@@ -138,7 +138,8 @@ def test_a_released_plan_reaches_the_store_the_dock_and_the_driver(client, auth,
     advance(client, auth, "2026-09-28T16:06:00+05:30")
     empty = get(client, auth, "loader", f"{LOADER}/docks/kandy")  # nothing is released yet: an empty board, not an error
     assert empty["planVersion"] == 0 and empty["vehicles"] == []
-    assert client.get(f"{DRIVER}/runs/{DAY}", headers=auth("driver")).status_code == 404
+    waiting = get(client, auth, "driver", f"{DRIVER}/runs/{DAY}")
+    assert waiting["state"] == "no_run" and waiting["noRun"]["reason"] == "not_released"
     version = released(client, auth)
 
     d = day(client, auth)
@@ -262,11 +263,21 @@ def test_the_hero_degradation_as_the_store_sees_it(client, auth, reseed):
 
     d = day(client, auth)
     assert d["status"] == "conflict"  # the store screens print this as "Under review", never "Conflict"
-    assert d["review"] == {"askedAt": "06:40", "deliveredAt": "05:42", "receivedBy": "S. Fernando", "conflictId": str(cid)}
+    # askedAt is the store's own call to hold the delivery (05:21, H10 to H11), which is what the
+    # "Why you're seeing this" notice quotes back; it is not the moment the outbox synced.
+    assert d["review"] == {"askedAt": "05:21", "deliveredAt": "05:42", "receivedBy": "S. Fernando", "conflictId": str(cid), "asked": False}
     assert d["proof"]["receivedBy"] == "S. Fernando" and d["proof"]["at"] == "05:42" and d["proof"]["units"] == [12, 8]
     assert (d["proof"]["driver"], d["proof"]["vehicle"]) == ("Nimal", "VEH039") and d["receivedAnswered"] is False
+    # A51: the explanation shows, but the question waits for Dispatch. The journey already has the
+    # delivery, so Departed cannot still be pending behind it.
+    assert [s["state"] for s in d["journey"][4:6]] == ["done", "done"] and d["journey"][4]["at"] == "05:10"
     review = get(client, auth, "store", f"{STORE}/updates")["updates"][0]
     assert review["tag"] == "Review" and review["resolvedAt"] is None
+
+    # D7.2 "Review with store first": now the store is asked, and only now does S3.5 draw the question.
+    asked = client.post(f"/api/v1/dispatcher/conflicts/{cid}/ask-store", headers=auth("dispatcher"))
+    assert asked.status_code == 200, asked.text
+    assert day(client, auth)["review"]["asked"] is True
 
     # "Yes, we received it": recorded for Dispatch, and it settles the delivery for the store at once (S2.8).
     post(client, auth, "store", f"{STORE}/reviews/{cid}/answer", {"answer": "received"}, status=204)
@@ -311,7 +322,8 @@ def test_the_hero_degradation_as_the_store_sees_it(client, auth, reseed):
 
     # Nothing delivered yet means nothing to confirm.
     assert client.post(f"{STORE}/receipts", headers=auth("dispatcher"), json={"date": DAY, "lines": [{"orderId": "ORD2001", "received": 1}]}).status_code == 403
-    assert get(client, auth, "driver", f"{DRIVER}/history")  # the run is in the driver's history now
+    # History is finished runs only; this run never finished, so it is not there yet (test_driver covers the finished case).
+    assert get(client, auth, "driver", f"{DRIVER}/history") == []
 
 
 def test_mark_all_read_clears_the_bell(client, auth, reseed):
