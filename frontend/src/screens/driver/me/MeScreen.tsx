@@ -5,8 +5,8 @@ import { Facts } from "../../../shared/ui/Facts";
 import { Tag } from "../../../shared/ui/Tag";
 import { LogOutButton } from "../../auth/AccountMenu";
 import { accountName } from "../../auth/accountName";
+import { RUN_DATE, VEHICLE } from "../fixtures";
 import { useDriverRun } from "../context/useDriverRun";
-import { RUN_DATE } from "../fixtures";
 import { useDriverSettings, useT } from "../context/DriverContext";
 import { DriverShell } from "../shell/DriverShell";
 import type { Language, TextSize } from "../types";
@@ -29,10 +29,11 @@ export type MeScreenProps = {
 export function MeScreen({ storageOverride }: MeScreenProps) {
   const t = useT();
   const { settings, setSunlight, setTextSize, setLanguage } = useDriverSettings();
-  // Who is signed in and the vehicle on today's run: from the session and the run, not from the fixture.
-  const { run } = useDriverRun(RUN_DATE);
-  const vehicleId = run?.vehicle.id ?? "";
   const [storage, setStorage] = useState(storageOverride ?? "…");
+  // Who is signed in, and the vehicle of the run the phone holds (the server's in API mode); the fixture only until it loads.
+  const { run } = useDriverRun(RUN_DATE);
+  const name = accountName("driver");
+  const vehicleId = run?.vehicle.id ?? VEHICLE.id;
 
   useEffect(() => {
     if (storageOverride) return;
@@ -56,9 +57,9 @@ export function MeScreen({ storageOverride }: MeScreenProps) {
   ];
 
   return (
-    <DriverShell title={t("me.title")} subtitle={run ? `Run ${run.runNo} · ${vehicleId}` : undefined}>
+    <DriverShell title={t("me.title")} subtitle={`Run ${run?.runNo ?? 1} · ${vehicleId}`}>
       <p className={styles.identity}>
-        {[accountName("driver"), vehicleId].filter(Boolean).join(" · ")}
+        {name} · {vehicleId}
       </p>
 
       <Card padded>

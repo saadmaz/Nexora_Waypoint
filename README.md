@@ -151,6 +151,26 @@ docker compose up
 
 Docker Compose starts the application, database, and seed data.
 
+The local database uses `postgres:18.6`. Its named `pgdata` volume mounts at
+`/var/lib/postgresql` (the PostgreSQL 18 image manages its versioned data directory there).
+No custom `PGDATA` is needed. A fresh startup runs Alembic `0001 → 0002`, the deterministic seed,
+and FastAPI before starting the web service.
+
+**Upgrading an old PostgreSQL 16 local volume:** local Hackathon data is disposable. Stop Compose
+and remove only your project's old `pgdata` volume, then run the normal first-run command again.
+Do not attach the PG16 data directory to PG18 or attempt an in-place upgrade. Inspect the exact
+volume name before removing it; keep the separate uploads volume.
+
+```bash
+docker compose down
+docker volume ls  # identify this project's old <project>_pgdata volume
+docker volume rm <project>_pgdata  # replace with the exact name you identified
+docker compose up --build
+```
+
+These are manual development steps. Startup and seed scripts never delete Docker volumes.
+See [the v3 data model](docs/data-model.md) and [database validation](docs/database-validation.md).
+
 ---
 
 ## 🎯 Judge Walkthrough
@@ -1310,6 +1330,9 @@ Steps 3 to 6 and 13 to 16 of PRD §16 are the dispatcher's. Rows that need a loa
 ### Departures from the PRD and the design
 
 - **Peliyagoda defers 17 on the generated day, not 19.** The count moves in steps of two to four as one more chilled order appears, so 19 is not reachable by tuning the chilled share alone. The screens show the computed number (DP-01).
+- **The refused moves are found on the generated day, not fixed in the PRD.** On the generated day VEH003 has no trip 2, so the PRD's example move (ORD1009 to VEH003 trip 2) is answered `no_such_trip`. `tests/api/test_seed_generated.py::test_the_walkthrough_has_a_refused_move_of_each_kind_on_the_generated_day` searches the v1 plan in a fixed order for the first move of each kind (a window, a reefer plus a second rule, the continuity guard) and prints them. Run it with `pytest -s` to get the order and trip to drag.
+- **D9 lists all four weeks.** A week under 90% shows as OK instead of being left out, so the screen always has four rows to compare.
+- **A Fresh first trip leaves just in time.** It leaves at `max(03:30, first window opens - outbound - 4 min)`, so VEH039 leaves at 05:10 for OUT084 when that is its first stop (A5). A trip whose first stop opens earlier, such as OUT087 at 03:00, still leaves at 03:30.
 - **Stop order inside a trip** is: window open, window close, outlet id, with orders for one outlet adjacent. Load order is the reverse of stop order.
 - **D9 is a baseline, not the Datathon model.** Demand is today's own chilled Fresh queue scaled by the calendar (payday +6%, a festival ramp its own factor); the screen says so in its label. The PRD builds it from `deliveries_train.csv`, which is not in the repository.
 - **Generated order sizes are invented** (A41). Sampling them from `deliveries_train.csv` needs its column names, which the data owner has to supply.

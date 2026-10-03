@@ -24,8 +24,9 @@ from ..errors import forbidden, not_found
 from ..models import field as f
 from ..models import orders as om
 from ..models import people, plans, reference
-from ..models.comms import AuditEvent, Notice
+from ..models.comms import AuditEvent, Notice, NoticeRead
 from ..models.enums import (
+    AudienceKind,
     AuditType,
     ConflictStatus,
     DeviceRecordType,
@@ -175,7 +176,7 @@ def load_facts(db: Session, outlet: reference.Outlet, orders: list[om.Order]) ->
         if current is None or version.number > current.version:
             facts.placed[to.order_id] = Placement(
                 version.number, version.service_date, trip.vehicle_id, trip.trip_no, trip.depart_at,
-                to.planned_arrival or to.handling_start, version.released_at,
+                to.planned_arrival or to.planned_handling_start, version.released_at,
             )
     for version in db.scalars(select(plans.PlanVersion).where(plans.PlanVersion.service_date.in_(dates), plans.PlanVersion.state == PlanState.RELEASED)):
         if version.released_at is not None and (version.service_date not in facts.first_release or version.released_at < facts.first_release[version.service_date]):
@@ -185,11 +186,11 @@ def load_facts(db: Session, outlet: reference.Outlet, orders: list[om.Order]) ->
         (facts.withdrawn if d.withdrawn_at is not None else facts.deferrals)[d.order_id] = d
     for r in db.scalars(select(f.Receipt).where(f.Receipt.order_id.in_(ids))):
         facts.receipts[r.order_id] = r
-    for rec in db.scalars(select(f.DeviceRecord).where(f.DeviceRecord.type == DeviceRecordType.DRIVER_OUTCOME, f.DeviceRecord.order_ids.overlap(ids)).order_by(f.DeviceRecord.received_at)):
+    for rec in db.scalars(select(f.DeviceRecord).where(f.DeviceRecord.type == DeviceRecordType.DRIVER_OUTCOME, f.DeviceRecord.client_id.in_(select(f.DeviceRecordOrder.client_id).where(f.DeviceRecordOrder.order_id.in_(ids)))).order_by(f.DeviceRecord.received_at)):
         if str((rec.payload or {}).get("outcome") or "").lower() == "delivered":
             for oid in rec.order_ids:
                 facts.outcomes[oid] = rec
-    facts.conflicts = [c for c in db.scalars(select(f.Conflict).where(f.Conflict.order_ids.overlap(ids)).order_by(f.Conflict.id))]
+    facts.conflicts = [c for c in db.scalars(select(f.Conflict).where(f.Conflict.id.in_(select(f.ConflictOrder.conflict_id).where(f.ConflictOrder.order_id.in_(ids)))).order_by(f.Conflict.id))]
 
     for run, trip, version in db.execute(
         select(f.Run, plans.Trip, plans.PlanVersion)
@@ -207,7 +208,7 @@ def load_facts(db: Session, outlet: reference.Outlet, orders: list[om.Order]) ->
         facts.gates[(version.service_date, trip.vehicle_id, trip.trip_no)] = gate
 
     facts.issues = list(
-        db.scalars(select(f.FieldException).where(f.FieldException.kind == ExceptionKind.STORE_ISSUE, f.FieldException.order_ids.overlap(ids)).order_by(f.FieldException.id))
+        db.scalars(select(f.FieldException).where(f.FieldException.kind == ExceptionKind.STORE_ISSUE, f.FieldException.id.in_(select(f.ExceptionOrder.exception_id).where(f.ExceptionOrder.order_id.in_(ids)))).order_by(f.FieldException.id))
     )
     if facts.issues:
         for a in db.scalars(select(AuditEvent).where(AuditEvent.entity_type == "exception", AuditEvent.type == AuditType.ISSUE_REPORTED, AuditEvent.entity_id.in_([str(e.id) for e in facts.issues]))):
@@ -548,7 +549,7 @@ def recent(db: Session, user: CurrentUser, limit: int, before: date | None) -> l
             continue
         status = {HistoryOutcome.SERVED: _OS.DELIVERED, HistoryOutcome.PARTIAL: _OS.PARTIAL, HistoryOutcome.DEFERRED: _OS.DEFERRED}[h.outcome]
         days[h.service_date] = s.RecentOrderDayOut(
-            date=h.service_date, order_count=1, status=status, delivered_at=h.time if status is _OS.DELIVERED else None,
+            date=h.service_date, order_count=1, status=status, delivered_at=f"{h.time:%H:%M}" if h.time is not None and status is _OS.DELIVERED else None,
             deferral={"type": DeferralType.POLICY.value} if status is _OS.DEFERRED else None,
         )
     rows = [d for _, d in sorted(days.items(), reverse=True) if d.date.weekday() != 6 and (before is None or d.date < before)]
@@ -576,7 +577,12 @@ _TAGS = {NoticeTag.ORDER: "Order", NoticeTag.PLAN: "Plan", NoticeTag.DELIVERY: "
 def updates(db: Session, user: CurrentUser) -> s.UpdatesFeedOut:
     """S4: every notice sent to the store, newest first, with its read state and the unread count for the bell."""
     outlet = outlet_of(db, user)
-    rows = list(db.scalars(select(Notice).where(Notice.audience == f"store:{outlet.id}").order_by(Notice.created_at.desc(), Notice.id.desc())))
+    rows = list(
+        db.scalars(
+            select(Notice).where(Notice.audience_kind == AudienceKind.STORE, Notice.outlet_id == outlet.id).order_by(Notice.created_at.desc(), Notice.id.desc())
+        )
+    )
+    read = set(db.scalars(select(NoticeRead.notice_id).where(NoticeRead.user_id == user.id, NoticeRead.notice_id.in_([n.id for n in rows] or [0]))))
     order_ids = {oid for n in rows for oid in (n.refs or {}).get("orderIds", [])}
     service_dates = {o.id: o.service_date for o in db.scalars(select(om.Order).where(om.Order.id.in_(order_ids or {""})))}
     conflicts = {c.id: c for c in db.scalars(select(f.Conflict).where(f.Conflict.id.in_([(n.refs or {}).get("conflictId") for n in rows if (n.refs or {}).get("conflictId")] or [0])))}
@@ -595,7 +601,7 @@ def updates(db: Session, user: CurrentUser) -> s.UpdatesFeedOut:
             s.StoreUpdateOut(
                 id=str(n.id), tag=_TAGS[n.tag], date=when.date(), time=f"{when:%H:%M}", title=n.title, body=n.body,
                 view_label="View delivery" if n.tag is NoticeTag.DELIVERY and target["screen"] == "delivery" else None,
-                target=target, unread=n.read_at is None, resolved_at=hm(conflict.resolved_at) if resolved and conflict else None,
+                target=target, unread=n.id not in read, resolved_at=hm(conflict.resolved_at) if resolved and conflict else None,
             )
         )
     return s.UpdatesFeedOut(updates=out, unread=sum(1 for u in out if u.unread))

@@ -15,14 +15,14 @@ from sqlalchemy.orm import Session
 from ..models import orders as om
 from ..models import plans, reference
 from ..models.comms import Notice
-from ..models.enums import NoticeTag
+from ..models.enums import AudienceKind, NoticeTag
 from . import planning_repo as repo
 
 
 def tell(db: Session, outlet_id: str, tag: NoticeTag, title: str, body: str, *, day: date, order_ids: list[str], at: datetime) -> None:
     db.add(
         Notice(
-            audience=f"store:{outlet_id}", tag=tag, title=title, body=body,
+            audience_kind=AudienceKind.STORE, outlet_id=outlet_id, tag=tag, title=title, body=body,
             link={"screen": "delivery", "date": day.isoformat()}, refs={"orderIds": order_ids}, created_at=at,
         )
     )

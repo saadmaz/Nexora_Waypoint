@@ -30,7 +30,7 @@ class PinPerson(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     loader_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     name: Mapped[str] = mapped_column(Text)
-    dock: Mapped[str] = mapped_column(ForeignKey("depots.id"))
+    depot_id: Mapped[str] = mapped_column(ForeignKey("depots.id"))
     pin_hash: Mapped[str] = mapped_column(Text)
 
 
@@ -39,4 +39,4 @@ class Driver(Base):
 
     vehicle_id: Mapped[str] = mapped_column(ForeignKey("vehicles.id"), primary_key=True)
     name: Mapped[str] = mapped_column(Text)
-    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), unique=True)

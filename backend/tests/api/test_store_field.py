@@ -136,7 +136,8 @@ def test_orders_close_at_the_cutoff_and_after_it_roll_to_the_next_run(client, au
 def test_a_released_plan_reaches_the_store_the_dock_and_the_driver(client, auth, reseed):
     place(client, auth)
     advance(client, auth, "2026-09-28T16:06:00+05:30")
-    assert client.get(f"{LOADER}/docks/kandy", headers=auth("loader")).status_code == 409  # nothing is released yet
+    empty = get(client, auth, "loader", f"{LOADER}/docks/kandy")  # nothing is released yet: an empty board, not an error
+    assert empty["planVersion"] == 0 and empty["vehicles"] == []
     assert client.get(f"{DRIVER}/runs/{DAY}", headers=auth("driver")).status_code == 404
     version = released(client, auth)
 
@@ -161,7 +162,7 @@ def test_a_released_plan_reaches_the_store_the_dock_and_the_driver(client, auth,
     assert [line["loadNo"] for line in plan["lines"]] == [1, 2, 3]
     assert {line["orderId"] for line in plan["lines"]} == {"ORD2001", "ORD2002", "ORD2003"} and all(line["unitsLoaded"] is None for line in plan["lines"])
     assert get(client, auth, "loader", f"{LOADER}/docks/kandy/diff", **{"from": version, "to": version})["lines"] == []
-    assert client.get(f"{LOADER}/vehicles/VEH039/trips/9", headers=auth("loader")).status_code == 404
+    assert client.get(f"{LOADER}/vehicles/VEH039/trips/2", headers=auth("loader")).status_code == 404
     assert client.get(f"{LOADER}/docks/nowhere", headers=auth("loader")).status_code == 404
 
     run = get(client, auth, "driver", f"{DRIVER}/runs/{DAY}")

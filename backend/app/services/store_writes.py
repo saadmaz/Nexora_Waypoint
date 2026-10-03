@@ -22,8 +22,16 @@ from ..deps import CurrentUser, require_outlet
 from ..errors import ApiError, not_found
 from ..models import field as f
 from ..models import orders as om
-from ..models.comms import Notice
-from ..models.enums import AuditType, ConflictStatus, ExceptionKind, ExceptionStatus, NoticeTag, ServerStatus
+from ..models.comms import Notice, NoticeRead
+from ..models.enums import (
+    AudienceKind,
+    AuditType,
+    ConflictStatus,
+    ExceptionKind,
+    ExceptionStatus,
+    NoticeTag,
+    ServerStatus,
+)
 from ..schemas import store as s
 from . import audit
 from . import orders as order_service
@@ -56,7 +64,7 @@ def _next_id(db: Session, temp: Temp, taken: set[str]) -> str:
 
 
 def _notice(db: Session, outlet_id: str, tag: NoticeTag, title: str, body: str, *, link: dict[str, str], order_ids: list[str], at: datetime) -> None:
-    db.add(Notice(audience=f"store:{outlet_id}", tag=tag, title=title, body=body, link=link, refs={"orderIds": order_ids}, created_at=at))
+    db.add(Notice(audience_kind=AudienceKind.STORE, outlet_id=outlet_id, tag=tag, title=title, body=body, link=link, refs={"orderIds": order_ids}, created_at=at))
 
 
 def _out(db: Session, user: CurrentUser, orders: list[om.Order]) -> list[s.OrderOut]:
@@ -146,9 +154,13 @@ def cancel(db: Session, user: CurrentUser, order_id: str) -> None:
 # ---- deferral, review, receipt --------------------------------------------------------
 
 
-def _read(db: Session, outlet_id: str, now: datetime, *, tag: NoticeTag | None = None, order_ids: list[str] | None = None, conflict_id: int | None = None) -> None:
-    """Mark the store's matching notices read: acting on a notice is reading it."""
-    for n in db.scalars(select(Notice).where(Notice.audience == f"store:{outlet_id}", Notice.read_at.is_(None))):
+def _read(
+    db: Session, user: CurrentUser, outlet_id: str, now: datetime, *,
+    tag: NoticeTag | None = None, order_ids: list[str] | None = None, conflict_id: int | None = None,
+) -> None:
+    """Mark the store's matching notices read by this user: acting on a notice is reading it."""
+    already = select(NoticeRead.notice_id).where(NoticeRead.user_id == user.id)
+    for n in db.scalars(select(Notice).where(Notice.audience_kind == AudienceKind.STORE, Notice.outlet_id == outlet_id, Notice.id.not_in(already))):
         refs = n.refs or {}
         if tag is not None and n.tag is not tag:
             continue
@@ -156,7 +168,8 @@ def _read(db: Session, outlet_id: str, now: datetime, *, tag: NoticeTag | None =
             continue
         if conflict_id is not None and refs.get("conflictId") != conflict_id:
             continue
-        n.read_at = now
+        db.add(NoticeRead(notice_id=n.id, user_id=user.id, read_at=now))
+    db.flush()
 
 
 def acknowledge_deferral(db: Session, user: CurrentUser, deferral_id: int) -> None:
@@ -173,7 +186,7 @@ def acknowledge_deferral(db: Session, user: CurrentUser, deferral_id: int) -> No
         if row.notice_seen_at is None:
             row.notice_seen_at = now
             audit.record(db, actor=user.display_name, entity_type="order", entity_id=row.order_id, type=AuditType.NOTICE_SEEN, payload={"deferral": row.id}, at=now)
-    _read(db, order.outlet_id, now, tag=NoticeTag.DEFERRAL, order_ids=ids)
+    _read(db, user, order.outlet_id, now, tag=NoticeTag.DEFERRAL, order_ids=ids)
 
 
 def answer_received(db: Session, user: CurrentUser, conflict_id: int) -> None:
@@ -194,7 +207,7 @@ def answer_received(db: Session, user: CurrentUser, conflict_id: int) -> None:
         db, actor=user.display_name, entity_type="conflict", entity_id=str(conflict.id), type=AuditType.CONFLICT_OPENED,
         payload={"event": "store_answer", "answer": "received", "orderIds": list(conflict.order_ids)}, at=now,
     )
-    _read(db, first.outlet_id, now, tag=NoticeTag.REVIEW, conflict_id=conflict.id)
+    _read(db, user, first.outlet_id, now, tag=NoticeTag.REVIEW, conflict_id=conflict.id)
 
 
 def _device_time(now: datetime, text: str | None) -> datetime:
@@ -267,9 +280,12 @@ def report_issue(db: Session, user: CurrentUser, body: s.ReportIssueIn) -> s.Iss
             raise ApiError(409, "not_delivered", f"{order.id} has not been delivered yet, so there is nothing to report.")
         short[order.id] = line.units
     exception = f.FieldException(
-        kind=ExceptionKind.STORE_ISSUE, type=body.type, vehicle_id=None, trip_id=None, order_ids=list(short), units_short=short,
-        detail=(body.note or "").strip() or None, raised_by=user.display_name, raised_at=now, device_time=None, status=ExceptionStatus.OPEN,
+        kind=ExceptionKind.STORE_ISSUE, type=body.type, vehicle_id=None, trip_id=None,
+        detail=(body.note or "").strip() or None, raised_by=user.display_name, raised_by_user_id=user.id, raised_at=now, device_time=None,
+        status=ExceptionStatus.OPEN,
     )
+    exception.order_ids = list(short)
+    exception.units_short = short
     db.add(exception)
     db.flush()
     audit.record(
@@ -281,7 +297,7 @@ def report_issue(db: Session, user: CurrentUser, body: s.ReportIssueIn) -> s.Iss
             order_service.apply(db, orders[oid], OrderEvent.FAIL, actor=user.display_name, commit=False, payload={"issue": body.type, "exception": exception.id})
     db.add(
         Notice(
-            audience="dispatch", tag=NoticeTag.CHANGE, title=f"{outlet.id}: {body.type} reported",
+            audience_kind=AudienceKind.DISPATCHER, tag=NoticeTag.CHANGE, title=f"{outlet.id}: {body.type} reported",
             body=exception.detail or f"{outlet.id} reported a problem with {' + '.join(short)}.",
             link={"screen": "exception", "exceptionId": exception.id}, refs={"exceptionId": exception.id, "orderIds": list(short)}, created_at=now,
         )
@@ -293,4 +309,4 @@ def report_issue(db: Session, user: CurrentUser, body: s.ReportIssueIn) -> s.Iss
 
 def mark_all_read(db: Session, user: CurrentUser) -> None:
     outlet = views.outlet_of(db, user)
-    _read(db, outlet.id, clock.now(db))
+    _read(db, user, outlet.id, clock.now(db))

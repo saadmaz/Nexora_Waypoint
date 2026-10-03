@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, time
 
-from sqlalchemy import Boolean, Date, Float, ForeignKey, Index, Integer, Text
+from sqlalchemy import Boolean, Date, Float, ForeignKey, Index, Integer, Text, Time
 from sqlalchemy.orm import Mapped, mapped_column
 
 from waypoint_rules.vocab import Binding, DeferralType, Temp
@@ -20,7 +20,7 @@ class Order(Base):
 
     id: Mapped[str] = mapped_column(Text, primary_key=True)  # ORD2001
     outlet_id: Mapped[str] = mapped_column(ForeignKey("outlets.id"), index=True)
-    service_date: Mapped[date] = mapped_column(Date)
+    service_date: Mapped[date] = mapped_column(ForeignKey("calendar_days.date"))
     temp: Mapped[Temp] = mapped_column(enum_col(Temp, "temp"))
     units: Mapped[int] = mapped_column(Integer)
     weight_kg: Mapped[float] = mapped_column(Float)
@@ -46,7 +46,7 @@ class OutletServiceHistory(Base):
     outlet_id: Mapped[str] = mapped_column(ForeignKey("outlets.id"), primary_key=True)
     service_date: Mapped[date] = mapped_column(Date, primary_key=True)
     outcome: Mapped[HistoryOutcome] = mapped_column(enum_col(HistoryOutcome, "history_outcome"))
-    time: Mapped[str | None] = mapped_column(Text)  # "05:40"
+    time: Mapped[time | None] = mapped_column(Time)
 
 
 class Deferral(Base):
@@ -64,6 +64,7 @@ class Deferral(Base):
     frees: Mapped[dict] = mapped_column(JSON, default=dict)
     next_run_date: Mapped[date | None] = mapped_column(Date)
     decided_by: Mapped[str | None] = mapped_column(Text)
+    decided_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     decided_at: Mapped[datetime | None] = mapped_column(TZ)
     notice_sent_at: Mapped[datetime | None] = mapped_column(TZ)
     notice_seen_at: Mapped[datetime | None] = mapped_column(TZ)

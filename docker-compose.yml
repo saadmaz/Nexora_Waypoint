@@ -8,13 +8,13 @@
 
 services:
   db:
-    image: postgres:16
+    image: postgres:18.6
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-waypoint}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-waypoint}
       POSTGRES_DB: ${POSTGRES_DB:-waypoint}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-waypoint} -d ${POSTGRES_DB:-waypoint}"]
       interval: 3s
@@ -30,6 +30,9 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-waypoint}:${POSTGRES_PASSWORD:-waypoint}@db:5432/${POSTGRES_DB:-waypoint}
+      # dev keeps the published default usable so a clean checkout runs. Set ENVIRONMENT to anything
+      # else and the API refuses to start until JWT_SECRET is a value of your own.
+      ENVIRONMENT: ${ENVIRONMENT:-dev}
       JWT_SECRET: ${JWT_SECRET:-change-me-in-env-change-me-in-env}
       JWT_TTL_HOURS: ${JWT_TTL_HOURS:-12}
       CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:8080","http://localhost:5173"]}
@@ -63,6 +66,11 @@ services:
         condition: service_healthy
     ports:
       - "8080:80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
     restart: unless-stopped
 
 volumes:

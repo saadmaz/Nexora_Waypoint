@@ -40,8 +40,9 @@ def test_advance_moves_forward_then_refuses_to_go_back(client, auth, reseed):
     assert set(back.json()) == {"code", "message", "details"}
     assert _now(client, auth) == datetime.fromisoformat("2026-09-28T16:00:00+05:30")
 
-    # Staying put is allowed; a time with no offset means Asia/Colombo.
-    same = client.post("/api/v1/demo/advance", json={"to": "2026-09-28T16:00:00"}, headers=auth("store"))
+    # Staying put is allowed; a time with no offset means Asia/Colombo. Dispatcher, like every other
+    # call here: advancing is dispatcher only (the auth audit, docs/auth-audit.md).
+    same = client.post("/api/v1/demo/advance", json={"to": "2026-09-28T16:00:00"}, headers=auth("dispatcher"))
     assert same.status_code == 200
 
 

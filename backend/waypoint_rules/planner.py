@@ -48,8 +48,12 @@ from .vocab import MAX_TRIPS_PER_VEHICLE, Binding, Brand, DeferralType, RuleId, 
 #: A trip stops looking for more orders after this many in a row did not fit (it is full; the rest are lower priority).
 MAX_MISSES_PER_TRIP = 12
 
-#: A Fresh first trip leaves when the Fresh operating window opens (PRD §4a, A5).
+#: A Fresh first trip never leaves before the Fresh operating window opens (PRD §4a, A5).
 FRESH_FIRST_DEPARTURE = time(3, 30)
+
+#: A Fresh first trip reaches its first outlet this many minutes before the window opens, so it is there as the doors open (A5:
+#: VEH039 leaves at 05:10 for OUT084, which opens at 05:30 and is 16 minutes out).
+FRESH_ARRIVAL_SLACK_MIN = 4
 
 #: The rule that refused an order, as the binding-resource tag (PRD §4b). A rule that is not a resource has none.
 _BINDING_OF_RULE: dict[RuleId, Binding] = {
@@ -158,6 +162,10 @@ def _departure(
     midnight = datetime.combine(service_date, time(0, 0))
     if brand is Brand.FRESH:
         base = datetime.combine(service_date, FRESH_FIRST_DEPARTURE)
+        if not_before is None:
+            # Handling starts when the window opens either way, so leaving later never makes a stop late.
+            opens = datetime.combine(service_date, first.effective_open)
+            base = max(base, opens - timedelta(minutes=ref.district_of(first).outbound_min + FRESH_ARRIVAL_SLACK_MIN))
     else:
         # Reach the first window as it opens, with no waiting.
         opens = datetime.combine(service_date, first.effective_open)

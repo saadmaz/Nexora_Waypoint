@@ -79,10 +79,10 @@ def test_wrong_role_is_403(client, auth, role, method, path, body):
 
 
 # (role that is allowed, method, path, expected status): the right role gets past the guard to a real answer.
-# At the scenario start no plan is released, so the dock answers 409 with the one error shape; the others read an empty set.
+# Before the first release the dock answers 200 with plan version 0; the others read an empty set.
 RIGHT_ROLE_REACHES = [
     ("store", "GET", "/api/v1/store/updates", 200),
-    ("loader", "GET", "/api/v1/loader/docks/kandy", 409),
+    ("loader", "GET", "/api/v1/loader/docks/kandy", 200),
     ("driver", "GET", "/api/v1/driver/history", 200),
 ]
 

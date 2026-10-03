@@ -17,7 +17,9 @@ const ROLES_KNOWN: ReadonlySet<string> = new Set<Role>(["dispatcher", "loader", 
  *   a wrong password identically, and so do we.
  * - A device with no connection is `offline`, checked before any request, like the mock.
  * - A server that cannot be reached, times out or fails (5xx) is `unavailable`: the device is online but there is
- *   nobody to sign in to. The mock has no such case.
+ *   nobody to sign in to. The mock has no such case. Too many failed attempts (429) is `unavailable` too: the
+ *   credentials were never checked, so saying the password is wrong would be untrue, and this reason already
+ *   tells the person to try again shortly.
  *
  * The token is stored opaque under the role the backend returned. Signing in as one role leaves the other three
  * sessions alone, and there is no logout endpoint, so signing out is local.
@@ -45,7 +47,7 @@ export function createApiAuthApi(getClient: () => HttpClient): AuthApi {
       } catch (error) {
         if (isNetworkUnavailable(error)) return { ok: false, reason: "unavailable" };
         if (isApiError(error)) {
-          if (error.status >= 500) return { ok: false, reason: "unavailable" };
+          if (error.status >= 500 || error.status === 429) return { ok: false, reason: "unavailable" };
           return { ok: false, reason: "invalid_credentials" };
         }
         throw error;
