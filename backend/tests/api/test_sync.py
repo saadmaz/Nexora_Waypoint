@@ -355,3 +355,75 @@ def test_an_empty_attachment_is_refused_and_leaves_no_file(client, auth, tmp_pat
     res = upload(client, auth, str(uuid.uuid4()), body=b"")
     assert res.status_code == 422 and res.json()["code"] == "empty_file"
     assert list(tmp_path.iterdir()) == []
+
+
+# --------------------------------------------------------------------------- the dock's acknowledgement
+
+
+def test_a_loader_ack_of_an_old_version_is_a_conflict_and_the_current_one_is_taken(client, auth, reseed):
+    from app.db import SessionLocal
+    from app.models.field import Conflict
+    from app.models.plans import Acknowledgement
+
+    version = on_the_road(client, auth)
+    advance(client, auth, "2026-09-29T05:21:00+05:30")
+    assert defer_hero(client, auth).status_code == 200
+    ack = {"dockId": "kandy", "personId": "Ruwan", "personName": "Ruwan"}
+    old = record("loader.ack", {**ack, "version": version}, "05:30", version, actor="Ruwan")
+    new = record("loader.ack", {**ack, "version": version + 1}, "05:31", version + 1, actor="Ruwan")
+    answers = results(sync(client, auth, [old, new], role="loader", device="tablet-kandy"))
+
+    assert [r["result"] for r in answers] == ["conflict", "accepted"]
+    assert answers[0]["reason"] == f"Plan v{version + 1} replaced v{version}" and answers[0]["conflictId"] is None
+    assert answers[0]["serverPayload"] == {"currentVersion": version + 1}
+    with SessionLocal() as db:
+        assert db.scalars(select(Conflict)).first() is None  # the dock reviews the change itself (L1.5); nothing for D7
+        acks = [(a.actor_kind.value, a.dock) for a in db.scalars(select(Acknowledgement).where(Acknowledgement.actor_id == "Ruwan"))]
+    assert acks == [("pin_person", "kandy")]
+
+
+# --------------------------------------------------------------------------- who may send what
+
+
+def test_sync_and_attachments_are_for_the_field_roles_only(client, auth):
+    body = {"deviceId": "x", "records": [record("driver.arrival", {"date": DAY, "outletId": "OUT084"}, "05:26", 3)]}
+    for role in ("store", "dispatcher"):
+        assert client.post(SYNC, json=body, headers=auth(role)).status_code == 403
+        res = client.post(
+            "/api/v1/attachments", data={"clientId": str(uuid.uuid4())}, files={"file": ("p.jpg", PHOTO, "image/jpeg")}, headers=auth(role)
+        )
+        assert res.status_code == 403
+    assert client.post(SYNC, json=body).status_code == 401
+
+
+def test_a_phone_cannot_write_for_another_vehicle_or_role(client, auth, reseed):
+    version = on_the_road(client, auth)
+    other_vehicle = record("driver.arrival", {"date": DAY, "outletId": "OUT084", "vehicleId": "VEH003"}, "05:26", version)
+    mine = record("driver.arrival", {"date": DAY, "outletId": "OUT084"}, "05:27", version)
+    answers = results(sync(client, auth, [other_vehicle, mine]))
+    assert [r["result"] for r in answers] == ["error", "accepted"]
+    assert answers[0]["reason"] == "That vehicle isn't linked to your account"
+
+    from_the_tablet = results(sync(client, auth, [record("driver.arrival", {"date": DAY, "outletId": "OUT084"}, "05:28", version)], role="loader"))
+    assert from_the_tablet[0]["result"] == "error" and from_the_tablet[0]["reason"] == "Driver records come from a driver's phone"
+
+
+# --------------------------------------------------------------------------- what the store is told
+
+
+def test_the_store_hears_under_review_and_never_conflict(client, auth, reseed):
+    from app.db import SessionLocal
+    from app.models.comms import Notice
+
+    _, _, answers = to_the_sync(client, auth)
+    with SessionLocal() as db:
+        review = [n for n in db.scalars(select(Notice).where(Notice.audience == "store:OUT084")) if n.tag.value == "Review"]
+    assert [n.title for n in review] == ["Your delivery is under review"]
+    assert review[0].refs["orderIds"] == list(HERO) and review[0].refs["conflictId"] == answers[1]["conflictId"]
+
+    advance(client, auth, "2026-09-29T06:44:00+05:30")
+    res = client.post(f"/api/v1/dispatcher/conflicts/{answers[1]['conflictId']}/resolve", json={"resolution": "keep_delivery"}, headers=auth("dispatcher"))
+    assert res.status_code == 200, res.text
+    with SessionLocal() as db:
+        told = [f"{n.title} {n.body}" for n in db.scalars(select(Notice).where(Notice.audience.like("store:%")))]
+    assert told and not [t for t in told if "conflict" in t.lower()]
