@@ -33,7 +33,7 @@ export function LoaderApp() {
       <Route
         path="*"
         element={
-          <ClockProvider start={LOADER_START}>
+          <ClockProvider start={LOADER_START} role="loader">
             <FieldRuntime>
               <RoleRoot theme={LOADER_THEME}>
                 <LoaderProvider>

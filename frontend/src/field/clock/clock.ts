@@ -16,6 +16,8 @@ export const HERO_EVENING_DATE = "2026-09-28";
 export type FieldClock = {
   /** Epoch milliseconds of the scenario "now". */
   nowMs: () => number;
+  /** The delivery run (YYYY-MM-DD) the app is working on. The server says on the real API; the URL's `?date=` in mock mode. */
+  runDate: () => string;
   /** Jumps forward to `to` (epoch ms). It never goes backwards. Absent on a fixed clock. */
   advanceTo?: (to: number) => void;
   /** A fixed clock does not tick: used by the state gallery so a frame stays at its own moment. */
@@ -32,16 +34,17 @@ export function colomboMs(date: string, time: string): number {
 /** A clock frozen at one moment. */
 export function createFixedClock(date: string, time: string): FieldClock {
   const at = colomboMs(date, time);
-  return { nowMs: () => at, fixed: true };
+  return { nowMs: () => at, runDate: () => HERO_DATE, fixed: true };
 }
 
 /** A clock that starts at one moment and then keeps ticking in real time. `advanceTo` jumps it forward. */
-export function createRunningClock(startMs: number): FieldClock {
+export function createRunningClock(startMs: number, runDate: string = HERO_DATE): FieldClock {
   const loadedAt = Date.now();
   let jumped = 0;
   const nowMs = () => startMs + (Date.now() - loadedAt) + jumped;
   return {
     nowMs,
+    runDate: () => runDate,
     fixed: false,
     advanceTo(to) {
       const gap = to - nowMs();
@@ -67,9 +70,9 @@ export type ClockOptions = {
 export function createFieldClock(options: ClockOptions = {}): FieldClock {
   const at = options.at && /^\d{1,2}:\d{2}$/.test(options.at) ? options.at : null;
   const date = options.date && /^\d{4}-\d{2}-\d{2}$/.test(options.date) ? options.date : HERO_DATE;
-  if (at) return createRunningClock(colomboMs(date, at));
-  if (options.start) return createRunningClock(colomboMs(options.start.date, options.start.time));
-  return { nowMs: () => Date.now(), fixed: false };
+  if (at) return createRunningClock(colomboMs(date, at), date);
+  if (options.start) return createRunningClock(colomboMs(options.start.date, options.start.time), date);
+  return { nowMs: () => Date.now(), runDate: () => date, fixed: false };
 }
 
 /** Reads `?at=` and `?date=` from a query string. */

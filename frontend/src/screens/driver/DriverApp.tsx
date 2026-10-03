@@ -35,7 +35,7 @@ export function DriverApp() {
       <Route
         path="*"
         element={
-          <ClockProvider start={DRIVER_START}>
+          <ClockProvider start={DRIVER_START} role="driver">
             <FieldRuntime>
               <DriverProvider>
                 <ThemedRoot>
