@@ -6,7 +6,9 @@ import { ConnectivityChip, FieldTabBar, FieldTopBar, NotificationBell, type Chip
 import { connectivity as connectivityStore, useConnectivity, type ConnectivitySnapshot } from "../../../field/offline";
 import { useCoverageGap, useDriverApi, useDriverSettings, useOutboxOpen, useT } from "../context/DriverContext";
 import { runDate } from "../../../field/clock/runDate";
-import { resolveConflictNow, setFailNextUpload } from "../api/mockDriverApi";
+import { roleApiMode } from "../../../api/http/config";
+import { devMocks } from "../../../devMocks/registry";
+import { setFailNextUpload } from "../api/deviceDriverApi";
 import { OutboxSheet, type OutboxProgress, type OutboxPrototypeControls } from "../outbox/OutboxSheet";
 import type { OutboxRow } from "../outbox/outboxModel";
 import { useOutboxView } from "../outbox/useOutboxView";
@@ -120,9 +122,12 @@ export function DriverShell({
           setFailUpload(on);
           setFailNextUpload(on);
         },
-        onResolve: view.openConflictOutletId
-          ? (decision) => void resolveConflictNow(runDate(), view.openConflictOutletId as string, clock.nowMs, decision, decision === "keep_partial" ? 10 : undefined)
-          : undefined,
+        // "Dispatch resolves now" is a mock-server control: it has nothing to resolve on the real API.
+        onResolve:
+          import.meta.env.DEV && roleApiMode("driver") !== "api" && view.openConflictOutletId
+            ? (decision) =>
+                void devMocks().driver.resolveConflictNow(runDate(), view.openConflictOutletId as string, clock.nowMs, decision, decision === "keep_partial" ? 10 : undefined)
+            : undefined,
       }
     : undefined;
 

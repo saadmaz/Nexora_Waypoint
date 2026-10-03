@@ -6,9 +6,28 @@ import { roleApiMode } from "../api/http/config";
 import { createServerClock } from "../api/serverClock";
 import { clockTime } from "../domain/format";
 import { useServerClockReady } from "../hooks/useServerClockReady";
-import { OUTLET } from "../domain/outlet";
+import type { StoreOutlet } from "../domain/outlet";
 import { devMocks } from "../devMocks/registry";
 import { StoreContext } from "./StoreContext";
+
+const OUTLET_KEY = "waypoint.store.outlet";
+
+function savedOutlet(): StoreOutlet | null {
+  try {
+    const raw = localStorage.getItem(OUTLET_KEY);
+    return raw ? (JSON.parse(raw) as StoreOutlet) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveOutlet(outlet: StoreOutlet): void {
+  try {
+    localStorage.setItem(OUTLET_KEY, JSON.stringify(outlet));
+  } catch {
+    // Storage can be blocked: the outlet is still in memory.
+  }
+}
 
 /** The presets already running or done for an API, so a second mount does not write them again. */
 const PRESET_RUNS = new WeakMap<StoreApi, Promise<void>>();
@@ -90,17 +109,37 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => window.clearInterval(id);
   }, [now]);
 
+  // The outlet this account manages comes from the database. The last answer is kept on the device, so a reload while
+  // offline still has the outlet to name.
+  const [outlet, setOutlet] = useState<StoreOutlet | null>(savedOutlet);
+  useEffect(() => {
+    let alive = true;
+    void api
+      .getOutlet()
+      .then((found) => {
+        if (!alive) return;
+        setOutlet(found);
+        saveOutlet(found);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [api, clockVersion]);
+
+  const outletId = outlet?.id;
   const refreshUnread = useCallback(() => {
-    void api.getUpdates(OUTLET.id).then((feed) => setUnread(feed.unread));
-  }, [api]);
+    if (outletId) void api.getUpdates(outletId).then((feed) => setUnread(feed.unread));
+  }, [api, outletId]);
 
   useEffect(() => {
     if (ready) refreshUnread();
   }, [ready, refreshUnread, minute, clockVersion]);
 
   const value = useMemo(
-    () => ({ api, now, unread, refreshUnread, presenter, clockVersion, ...(jump ? { advanceTo: jump } : {}) }),
-    [api, now, unread, refreshUnread, presenter, clockVersion, jump],
+    () =>
+      outlet ? { api, outlet, now, unread, refreshUnread, presenter, clockVersion, ...(jump ? { advanceTo: jump } : {}) } : null,
+    [api, outlet, now, unread, refreshUnread, presenter, clockVersion, jump],
   );
-  return <StoreContext.Provider value={value}>{ready ? children : null}</StoreContext.Provider>;
+  return value && ready ? <StoreContext.Provider value={value}>{children}</StoreContext.Provider> : null;
 }

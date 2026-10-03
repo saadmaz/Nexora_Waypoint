@@ -24,6 +24,8 @@ import {
  * Kandy, orders ORD2001 (chilled, 12 units) and ORD2002 (dry, 8 units) for
  * Tue 29 Sep 2026, both received Mon 28 Sep 15:40, window 05:30 to 08:00.
  */
+import { MOCK_OUTLET } from "./mockOutlet";
+
 const HERO_OUTLET = { id: "OUT084", name: "Waypoint Fresh", district: "Kandy" };
 const HERO_WINDOW = { start: "05:30", end: "08:00" };
 
@@ -221,6 +223,10 @@ export function createMockStoreApi(
   };
 
   return {
+    async getOutlet() {
+      return MOCK_OUTLET;
+    },
+
     async getOrderDraft(outletId, date) {
       const deliveryDate = date ?? operatingDayFor(now());
       const draft: OrderDraft = {

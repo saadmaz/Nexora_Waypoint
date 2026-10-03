@@ -13,7 +13,6 @@ import { StateScreen } from "../../../shared/ui/StateScreen";
 import { Tag } from "../../../shared/ui/Tag";
 import { clockTime, dayLabel } from "../../../domain/format";
 import { affectedText, issueTagFor, type Issue } from "../../../domain/issue";
-import { OUTLET } from "../../../domain/outlet";
 import { toIsoDate } from "../../../domain/schedule";
 import { useMediaQuery } from "../../../hooks/useMediaQuery";
 import { useNow } from "../../../hooks/useNow";
@@ -31,9 +30,10 @@ export type IssuesPageProps = {
 };
 
 /** The Issues tab (S3.7): the problems the store has reported, or "No open issues". */
-export function IssuesPage({ outletId = OUTLET.id, preview }: IssuesPageProps) {
+export function IssuesPage({ outletId: outletIdProp, preview }: IssuesPageProps) {
   const navigate = useNavigate();
-  const { api, now, unread } = useStore();
+  const { api, now, unread, outlet } = useStore();
+  const outletId = outletIdProp ?? outlet.id;
   const desktop = useMediaQuery("(min-width: 1024px)");
   const currentTime = useNow();
   const browserOnline = useOnline();

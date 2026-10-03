@@ -1,14 +1,17 @@
 /**
- * The outlet Anusha manages (PRD v2.1 section 4c, ORD2001 and ORD2002): OUT084,
- * Waypoint Fresh, Kandy, rear dock, window 05:30 to 08:00.
+ * The outlet a store account manages, as the store's own screens name it. It comes from the database with the sign-in
+ * (`GET /me`), never from the code, so a different seeded outlet or a different store account just works.
  */
-export const OUTLET = {
-  id: "OUT084",
-  brand: "Waypoint Fresh",
-  district: "Kandy",
-  dock: "Rear dock",
-  window: { start: "05:30", end: "08:00" },
-} as const;
+export type StoreOutlet = {
+  id: string;
+  name: string;
+  brand: string;
+  district: string;
+  dock: string;
+  window: { start: string; end: string };
+};
 
 /** "05:30–08:00" */
-export const WINDOW_LABEL = `${OUTLET.window.start}–${OUTLET.window.end}`;
+export function windowLabel(outlet: Pick<StoreOutlet, "window">): string {
+  return `${outlet.window.start}–${outlet.window.end}`;
+}

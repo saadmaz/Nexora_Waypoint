@@ -10,7 +10,7 @@ import { MonoText } from "../../../shared/ui/MonoText";
 import { useOutboxOpen, useT } from "../context/DriverContext";
 import { useDriverRun } from "../context/useDriverRun";
 import { runDate } from "../../../field/clock/runDate";
-import { PHOTO_FAILURE_REFERENCE } from "../api/mockDriverApi";
+import { PHOTO_FAILURE_REFERENCE } from "../api/deviceDriverApi";
 import { DriverShell } from "../shell/DriverShell";
 import styles from "./PhotoFailureScreen.module.css";
 import { usePhotoState, type PhotoState } from "./usePhotoState";

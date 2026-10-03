@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "dev:https": "vite --mode https",
     "test": "vitest run",
+    "check:bundle": "node scripts/check-bundle.mjs",
     "compare": "node scripts/compare-frames.ts",
     "test:hero": "node scripts/driver-hero-walkthrough.ts",
     "test:offline": "node scripts/driver-offline-shell.ts",

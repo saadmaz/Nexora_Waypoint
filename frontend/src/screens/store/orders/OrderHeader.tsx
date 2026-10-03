@@ -1,7 +1,8 @@
 import { Icon } from "../../../shared/ui/Icon";
 import { Mono } from "../../../shared/ui/Mono";
-import { OUTLET, WINDOW_LABEL } from "../../../domain/outlet";
+import { windowLabel } from "../../../domain/outlet";
 import styles from "./OrderHeader.module.css";
+import { useStore } from "../../../app/StoreContext";
 
 export type OrderHeaderProps = {
   title: string;
@@ -13,6 +14,7 @@ export type OrderHeaderProps = {
 
 /** Title, date chip and window line shared by the order form, edit and desktop frames. */
 export function OrderHeader({ title, dateLabel, inline }: OrderHeaderProps) {
+  const { outlet } = useStore();
   return (
     <div className={styles.header}>
       <h1 className={styles.title}>{title}</h1>
@@ -27,7 +29,7 @@ export function OrderHeader({ title, dateLabel, inline }: OrderHeaderProps) {
             {inline && (
               <>
                 {" "}
-                · window <Mono>{WINDOW_LABEL}</Mono> · {OUTLET.dock}
+                · window <Mono>{windowLabel(outlet)}</Mono> · {outlet.dock}
               </>
             )}
           </span>
@@ -35,7 +37,7 @@ export function OrderHeader({ title, dateLabel, inline }: OrderHeaderProps) {
       )}
       {dateLabel && !inline && (
         <p className={styles.muted}>
-          Window <Mono>{WINDOW_LABEL}</Mono> · {OUTLET.dock}
+          Window <Mono>{windowLabel(outlet)}</Mono> · {outlet.dock}
         </p>
       )}
     </div>

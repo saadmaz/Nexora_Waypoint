@@ -4,12 +4,13 @@ import { Mono } from "../../../shared/ui/Mono";
 import { Tag } from "../../../shared/ui/Tag";
 import { unitsSum, type Delivery } from "../../../domain/delivery";
 import { dayLabel } from "../../../domain/format";
-import { WINDOW_LABEL } from "../../../domain/outlet";
+import { windowLabel } from "../../../domain/outlet";
 import { ArrivalTile } from "./ArrivalTile";
 import styles from "./DeliveryCard.module.css";
 import { JourneySection } from "./JourneySection";
 import { OrderRows } from "./OrderRows";
 import { PodPhoto } from "./PodPhoto";
+import { useStore } from "../../../app/StoreContext";
 
 export type DeliveryCardProps = {
   delivery: Delivery;
@@ -23,6 +24,7 @@ export type DeliveryCardProps = {
  * the API derived from the record and the clock; this component picks no rule of its own.
  */
 export function DeliveryCard({ delivery, offline }: DeliveryCardProps) {
+  const { outlet } = useStore();
   const { proof, review, arrival } = delivery;
 
   return (
@@ -32,7 +34,7 @@ export function DeliveryCard({ delivery, offline }: DeliveryCardProps) {
           <div>
             <h2 className={styles.date}>{dayLabel(delivery.date)}</h2>
             <p className={styles.window}>
-              Window <Mono>{WINDOW_LABEL}</Mono>
+              Window <Mono>{windowLabel(outlet)}</Mono>
             </p>
           </div>
           <div className={styles.tags}>

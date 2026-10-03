@@ -11,7 +11,6 @@ import { StateScreen } from "../../../shared/ui/StateScreen";
 import type { Delivery } from "../../../domain/delivery";
 import { clockTime, dayLabel } from "../../../domain/format";
 import type { RecentOrderDay } from "../../../domain/order";
-import { OUTLET } from "../../../domain/outlet";
 import { deliveryDayFor, toIsoDate } from "../../../domain/schedule";
 import { useMediaQuery } from "../../../hooks/useMediaQuery";
 import { useNow } from "../../../hooks/useNow";
@@ -43,9 +42,10 @@ type Loaded = { deliveries: Delivery[]; recent: RecentOrderDay[]; at: string };
  * S2 Deliveries. One route for every frame: which one shows follows from the delivery the
  * API derives from the order record and the clock, and from the connection (S2.S).
  */
-export function DeliveriesPage({ outletId = OUTLET.id, date, preview }: DeliveriesPageProps) {
+export function DeliveriesPage({ outletId: outletIdProp, date, preview }: DeliveriesPageProps) {
   const navigate = useNavigate();
-  const { api, now, unread, refreshUnread } = useStore();
+  const { api, now, unread, refreshUnread, outlet: storeOutlet } = useStore();
+  const outletId = outletIdProp ?? storeOutlet.id;
   const desktop = useMediaQuery("(min-width: 1024px)");
   const currentTime = useNow();
   const browserOnline = useOnline();

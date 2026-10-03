@@ -15,7 +15,6 @@ import { Segmented } from "../../../shared/ui/Segmented";
 import { StateScreen } from "../../../shared/ui/StateScreen";
 import { clockTime, dayLabel } from "../../../domain/format";
 import type { RecentOrderDay } from "../../../domain/order";
-import { OUTLET } from "../../../domain/outlet";
 import { addDays, toIsoDate } from "../../../domain/schedule";
 import { dayHeading, type StoreUpdate, type UpdatesFeed } from "../../../domain/update";
 import { useMediaQuery } from "../../../hooks/useMediaQuery";
@@ -45,10 +44,11 @@ const FILTERS: Filter[] = ["All", "Deferred", "Partial"];
  * record sends the store, newest first, grouped by day, with unread and "Mark all read". The
  * History segment is past delivery days, Monday to Saturday, filtered All, Deferred or Partial.
  */
-export function UpdatesPage({ outletId = OUTLET.id, view, preview }: UpdatesPageProps) {
+export function UpdatesPage({ outletId: outletIdProp, view, preview }: UpdatesPageProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { api, now, refreshUnread } = useStore();
+  const { api, now, refreshUnread, outlet } = useStore();
+  const outletId = outletIdProp ?? outlet.id;
   const desktop = useMediaQuery("(min-width: 1024px)");
   const currentTime = useNow();
   const browserOnline = useOnline();
