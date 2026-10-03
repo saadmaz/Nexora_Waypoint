@@ -185,6 +185,13 @@ The complete workflow can be demonstrated using the seeded accounts:
 
 See the deployed application and `/docs` for the full walkthrough.
 
+**The clock.** Scenario time starts at 15:30 the day before the delivery day and **ticks in real time**, so countdowns and
+"last heard" ages move on their own, and the 16:00 cutoff and the 16:05 draft happen when the clock reaches them. You do not
+have to wait: open the presenter control from the dispatcher's avatar menu (or add `?presenter=1`) to **Pause clock** and
+**Resume clock**, jump with **Go to next step** (it never goes backwards), or **Reset demo**. Set `CLOCK_RATE=60` in `.env` for
+a minute a second, or `0` to hold still. `SCENARIO_SERVICE_DATE` picks the delivery day (it must be an operating day). See
+departure DP-26 in `waypoint-prd-v3.md`.
+
 ---
 
 ## 🛠️ Tech Stack
