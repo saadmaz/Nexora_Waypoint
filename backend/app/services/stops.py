@@ -18,7 +18,7 @@ from waypoint_rules.vocab import DeferralType, OrderStatus, RuleId
 
 from .. import clock
 from ..errors import ApiError, not_found
-from ..models import field
+from ..models import field, plans
 from ..models import orders as order_models
 from ..models.comms import Notice
 from ..models.enums import NoticeTag, PlanState
@@ -41,7 +41,7 @@ def _offline_since(db: Session, day: DispatchDay, vehicles: set[str]) -> str | N
     """"driver offline since 05:17" for the first vehicle of the stop that has gone quiet."""
     for vid in sorted(vehicles):
         run = db.scalars(
-            select(field.Run).where(field.Run.vehicle_id == vid, field.Run.departed_at.is_not(None), field.Run.finished_at.is_(None)).order_by(field.Run.id.desc())
+            select(field.Run).join(plans.Trip, plans.Trip.id == field.Run.trip_id).where(plans.Trip.vehicle_id == vid, field.Run.departed_at.is_not(None), field.Run.finished_at.is_(None)).order_by(field.Run.id.desc())
         ).first()
         heard = repo.naive(run.last_heard_at) if run else None
         if is_offline(heard, day.now, in_progress=run is not None):
@@ -112,14 +112,14 @@ def defer_stop(
     for vid in sorted(vehicles):
         db.add(
             Notice(
-                audience=f"driver:{vid}", tag=NoticeTag.CHANGE, title=f"Plan v{version.number}: a stop was deferred",
+                audience_kind="driver", vehicle_id=vid, tag=NoticeTag.CHANGE, title=f"Plan v{version.number}: a stop was deferred",
                 body=f"{' + '.join(order_ids)} deferred ({label}). Do not deliver; the stop leaves your route.",
                 link={"screen": "run"}, refs={"planVersion": version.number, "orderIds": order_ids}, created_at=stamp,
             )
         )
         db.add(
             Notice(
-                audience=f"dock:{day.ref.vehicles[vid].depot}", tag=NoticeTag.CHANGE, title=f"Plan changed v{old} → v{version.number}, review",
+                audience_kind="dock", depot_id=day.ref.vehicles[vid].depot, tag=NoticeTag.CHANGE, title=f"Plan changed v{old} → v{version.number}, review",
                 body=f"{' + '.join(order_ids)} deferred ({label}).", link={"screen": "plan"}, refs={"planVersion": version.number}, created_at=stamp,
             )
         )

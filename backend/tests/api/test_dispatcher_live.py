@@ -66,7 +66,7 @@ def depart_veh039(heard: str = "03:40") -> int:
         for o in trip_orders:
             o.status = ServerStatus.DEPARTED
         h, m = map(int, heard.split(":"))
-        run = Run(vehicle_id="VEH039", trip_id=trip.id, departed_at=at(29, "03:30"), last_heard_at=at(29, heard), plan_version_seen=version.id)
+        run = Run(trip_id=trip.id, departed_at=at(29, "03:30"), last_heard_at=at(29, heard), plan_version_seen=version.id)
         db.add(run)
         db.commit()
         return run.id
@@ -106,7 +106,7 @@ def sync_the_delivery(units_received: dict[str, int] | None = None) -> int:
     )
     from app.models.field import Conflict, DeviceRecord, Run
     from app.models.orders import Order
-    from app.models.plans import PlanVersion
+    from app.models.plans import PlanVersion, Trip
     from waypoint_rules import DeviceRecord as RuleRecord
     from waypoint_rules import OrderStatus, Outcome, RecordType, ServerOrderState, SyncResult, reconcile
 
@@ -120,7 +120,6 @@ def sync_the_delivery(units_received: dict[str, int] | None = None) -> int:
         synced_at = at(29, "06:40")
         conflict = Conflict(
             order_ids=list(HERO),
-            device_record_ids=[],
             server_snapshot={"status": "deferred", "planVersion": latest.number, "type": "store_request", "decidedAt": at(29, "05:21").isoformat(),
                              "decidedBy": "Kumari", "reason": "Receiving staff unavailable today", "reachedDriver": False},
             device_snapshot={"vehicleId": "VEH039", "outcome": "delivered", "deviceTime": at(29, "05:42").isoformat(), "receivedBy": "S. Fernando (night staff)",
@@ -136,7 +135,7 @@ def sync_the_delivery(units_received: dict[str, int] | None = None) -> int:
             db.add(
                 DeviceRecord(
                     client_id=uuid.uuid4(), device_id="phone-veh039", actor="Nimal", type=DeviceRecordType.DRIVER_OUTCOME, order_ids=[oid],
-                    outlet_id="OUT084", vehicle_id="VEH039", trip_no=1, payload={"outcome": "delivered", "receivedBy": "S. Fernando"},
+                    outlet_id="OUT084", vehicle_id="VEH039", payload={"outcome": "delivered", "receivedBy": "S. Fernando"},
                     device_time=at(29, "05:42"), plan_version_on_device=latest.number - 1, received_at=synced_at,
                     result=SyncResultKind.CONFLICT, result_reason=ruling.reasons[0], conflict_id=conflict.id,
                 )
@@ -144,7 +143,7 @@ def sync_the_delivery(units_received: dict[str, int] | None = None) -> int:
         db.add(
             DeviceRecord(
                 client_id=uuid.uuid4(), device_id="phone-veh039", actor="Nimal", type=DeviceRecordType.DRIVER_OUTCOME, order_ids=["ORD2003"],
-                outlet_id="OUT087", vehicle_id="VEH039", trip_no=1, payload={"outcome": "delivered"}, device_time=at(29, "05:58"),
+                outlet_id="OUT087", vehicle_id="VEH039", payload={"outcome": "delivered"}, device_time=at(29, "05:58"),
                 plan_version_on_device=latest.number - 1, received_at=synced_at, result=SyncResultKind.ACCEPTED,
             )
         )
@@ -152,7 +151,7 @@ def sync_the_delivery(units_received: dict[str, int] | None = None) -> int:
             o.status = ServerStatus.CONFLICT
         for o in db.scalars(select(Order).where(Order.id == "ORD2003")):
             o.status = ServerStatus.DELIVERED
-        run = db.scalars(select(Run).where(Run.vehicle_id == "VEH039")).first()
+        run = db.scalars(select(Run).join(Trip, Trip.id == Run.trip_id).where(Trip.vehicle_id == "VEH039")).first()
         run.last_heard_at = synced_at
         run.plan_version_seen = latest.id
         db.commit()
@@ -221,7 +220,7 @@ def test_deferring_the_stop_releases_the_next_version_and_tells_everyone(client,
     with SessionLocal() as db:
         statuses = {o.id: o.status.value for o in db.scalars(select(Order).where(Order.id.in_(HERO)))}
         copies = {o.id for o in db.scalars(select(Order).where(Order.deferred_from_order_id.in_(HERO)))}
-        audiences = {(n.audience, n.tag.value) for n in db.scalars(select(Notice))}
+        audiences = {(f"{n.audience_kind.value}:{n.outlet_id or n.vehicle_id or n.depot_id}", n.tag.value) for n in db.scalars(select(Notice))}
         sent = [d.notice_sent_at is not None for d in db.scalars(select(Deferral).where(Deferral.order_id.in_(HERO), Deferral.plan_version_id.is_not(None)).order_by(Deferral.id.desc()).limit(2))]
     assert set(statuses.values()) == {"deferred"} and copies == {"ORD2001-R", "ORD2002-R"}
     assert ("driver:VEH039", "Change") in audiences and ("store:OUT084", "Deferral") in audiences and ("dock:kandy", "Change") in audiences
@@ -331,12 +330,12 @@ def test_asking_the_store_waits_for_its_answer(client, auth, reseed):
     assert view["state"] == "awaiting store" and view["recommendation"]["pausedNote"] == "Paused until the store answers"
     assert view["asked"]["text"] == "Asked OUT084 at 06:41: 'Did you receive this delivery?'"
     with SessionLocal() as db:
-        asked = [n for n in db.scalars(select(Notice).where(Notice.audience == "store:OUT084")) if n.title == "Did you receive this delivery?"]
+        asked = [n for n in db.scalars(select(Notice).where(Notice.outlet_id == "OUT084")) if n.title == "Did you receive this delivery?"]
     assert len(asked) == 1 and asked[0].tag.value == "Review"
     again = client.post(f"/api/v1/dispatcher/conflicts/{cid}/ask-store", headers=auth("dispatcher"))
     assert again.status_code == 200
     with SessionLocal() as db:
-        assert len([n for n in db.scalars(select(Notice).where(Notice.audience == "store:OUT084")) if n.title == "Did you receive this delivery?"]) == 1
+        assert len([n for n in db.scalars(select(Notice).where(Notice.outlet_id == "OUT084")) if n.title == "Did you receive this delivery?"]) == 1
 
 
 def test_keeping_the_delivery_withdraws_the_deferral_and_removes_the_re_run(client, auth, reseed):
@@ -358,7 +357,7 @@ def test_keeping_the_delivery_withdraws_the_deferral_and_removes_the_re_run(clie
         statuses = {o.id: o.status.value for o in db.scalars(select(Order).where(Order.id.in_(HERO)))}
         copies = list(db.scalars(select(Order).where(Order.deferred_from_order_id.in_(HERO))))
         withdrawn = [d.withdrawn_at is not None for d in db.scalars(select(Deferral).where(Deferral.order_id.in_(HERO)))]
-        notices = {(n.audience, n.tag.value) for n in db.scalars(select(Notice))}
+        notices = {(f"{n.audience_kind.value}:{n.outlet_id or n.vehicle_id or n.depot_id}", n.tag.value) for n in db.scalars(select(Notice))}
         audits = list(db.scalars(select(AuditEvent).where(AuditEvent.type == AuditType.CONFLICT_RESOLVED)))
         history = db.get(OutletServiceHistory, ("OUT084", datetime(2026, 9, 29).date()))
     assert set(statuses.values()) == {"delivered"} and copies == []  # the Wed re-run is removed

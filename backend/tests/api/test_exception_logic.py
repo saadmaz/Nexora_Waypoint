@@ -49,7 +49,7 @@ def _day(now: datetime = NOW, *, held: tuple[str, ...] = ()) -> DispatchDay:
 
 def _row(status: ExceptionStatus = ExceptionStatus.OPEN, decision: dict | None = None) -> ex.ExceptionRow:
     return ex.ExceptionRow(
-        1, "loader_flag", "Vehicle check failed", "VEH003", None, (), "Reefer not holding temperature", "Priya",
+        1, "loader_shortfall", "Vehicle check failed", "VEH003", None, (), "Reefer not holding temperature", "Priya",
         datetime(2026, 9, 29, 2, 55), status, decision, "Kumari" if decision else None, datetime(2026, 9, 29, 3, 0) if decision else None,
     )
 
