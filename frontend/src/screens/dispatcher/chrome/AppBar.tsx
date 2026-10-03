@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ChartNoAxesCombined, ClipboardList, ClockArrowDown, Lock, Radio, WifiOff } from "lucide-react";
 import { DEPOT_NAME, type DepotId } from "../../../api/DispatcherApi";
 import { dayLabel } from "../../../domain/format";
 import { toIsoDate } from "../../../domain/schedule";
 import { clockTime } from "../../../domain/format";
+import { AccountMenu } from "../../auth/AccountMenu";
 import { useDispatcher } from "../context";
 import { useLoad, useNow } from "../hooks";
 import { cx } from "../ui/cx";
@@ -132,43 +133,15 @@ export function AppBar({ current, depot, onDepot, depotChoice, planPill, place }
   );
 }
 
-/** The avatar menu: where the presenter control is switched on (PRD v3 section 16, open decision O-5). */
+/** The avatar menu: where the presenter control is switched on (PRD v3 section 16, open decision O-5), and Log out. */
 function AvatarMenu() {
   const { presenter, setPresenter } = useDispatcher();
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const close = (event: MouseEvent | KeyboardEvent) => {
-      if (event instanceof KeyboardEvent) {
-        if (event.key === "Escape") setOpen(false);
-        return;
-      }
-      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", close);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", close);
-    };
-  }, [open]);
-
   return (
-    <div className={styles.avatarWrap} ref={ref}>
-      <button type="button" className={styles.avatar} aria-label="Kumari" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-        K
-      </button>
-      {open && (
-        <div className={styles.menu} role="menu">
-          <div className={styles.menuName}>Kumari · Dispatcher</div>
-          <label className={styles.menuItem} role="menuitemcheckbox" aria-checked={presenter}>
-            <input type="checkbox" checked={presenter} onChange={(event) => setPresenter(event.target.checked)} />
-            Presenter control
-          </label>
-        </div>
-      )}
-    </div>
+    <AccountMenu role="dispatcher">
+      <label className={styles.menuItem} role="menuitemcheckbox" aria-checked={presenter}>
+        <input type="checkbox" checked={presenter} onChange={(event) => setPresenter(event.target.checked)} />
+        Presenter control
+      </label>
+    </AccountMenu>
   );
 }

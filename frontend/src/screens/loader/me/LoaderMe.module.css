@@ -1,0 +1,38 @@
+/* The tab bar stays at the bottom; the screen above it scrolls. */
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+
+.content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.screen {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--gutter-phone) var(--space-6);
+}
+
+.name {
+  font: var(--text-h3);
+  color: var(--ink);
+}
+
+.helper {
+  font: var(--text-body-sm);
+  color: var(--ink-muted);
+}

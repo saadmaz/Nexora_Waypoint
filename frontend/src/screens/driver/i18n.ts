@@ -290,6 +290,7 @@ const en: Dict = {
   "me.alwaysOn": "Always on",
   "me.gpsNote": "GPS, always on during a run. Works offline.",
   "me.offlineStorage": "Offline storage",
+  "me.logOut": "Log out",
   "me.storageUsed": "{size} used",
 };
 

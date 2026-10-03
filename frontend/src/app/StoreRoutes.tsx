@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { DeliveriesRoute } from "../screens/store/deliveries/DeliveriesRoute";
 import { IssuesRoute } from "../screens/store/issues/IssuesRoute";
+import { MePage } from "../screens/store/me/MePage";
 import { OrdersRoute } from "../screens/store/orders/OrdersRoute";
 import { ReceiptRoute } from "../screens/store/receipt/ReceiptRoute";
 import { UpdatesRoute } from "../screens/store/updates/UpdatesRoute";
@@ -18,6 +19,7 @@ export function StoreRoutes() {
       <Route path="/store/deliveries/:date" element={<DeliveriesRoute />} />
       <Route path="/store/deliveries/:date/receipt" element={<ReceiptRoute />} />
       <Route path="/store/issues" element={<IssuesRoute />} />
+      <Route path="/store/me" element={<MePage />} />
       <Route path="/store/updates" element={<UpdatesRoute view="updates" />} />
       <Route path="/store/history" element={<UpdatesRoute view="history" />} />
       <Route path="*" element={<Navigate to="/store/orders" replace />} />

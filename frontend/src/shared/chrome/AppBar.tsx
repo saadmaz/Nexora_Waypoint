@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
+import { AccountMenu } from "../../screens/auth/AccountMenu";
 import { BellButton, type BellProps } from "./BellButton";
 import styles from "./AppBar.module.css";
 
@@ -14,7 +15,7 @@ const NAV: NavItem[] = [
 /**
  * The desktop chrome app bar: the "Waypoint Store" mark and nav, no tab bar.
  * The mark reads Waypoint Store, never Waypoint Dispatch, per cross-role
- * fix X3: each role app names itself.
+ * fix X3: each role app names itself. The profile circle (Log out) is always last.
  */
 export function AppBar({ right, bell }: { right?: ReactNode; bell?: BellProps }) {
   return (
@@ -38,12 +39,11 @@ export function AppBar({ right, bell }: { right?: ReactNode; bell?: BellProps })
           </NavLink>
         ))}
       </nav>
-      {(right || bell) && (
-        <div className={styles.side}>
-          {bell && <BellButton {...bell} />}
-          {right}
-        </div>
-      )}
+      <div className={styles.side}>
+        {bell && <BellButton {...bell} />}
+        {right}
+        <AccountMenu role="store" />
+      </div>
     </header>
   );
 }

@@ -4,11 +4,12 @@ import styles from "./TabBar.module.css";
 
 type Tab = { to: string; label: string; icon: IconName };
 
-/** Orders · Deliveries · Issues (PRD v2 section 3, store). */
+/** Orders · Deliveries · Issues (PRD v2 section 3, store) · Me, where the phone logs out, as on the driver's tab bar. */
 const TABS: Tab[] = [
   { to: "/store/orders", label: "Orders", icon: "clipboard-list" },
   { to: "/store/deliveries", label: "Deliveries", icon: "truck" },
   { to: "/store/issues", label: "Issues", icon: "alert-circle" },
+  { to: "/store/me", label: "Me", icon: "user" },
 ];
 
 /**

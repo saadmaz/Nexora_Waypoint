@@ -160,42 +160,7 @@
   color: var(--on-signal);
 }
 
-.avatarWrap {
-  position: relative;
-}
-
-.avatar {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--surface-2);
-  color: var(--ink);
-  font: 700 14px / 20px var(--font-sans);
-}
-
-.menu {
-  position: absolute;
-  top: 40px;
-  right: 0;
-  z-index: 30;
-  min-width: 220px;
-  padding: 8px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  background: var(--surface-1);
-  color: var(--ink);
-  box-shadow: var(--shadow-2);
-}
-
-.menuName {
-  padding: 6px 8px 8px;
-  font: 600 13px / 18px var(--font-sans);
-  color: var(--ink-muted);
-}
-
+/* The Presenter control row inside the shared profile menu. */
 .menuItem {
   display: flex;
   align-items: center;

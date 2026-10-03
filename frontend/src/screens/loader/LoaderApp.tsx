@@ -9,6 +9,7 @@ import { DockContainer } from "./dock/DockContainer";
 import { LoaderGallery } from "./gallery/LoaderGallery";
 import { LoadPlanContainer } from "./loadplan/LoadPlanContainer";
 import { LoaderDevControls } from "./LoaderDevControls";
+import { LoaderMe, LoaderPhoneTabs } from "./me/LoaderMe";
 import { LoaderProvider } from "./LoaderProvider";
 import { TabletDock } from "./tablet/TabletDock";
 import { WideColumn } from "./tablet/WideColumn";
@@ -52,7 +53,14 @@ function LoaderRoutes() {
     <Routes>
       <Route index element={<Navigate to="dock" replace />} />
       <Route element={<DockRoutes />}>
-        <Route path="dock" element={<DockContainer />} />
+        <Route
+          path="dock"
+          element={
+            <LoaderPhoneTabs>
+              <DockContainer />
+            </LoaderPhoneTabs>
+          }
+        />
         <Route path="vehicles/:vehicleId/trips/:trip" element={<LoadPlanContainer />} />
         <Route path="vehicles/:vehicleId/trips/:trip/flag" element={<LoadPlanContainer flagOpen />} />
       </Route>
@@ -62,6 +70,14 @@ function LoaderRoutes() {
           <WideColumn>
             <ChangesContainer />
           </WideColumn>
+        }
+      />
+      <Route
+        path="me"
+        element={
+          <LoaderPhoneTabs>
+            <LoaderMe />
+          </LoaderPhoneTabs>
         }
       />
       <Route path="*" element={<Navigate to="dock" replace />} />

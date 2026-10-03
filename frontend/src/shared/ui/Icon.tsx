@@ -24,6 +24,7 @@ import {
   Inbox,
   Info,
   Lock,
+  LogOut,
   MapPin,
   Minus,
   Navigation,
@@ -68,6 +69,7 @@ import { tokenColor } from "./tokens";
  *   arrow-right     Confirm receipt
  *   inbox           Nothing here yet (No open issues)
  *   store           Dispatch asks the store
+ *   log-out         Log out
  */
 const ICONS = {
   "alert-circle": AlertCircle,
@@ -95,6 +97,7 @@ const ICONS = {
   inbox: Inbox,
   info: Info,
   lock: Lock,
+  "log-out": LogOut,
   "map-pin": MapPin,
   minus: Minus,
   navigation: Navigation,
