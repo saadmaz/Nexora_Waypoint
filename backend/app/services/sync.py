@@ -663,6 +663,8 @@ def _fill(row: f.DeviceRecord, b: Batch, rec: SyncRecordIn) -> None:
     row.device_time = _device_time(rec)
     row.plan_version_on_device = rec.plan_version_on_device
     row.received_at = b.now
+    # Provisional, so an autoflush inside a handler can write the row; the handler's answer replaces it.
+    row.result = SyncResultKind.ERROR
     row.conflict_id = None
     row.result_reason = None
 
