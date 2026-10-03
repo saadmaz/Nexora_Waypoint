@@ -2,8 +2,8 @@
 
 For each of the next four ISO weeks: the reefer minutes a normal day asks for, scaled by the calendar (a payday adds a little,
 a festival ramp adds its own factor), against what the depot's reefers can give (usable reefers × 270 minutes × operating days).
-A week at or over 100% is Short, 90% up to that is Tight; a comfortable week is left out, because the screen is about which
-weeks to worry about. The Datathon Task 2A model is not wired in, and the screen says so in its label.
+A week at or over 100% is Short, 90% up to that is Tight and anything under is OK. All four weeks are returned so the screen
+can show where the pressure is as well as where it is not. The Datathon Task 2A model is not wired in, and the screen says so in its label.
 
 The PRD builds demand from eight weeks of delivered orders in ``deliveries_train.csv``. Those rows are not in the repository, so a
 normal day's demand here is today's own queue: the minutes its chilled Fresh orders need (handling plus one hop each).
@@ -14,6 +14,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
+from typing import Literal
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -61,16 +62,15 @@ def forecast_view(
             continue
         demand = sum(demand_per_day * (1 + (PAYDAY_UPLIFT if d.payday else 0) + d.ramp) for d in operating)
         percent = round(100 * demand / capacity)
-        if percent < TIGHT_AT:
-            continue
         flags = (["Payday"] if any(d.payday for d in days) else []) + (["Festival ramp"] if any(d.ramp > 0 for d in days) else [])
         short = percent >= SHORT_AT
+        status: Literal["Short", "Tight", "OK"] = "Short" if short else "Tight" if percent >= TIGHT_AT else "OK"
         week = s.ForecastWeek(
             monday=day_label(monday),
             percent=percent,
-            status="Short" if short else "Tight",
+            status=status,
             flags=flags,
-            lever="Move workshop slots · pre-warn stores" if short else "Watch",
+            lever={"Short": "Move workshop slots · pre-warn stores", "Tight": "Watch", "OK": "Enough capacity"}[status],
         )
         if short:
             gap = demand - capacity

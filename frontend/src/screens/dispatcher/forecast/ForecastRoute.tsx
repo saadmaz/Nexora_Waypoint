@@ -110,7 +110,7 @@ export function ForecastRoute() {
 }
 
 function Week({ week, open, onToggle }: { week: ForecastWeek; open: boolean; onToggle: () => void }) {
-  const tone = week.status === "Short" ? styles.short : styles.tight;
+  const tone = week.status === "Short" ? styles.short : week.status === "Tight" ? styles.tight : styles.ok;
   const hasDetail = Boolean(week.gap || week.days || week.levers);
   return (
     <div className={cx(styles.week, tone)}>

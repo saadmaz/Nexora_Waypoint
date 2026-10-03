@@ -35,10 +35,19 @@ def test_a_week_over_capacity_is_short_with_its_gap_and_levers():
     assert view.label == "Baseline forecast: Datathon Task 2A model not wired in" and view.as_of == "Mon 28 Sep" and view.depot == "peliyagoda"
 
 
-def test_a_week_just_under_capacity_is_tight_and_a_comfortable_one_is_left_out():
+def test_a_week_just_under_capacity_is_tight_and_a_comfortable_one_is_ok():
     tight = fc.forecast_view("peliyagoda", NOW, _calendar(), demand_per_day=2100, usable_reefers=REEFERS)  # 97%
     assert [(w.status, w.percent, w.lever, w.gap) for w in tight.weeks][0] == ("Tight", 97, "Watch", None)
-    assert fc.forecast_view("peliyagoda", NOW, _calendar(), demand_per_day=1500, usable_reefers=REEFERS).weeks == []  # 69%
+    ok = fc.forecast_view("peliyagoda", NOW, _calendar(), demand_per_day=1500, usable_reefers=REEFERS)  # 69%
+    assert [(w.status, w.percent, w.gap, w.days, w.levers) for w in ok.weeks] == [("OK", 69, None, None, None)] * 4
+    assert ok.weeks[0].lever == "Enough capacity"
+
+
+def test_all_four_weeks_are_returned_with_their_own_status():
+    calendar = _calendar(payday={date(2026, 10, 16)}, ramp={date(2026, 10, 22): 0.25})
+    view = fc.forecast_view("peliyagoda", NOW, calendar, demand_per_day=1900, usable_reefers=REEFERS)
+    assert [w.monday for w in view.weeks] == ["Mon 5 Oct", "Mon 12 Oct", "Mon 19 Oct", "Mon 26 Oct"]
+    assert [(w.percent, w.status) for w in view.weeks] == [(88, "OK"), (89, "OK"), (92, "Tight"), (88, "OK")]  # the ramp week is the tight one
 
 
 def test_a_payday_and_a_festival_ramp_raise_their_weeks_and_are_flagged():
@@ -71,5 +80,5 @@ def test_the_endpoint_serves_both_depots(client, auth):
         body = res.json()
         assert body["depot"] == depot and body["label"] == "Baseline forecast: Datathon Task 2A model not wired in"
         assert body["asOf"] == "Mon 28 Sep"
-        assert all(w["percent"] >= 90 and w["status"] in ("Short", "Tight") for w in body["weeks"])
+        assert all(w["status"] in ("Short", "Tight", "OK") for w in body["weeks"])
     assert client.get("/api/v1/dispatcher/forecast?depot=nowhere", headers=auth("dispatcher")).status_code == 422
