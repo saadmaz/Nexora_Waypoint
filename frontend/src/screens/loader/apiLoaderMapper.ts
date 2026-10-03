@@ -97,14 +97,17 @@ export function mapDock(out: Schemas["DockOut"], dockId: DepotId, local: LocalLo
       status,
     };
   });
-  // The server knows the newest version this dock acknowledged, which may be older than the current plan: that is
-  // L1.5, "Plan changed, review". The tablet's own record wins only while it is ahead of the server, before it syncs.
+  // An acknowledgement the tablet has saved but not yet synced counts at once, for the version it was given for: the
+  // server answers "not acknowledged" until the outbox record has been sent, and the dock must not stay locked
+  // meanwhile. An older one never unlocks a newer plan.
+  // Otherwise the server's own record stands, and it carries the version it was given for, which may be older than the
+  // plan now released: that is L1.5, "Plan changed, review", without needing the tablet to still hold the record.
+  const pending = local.acknowledgement.get(dockId);
   const fromServer: DockAcknowledgement | undefined =
     out.acknowledgedVersion != null
       ? { version: out.acknowledgedVersion, personId: "", personName: out.acknowledgedBy ?? "", at: hhmm(out.acknowledgedAt) }
       : undefined;
-  const fromTablet = local.acknowledgement.get(dockId);
-  const acknowledgement = fromTablet && (!fromServer || fromTablet.version >= fromServer.version) ? fromTablet : fromServer;
+  const acknowledgement = pending && pending.version >= out.planVersion ? pending : fromServer;
   return {
     dockId,
     planVersion: out.planVersion,

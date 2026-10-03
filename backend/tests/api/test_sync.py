@@ -430,3 +430,40 @@ def test_the_store_hears_under_review_and_never_conflict(client, auth, reseed):
     with SessionLocal() as db:
         told = [f"{n.title} {n.body}" for n in db.scalars(select(Notice).where(Notice.audience_kind == "store"))]
     assert told and not [t for t in told if "conflict" in t.lower()]
+
+
+# --------------------------------------------------------------------------- R6 problems and R9 finish, as the phone sends them
+
+
+def test_a_problem_thread_and_the_run_finish_land_as_the_phone_sends_them(client, auth, reseed):
+    from app.db import SessionLocal
+    from app.models.field import DeviceRecord, FieldException, Run
+
+    version = on_the_road(client, auth)
+    advance(client, auth, "2026-09-29T06:45:00+05:30")
+    first = record(
+        "driver.problem",
+        {"date": DAY, "type": "Can't reach the store", "stopId": "OUT087", "outletId": "OUT087", "orderIds": ["ORD2003"], "note": "Gate locked", "blobIds": []},
+        "05:50", version,
+    )
+    update = record(
+        "driver.problem",
+        {"date": DAY, "type": "Can't reach the store", "stopId": "OUT087", "outletId": "OUT087", "orderIds": ["ORD2003"], "note": "Gate open now",
+         "blobIds": [], "updatesClientId": first["clientId"]},
+        "06:05", version,
+    )
+    finish = record("driver.finishRun", {"date": DAY, "at": "06:45", "gpsKm": 19.4, "gpsGapFilledKm": 0, "fuelLEst": 3.9}, "06:45", version)
+    assert [r["result"] for r in results(sync(client, auth, [first, update, finish]))] == ["accepted"] * 3
+
+    with SessionLocal() as db:
+        problems = list(db.scalars(select(FieldException).where(FieldException.kind == "driver_problem").order_by(FieldException.id)))
+        assert [(p.type, p.detail, list(p.order_ids)) for p in problems] == [
+            ("Can't reach the store", "Gate locked", ["ORD2003"]),
+            ("Can't reach the store", "Gate open now", ["ORD2003"]),
+        ]
+        # No schema change for threads (V40): the update keeps its parent in the device record.
+        kept = db.get(DeviceRecord, uuid.UUID(update["clientId"]))
+        assert kept is not None and kept.payload["updatesClientId"] == first["clientId"]
+        run = db.scalars(select(Run)).first()
+        assert run is not None and run.finished_at is not None
+        assert (run.gps_km, run.gps_gap_filled_km, run.fuel_l_est) == (19.4, 0.0, 3.9)

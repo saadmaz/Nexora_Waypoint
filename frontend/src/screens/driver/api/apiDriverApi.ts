@@ -14,8 +14,9 @@ import {
   setUploadGuard,
   type SyncHandler,
 } from "../../../field/offline";
-import { formatTime } from "../../../field/clock/clock";
-import type { DriverNotice, DriverRun } from "../types";
+import { formatDate, formatTime } from "../../../field/clock/clock";
+import { durationBetween } from "../history/historyView";
+import type { DriverNotice, DriverRun, HistoryDay as DriverHistoryDay } from "../types";
 import type { DriverApi } from "./DriverApi";
 import {
   applyConflict,
@@ -25,11 +26,12 @@ import {
   writeDeviceState,
   sortNotices,
 } from "./mockDriverApi";
-import { conflictFromServer, mapNotice, mapRun, SERVER_NOTICE_PREFIX } from "./runMapper";
+import { conflictFromServer, mapNotice, mapRun, requireRun, SERVER_NOTICE_PREFIX } from "./runMapper";
 
 type RunOut = components["schemas"]["RunOut"];
 type MeOut = components["schemas"]["MeOut"];
 type NoticeOut = components["schemas"]["NoticeOut"];
+type DriverHistoryRowOut = components["schemas"]["DriverHistoryRowOut"];
 
 /** The route package as the phone keeps it: the server's run, and the depot from `/me`. */
 type RunPackage = { run: RunOut; depot: DepotId };
@@ -45,11 +47,8 @@ const packageKey = (date: string) => `driver:server-run:${date}`;
 const noticesKey = (date: string) => `driver:server-notices:${date}`;
 const readKey = (date: string) => `driver:server-notices-read:${date}`;
 
-/**
- * The record types the driver sends. `driver.problem` and `driver.finishRun` are in the backend's contract; no screen records
- * them yet, so nothing is registered for them (a record of an unregistered type is left in the outbox as an error, not dropped).
- */
-const DRIVER_RECORD_TYPES = ["driver.ack", "driver.startRoute", "driver.arrival", "driver.outcome"] as const;
+/** The record types the driver sends, all through `POST /sync`: R1 to R3, the R6 problem and the R9 finish. */
+const DRIVER_RECORD_TYPES = ["driver.ack", "driver.startRoute", "driver.arrival", "driver.outcome", "driver.problem", "driver.finishRun"] as const;
 
 /**
  * Registers how the driver's records reach the real server: through `POST /sync`, one record at a time, keyed by `clientId`.
@@ -74,6 +73,28 @@ export function registerApiDriverHandlers(now: () => number): void {
   setUploadGuard((role) => {
     if (role === "driver" && consumeFailNextUpload()) throw new Error("WP-SYNC-409");
   });
+}
+
+const historyKey = "driver:server-history";
+
+/** One server history row as R7.1 shows it. */
+export function mapHistoryRow(row: DriverHistoryRowOut): DriverHistoryDay {
+  const start = row.departedAt ? formatTime(Date.parse(row.departedAt)) : "";
+  const end = row.finishedAt ? formatTime(Date.parse(row.finishedAt)) : null;
+  return {
+    date: row.date,
+    label: formatDate(Date.parse(`${row.date}T12:00:00+05:30`)),
+    run: {
+      kind: "run",
+      start,
+      end,
+      km: row.km ?? null,
+      duration: start && end ? durationBetween(start, end) : null,
+      stopsDone: row.delivered,
+      stopsTotal: row.stops,
+      synced: true,
+    },
+  };
 }
 
 async function readServerNoticeIds(date: string): Promise<Set<string>> {
@@ -138,7 +159,7 @@ export function createApiDriverApi(now: () => number): DriverApi {
     const pkg = await refresh(date);
     onProgress?.(2, 2);
     const local = await readDeviceState(date);
-    local.downloadedVersion = pkg.run.planVersion;
+    local.downloadedVersion = requireRun(pkg.run).planVersion;
     await writeDeviceState(date, local, now());
   }
 
@@ -164,6 +185,8 @@ export function createApiDriverApi(now: () => number): DriverApi {
       const outletId = typeof notice.link?.outletId === "string" ? notice.link.outletId : undefined;
       if (notice.tag !== "resolved" || !outletId || local.resolutions[outletId]) continue;
       const link = notice.link ?? {};
+      // Keeping the deferral is not a kept delivery. The notice still lists it; the stop has no screen for it yet.
+      if (link.decision === "keep_deferral") continue;
       local.resolutions[outletId] = {
         decision: link.decision === "keep_partial" ? "keep_partial" : "keep_delivery",
         by: typeof link.by === "string" ? link.by : "Dispatch",
@@ -185,6 +208,22 @@ export function createApiDriverApi(now: () => number): DriverApi {
     await putCache(readKey(date), [...read], now());
   }
 
+  /**
+   * R7.1: today's run from the phone, then the earlier runs the server keeps. A failed or unbuilt read never fails the
+   * screen: it shows today alone, and never the fixture weeks.
+   */
+  async function getHistory(date: string): Promise<DriverHistoryDay[]> {
+    const today = (await device.getHistory(date)).filter((day) => day.date === date);
+    let rows: DriverHistoryRowOut[] = [];
+    try {
+      rows = await request<DriverHistoryRowOut[]>("driver.getHistory");
+      await putCache(historyKey, rows, now());
+    } catch {
+      rows = (await getCache<DriverHistoryRowOut[]>(historyKey))?.value ?? [];
+    }
+    return [...today, ...rows.filter((row) => row.date !== date).map(mapHistoryRow)];
+  }
+
   return {
     getRun,
     downloadRun,
@@ -195,5 +234,12 @@ export function createApiDriverApi(now: () => number): DriverApi {
     getNotices,
     markNoticesRead,
     noteWentOffline: device.noteWentOffline,
+    // Problems and the finished run are written on the phone and sent as outbox records, as the mock's are.
+    recordProblem: device.recordProblem,
+    listProblems: device.listProblems,
+    getHistory,
+    getRunDistance: device.getRunDistance,
+    getFinishedRun: device.getFinishedRun,
+    finishRun: device.finishRun,
   };
 }

@@ -1,0 +1,237 @@
+/* R6 Problem and the R6.4 Issues tab. Rows follow the R8.1 list; spacing and type come from the field tokens. */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  list-style: none;
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--gutter-phone);
+  border-bottom: 1px solid var(--line);
+}
+
+.item:last-child {
+  border-bottom: 0;
+}
+
+.itemHead {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.tile {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--warning);
+}
+
+.stack {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rowTitle {
+  margin: 0;
+  font: var(--text-body);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.rowBody {
+  margin: 0;
+  font: var(--text-body-sm, var(--text-body));
+  color: var(--ink-muted);
+  overflow-wrap: anywhere;
+}
+
+.time {
+  flex: 0 0 auto;
+  font: var(--text-label);
+  color: var(--ink-muted);
+}
+
+.itemFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-left: calc(40px + var(--space-3));
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-4);
+  text-align: center;
+}
+
+.emptyTile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  color: var(--ink-muted);
+}
+
+.emptyTitle {
+  margin: 0;
+  font: var(--text-h3);
+  color: var(--ink);
+}
+
+.emptyBody {
+  margin: 0;
+  max-width: 32ch;
+  font: var(--text-body);
+  color: var(--ink-muted);
+}
+
+.heading {
+  margin: 0;
+  font: var(--text-h3);
+  color: var(--ink);
+}
+
+.sub {
+  margin: 0;
+  font: var(--text-body);
+  color: var(--ink-muted);
+}
+
+.choices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 56px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  color: var(--ink);
+  font: var(--text-body);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.choice:hover {
+  border-color: var(--route);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.field + .field {
+  margin-top: var(--space-4);
+}
+
+.label {
+  margin: 0;
+  font: var(--text-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 44px;
+  font: var(--text-body);
+  color: var(--ink);
+}
+
+.check input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--route);
+}
+
+.note {
+  width: 100%;
+  min-height: 96px;
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  color: var(--ink);
+  font: var(--text-body);
+  resize: vertical;
+}
+
+.note:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.chosen {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font: var(--text-body);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.saved {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-6) var(--space-4);
+  text-align: center;
+}
+
+.savedTile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--route-soft);
+  color: var(--route);
+}
