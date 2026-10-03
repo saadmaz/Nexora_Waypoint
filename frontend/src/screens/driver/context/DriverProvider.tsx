@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { roleApiMode } from "../../../api/http/config";
 import { useFieldClock } from "../../../field/clock/useClock";
 import { connectivity, getSetting, setSetting } from "../../../field/offline";
 import type { Theme } from "../../../shared/theme";
+import { createApiDriverApi, registerApiDriverHandlers } from "../api/apiDriverApi";
 import { createMockDriverApi, registerDeviceNoticeSync, registerDriverHandlers, type MockDriverApiOptions } from "../api/mockDriverApi";
 import { RUN_DATE } from "../fixtures";
 import { startSyncViewTracking } from "../sync/syncView";
@@ -55,7 +57,9 @@ export type DriverProviderProps = {
  */
 export function DriverProvider({ children, apiOptions, initialSettings }: DriverProviderProps) {
   const clock = useFieldClock();
-  const api = useMemo(() => createMockDriverApi(clock.nowMs, apiOptions), [clock, apiOptions]);
+  // The state gallery passes `apiOptions` to draw a frame of its own; only the real app can run on the API.
+  const onApi = apiOptions === undefined && roleApiMode("driver") === "api";
+  const api = useMemo(() => (onApi ? createApiDriverApi(clock.nowMs) : createMockDriverApi(clock.nowMs, apiOptions)), [clock, apiOptions, onApi]);
   const preferredScheme = usePreferredScheme();
 
   const [settings, setSettings] = useState<DriverSettings>({ ...DEFAULT_SETTINGS, ...initialSettings });
@@ -63,9 +67,10 @@ export function DriverProvider({ children, apiOptions, initialSettings }: Driver
   const [outboxOpen, setOutboxOpen] = useState(false);
 
   useEffect(() => {
-    registerDriverHandlers(clock.nowMs);
+    if (onApi) registerApiDriverHandlers(clock.nowMs);
+    else registerDriverHandlers(clock.nowMs);
     registerDeviceNoticeSync(RUN_DATE, clock.nowMs);
-  }, [clock]);
+  }, [clock, onApi]);
 
   useEffect(() => {
     // The state gallery draws its own frames; only the real app watches for finished syncs.
