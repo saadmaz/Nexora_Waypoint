@@ -78,7 +78,7 @@ def test_v3_nullability_uniques_checks_and_composite_links():
 
 def test_migrated_database_matches_metadata(client):
     with engine.connect() as conn:
-        assert conn.scalar(text("SHOW server_version")) == "18.6"
+        assert conn.scalar(text("SHOW server_version_num")) == "180006"
         assert conn.scalar(text("SELECT version_num FROM alembic_version")) == "0002"
         assert set(inspect(conn).get_table_names()) - {"alembic_version"} == set(Base.metadata.tables)
         assert compare_metadata(MigrationContext.configure(conn, opts={"compare_type": True, "compare_server_default": True}), Base.metadata) == []
