@@ -72,6 +72,8 @@ jobs:
           PGPASSWORD=waypoint psql -h localhost -U waypoint -d waypoint_test -c "CREATE DATABASE waypoint_seed"
           alembic upgrade 0001
           alembic upgrade 0002
+          # then every later migration, so the database is at head before the drift check
+          alembic upgrade head
           alembic check
           python -m seed.run
       - run: pytest
