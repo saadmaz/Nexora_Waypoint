@@ -1781,6 +1781,16 @@ export interface components {
             orders: number;
             /** Kg */
             kg: number;
+            /**
+             * Replaces
+             * @description The vehicle this one stands in for, once Dispatch has swapped them
+             */
+            replaces?: string | null;
+            /**
+             * Replacedby
+             * @description The vehicle that took this one's trips
+             */
+            replacedBy?: string | null;
         };
         /** DriverChip */
         DriverChip: {
@@ -2298,6 +2308,16 @@ export interface components {
             lines: components["schemas"]["LoadLineOut"][];
             /** Confirmedat */
             confirmedAt?: string | null;
+            /**
+             * Replaces
+             * @description The vehicle this one stands in for, once Dispatch has swapped them
+             */
+            replaces?: string | null;
+            /**
+             * Replacedby
+             * @description The vehicle that took this one's trips
+             */
+            replacedBy?: string | null;
         };
         /**
          * LoaderConfirmationOut
