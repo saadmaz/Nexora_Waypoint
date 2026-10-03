@@ -20,6 +20,8 @@ os.environ["JWT_SECRET"] = "test-secret-not-for-production-0123456789"
 os.environ["DEMO_PASSWORD"] = "waypoint"
 os.environ["DATA_DIR"] = str(Path(__file__).parent / "_no_data")  # does not exist: forces the fallback set
 os.environ["SEED_ON_START"] = "false"
+# The small world (pinned orders, six story vehicles) keeps these tests fast; test_seed_generated.py covers the full day.
+os.environ["SEED_GENERATED_ORDERS"] = "false"
 
 import pytest  # noqa: E402
 from alembic import command  # noqa: E402

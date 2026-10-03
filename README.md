@@ -158,7 +158,7 @@ Docker Compose starts the application, database, and seed data.
 The complete workflow can be demonstrated using the seeded accounts:
 
 1. **Store Manager** → Create an order
-2. **Dispatcher** → Plan and allocate deliveries
+2. **Dispatcher** → Plan and allocate deliveries (steps in [Dispatcher](#-dispatcher-waypoint-dispatch))
 3. **Loader** → Load the assigned vehicle
 4. **Driver** → Complete the delivery
 5. **Store Manager** → Confirm receipt
@@ -1265,6 +1265,71 @@ Figma wins on UI and copy (field conventions section 2); where it was silent or 
 
 ---
 
+## 🧭 Dispatcher (Waypoint Dispatch)
+
+Branch: `feature/dispatcher`. Screens D1 to D9 and the whole `/api/v1/dispatcher` surface behind them.
+
+### What is real
+
+All 20 dispatcher routes answer from the database. Nothing a dispatcher sees in `api` mode comes from a fixture.
+
+- **The planner** (`backend/waypoint_rules/planner.py`) is a pure, deterministic function: the same orders give the same plan. It tries four orderings per depot and keeps the one with the fewest continuity warnings, then deferrals, then trips. Every trip it builds passes `check_trip` and `check_vehicle_day`.
+- **Plan versions.** v1 is drafted by the system 5 minutes after the cutoff, v2 (21:15) and v3 (23:30) by the scripted events, and Release makes the latest draft live in place. Later changes (the reefer swap, a deferred stop) release the next number.
+- **The scenario clock drives the day.** `app/jobs.py` runs inside `POST /demo/advance`, in the same transaction: cutoff (Ordered to Confirmed, notices to stores), the draft, the scripted events in `backend/seed/scenario_events.yaml`.
+- **Every move is checked by the rules package.** `validate-move` returns the refusal text from `waypoint_rules`; the screens show it and never re-derive it.
+- **Every state change writes an `audit_events` row** in the same transaction.
+- **The day.** With no `data/*.csv` the seed generates the rest of the day (`backend/seed/generated.py`, A41): 60 vehicles, Peliyagoda 212 orders and Kandy 62 for Tue 29 Sep, the same on every run. `SEED_GENERATED_ORDERS=false` keeps only the small story world, which the API tests use.
+
+### Run it
+
+```bash
+docker compose up -d --build db api
+cd frontend
+VITE_AUTH_API=api VITE_DISPATCHER_API=api npm run dev      # http://localhost:5173
+```
+
+Sign in as `dispatcher@waypoint.demo` (password in the API mode section). The presenter control advances the server clock and resets the demo in seconds.
+
+### The dispatcher's part of the judge walkthrough
+
+| Clock | What to do | What you see |
+|---|---|---|
+| Mon 15:30 | Open Queue (D1). The store places ORD2001 and ORD2002 | Both under OUT084 in the Kandy queue, status Ordered |
+| Mon 16:00 | Advance the clock past the cutoff | Orders turn Confirmed; the queue locks; stores get their notices |
+| Mon 16:05 | Open Trips (D3) | Plan v1, drafted by the system, with its deferrals and the capacity bars (D2) |
+| | Drag a stop to a vehicle that breaks a rule (window 08:06, reefer plus two brands, continuity) | A refusal naming the rule; nothing changes |
+| Mon 21:15 and 23:30 | Advance | Drafts v2 and v3 appear |
+| Mon 23:45 | Release (D5) | "Plan v3 is live"; deferrals can be sent to the stores; acknowledgements fill in |
+| Tue 02:55 | Loader flags VEH003 (D8) | Review the exception: swap to VEH036 releases plan v4 and defers ORD1002 |
+| Tue 05:17 | Live board (D6) | The driver is shown offline after 3 quiet minutes; Defer stop releases the next version |
+| Tue 06:40 | Inbox and Conflicts (D7) | The conflict from the driver's sync; Keep delivery withdraws the deferral and closes it |
+| Any time | Forecast (D9) | A baseline outlook for the next four weeks, labelled as such |
+
+Steps 3 to 6 and 13 to 16 of PRD §16 are the dispatcher's. Rows that need a loader, driver or store action depend on those roles' backend routes (see the table below).
+
+### Departures from the PRD and the design
+
+- **Peliyagoda defers 17 on the generated day, not 19.** The count moves in steps of two to four as one more chilled order appears, so 19 is not reachable by tuning the chilled share alone. The screens show the computed number (DP-01).
+- **Stop order inside a trip** is: window open, window close, outlet id, with orders for one outlet adjacent. Load order is the reverse of stop order.
+- **D9 is a baseline, not the Datathon model.** Demand is today's own chilled Fresh queue scaled by the calendar (payday +6%, a festival ramp its own factor); the screen says so in its label. The PRD builds it from `deliveries_train.csv`, which is not in the repository.
+- **Generated order sizes are invented** (A41). Sampling them from `deliveries_train.csv` needs its column names, which the data owner has to supply.
+- **The presenter control's step times** are the hero script's, not the planner's own; the planner releases v3 at its own pace.
+
+### Shared files this branch touches
+
+`backend/app/routers/dispatcher.py` (all of it), `backend/app/schemas/dispatcher.py`, `backend/app/jobs.py`, `backend/app/clock.py` (calls the jobs), `backend/app/config.py` (`seed_generated_orders`), `backend/seed/` (`run.py`, `generated.py`, `accounts.py`, `scenario_events.yaml`, `fixtures/vehicle_day.yaml`) and `backend/waypoint_rules` (`planner.py`, `schedule.py`, `reconcile.py`, `messages.py`). These are shared contracts (Contributing §18): the backend-foundation owner needs to approve them.
+
+### Checks
+
+```bash
+cd backend && ruff check . && mypy && pytest && alembic heads
+cd frontend && npm run lint && npm run typecheck && npm test && npm run build
+```
+
+No migration was added. The database-backed API tests need PostgreSQL (`docker compose up -d db`).
+
+---
+
 ## 🔌 API mode (`feature/api-wiring`)
 
 Every role runs on its mock by default. Each can be switched to the real backend on its own, so a role goes live the day its backend routes do and not before. Branch: `feature/api-wiring`, cut from `develop`, frontend only apart from three backend lines for the demo password (below).
@@ -1323,10 +1388,7 @@ CORS_ORIGINS='["http://localhost:8080","http://localhost:5173","http://localhost
 | `GET /driver/runs/{day}`, `/driver/notices`, `/driver/history` | 501 | `DriverApi` (`history` has no caller yet) | stubbed `fetch`; live 501 |
 | `GET /loader/docks/{dock}`, `/docks/{dock}/diff`, `/vehicles/{id}/trips/{trip}`, `/exceptions/{id}`; `POST /loader/pins/verify` | 501 | `LoaderApi` | stubbed `fetch`; live 501 |
 | `POST /sync`, `POST /attachments` | 501 | the field transport | stubbed `fetch`; live 501 |
-| `GET /dispatcher/queue`, `/orders/{id}/history` (`feature/order-management`) | 501 | `DispatcherApi` (`getQueue`, `getOrderHistory`) | stubbed `fetch`; live 401, 403 and 501 |
-| `GET /dispatcher/capacity`, `/plan`, `/deferrals`, `/acknowledgements`; `POST /dispatcher/plan/redraft`, `/plan/validate-move`, `/plan/moves`, `/plan/release`, `/deferrals/notify` (`feature/allocation-engine`) | 501 | `DispatcherApi` (`getCapacity`, `getPlan`, `listDeferrals`, `listAcknowledgements`, `redraftPlan`, `validateMove`, `saveMoves`, `releasePlan`, `notifyDeferrals`) | stubbed `fetch`; live 401, 403 and 501 |
-| `GET /dispatcher/live`, `/inbox`, `/conflicts/{id}`, `/exceptions/{id}`; `POST /dispatcher/stops/defer`, `/conflicts/{id}/ask-store`, `/conflicts/{id}/resolve`, `/exceptions/{id}/decide` (`feature/offline-sync`) | 501 | `DispatcherApi` (`getLiveBoard`, `deferStop`, `getInbox`, `getConflict`, `askStore`, `resolveConflict`, `getExceptionForReview`, `decideException`) | stubbed `fetch`; live 401, 403 and 501 |
-| `GET /dispatcher/forecast` (`feature/analytics`) | 501 | `DispatcherApi.getForecast` | stubbed `fetch`; live 401, 403 and 501 |
+| All 20 `/dispatcher/*` routes: queue, history, capacity, plan, redraft, validate-move, moves, release, deferrals, acknowledgements, live, inbox, conflicts, exceptions, defer stop, forecast | built (`feature/dispatcher`) | `DispatcherApi` | backend tests on the scenario day; the real screens driven against the API; live 401 and 403 |
 
 A 501 reaches a client as `NotImplementedApiError`, which names the backend's operation (the dispatcher client turns it into the dispatcher's own `ApiError` with code `not_implemented`). Nothing falls back to the mock. Until the routes land, a role in `api` mode shows its error or loading state.
 

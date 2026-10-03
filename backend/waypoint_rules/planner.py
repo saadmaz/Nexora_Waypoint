@@ -45,6 +45,9 @@ from .model import Order, Plan, RefData, Trip, Vehicle, VehicleDay
 from .schedule import next_operating_day
 from .vocab import MAX_TRIPS_PER_VEHICLE, Binding, Brand, DeferralType, RuleId, Temp
 
+#: A trip stops looking for more orders after this many in a row did not fit (it is full; the rest are lower priority).
+MAX_MISSES_PER_TRIP = 12
+
 #: A Fresh first trip leaves when the Fresh operating window opens (PRD §4a, A5).
 FRESH_FIRST_DEPARTURE = time(3, 30)
 
@@ -183,23 +186,66 @@ def _fill(
         trip_no = len(so_far) + 1
         not_before = _back_at_depot(so_far[-1], orders, ref) if so_far else None
         current: list[str] = []
+        misses = 0
         for oid in remaining:
             if order_vehicle_violations(orders[oid], vehicle, ref, state.vday, None, check_capacity_alone=True):
                 continue
             candidate = _sequence([*current, oid], orders, ref)
             depart = _departure(candidate, orders, ref, service_date, brand, not_before)
             trip = Trip(vehicle.id, trip_no, depart, candidate)
-            if check_trip(trip, orders, ref, state.vday):
-                continue
-            if check_vehicle_day(vehicle, [*so_far, trip], orders, ref, state.vday):
+            if check_trip(trip, orders, ref, state.vday) or check_vehicle_day(vehicle, [*so_far, trip], orders, ref, state.vday):
+                misses += 1
+                if misses >= MAX_MISSES_PER_TRIP:
+                    break  # the trip is full: later, lower-priority orders will not fit either
                 continue
             current = candidate
+            misses = 0
         if not current:
             break
         depart = _departure(current, orders, ref, service_date, brand, not_before)
         added.append(Trip(vehicle.id, trip_no, depart, current))
         remaining = [o for o in remaining if o not in current]
     return added
+
+
+def _top_up(
+    states: list[_VehicleState],
+    remaining: list[str],
+    orders: dict[str, Order],
+    ref: RefData,
+    service_date: date,
+    brand: Brand,
+    district: str,
+    group_trips: list[tuple[_VehicleState, Trip]],
+) -> list[str]:
+    """Ambient-only orders first join trips that already exist for their brand and district, in priority order.
+
+    The chilled work has already taken what it needs, so the spare room on a reefer trip is free to use. Only a vehicle's last
+    trip is extended (nothing later depends on when it returns). Returns the orders still without a place.
+    """
+    left = list(remaining)
+    for state in states:
+        if not state.trips:
+            continue
+        trip = state.trips[-1]
+        first = ref.outlets[orders[trip.order_ids[0]].outlet_id]
+        if first.brand is not brand or first.district != district:
+            continue
+        before = _back_at_depot(state.trips[-2], orders, ref) if len(state.trips) > 1 else None
+        joined = False
+        for oid in list(left):
+            if order_vehicle_violations(orders[oid], state.vehicle, ref, state.vday, None, check_capacity_alone=True):
+                continue
+            candidate = _sequence([*trip.order_ids, oid], orders, ref)
+            moved = Trip(trip.vehicle_id, trip.trip_no, _departure(candidate, orders, ref, service_date, brand, before), candidate)
+            if check_trip(moved, orders, ref, state.vday) or check_vehicle_day(state.vehicle, [*state.trips[:-1], moved], orders, ref, state.vday):
+                continue
+            trip.order_ids, trip.depart_at = moved.order_ids, moved.depart_at
+            left.remove(oid)
+            joined = True
+        if joined and (state, trip) not in group_trips:
+            group_trips.append((state, trip))
+    return left
 
 
 def _explain(
@@ -297,21 +343,24 @@ def _plan_depot(
     ]
     result = _DepotPlan(states, {}, [])
 
-    # Step 3: group by (brand, district) within the depot.
-    groups: dict[tuple[Brand, str], list[str]] = {}
+    # Step 3: group by (brand, district) within the depot, chilled work apart from ambient-only work. A reefer is the scarce
+    # vehicle, so the chilled group plans first and takes it; an ambient order at an outlet that also has a chilled order stays
+    # with it (one outlet, one stop, one arrival), and the ambient-only orders then prefer the dry-box trucks.
+    chilled_outlets = {
+        (ref.outlets[pool[o].outlet_id].brand, ref.outlets[pool[o].outlet_id].district, pool[o].outlet_id)
+        for o in placeable
+        if pool[o].temp is Temp.CHILLED
+    }
+    groups: dict[tuple[Brand, str, bool], list[str]] = {}
     for oid in placeable:
         outlet = ref.outlets[pool[oid].outlet_id]
-        groups.setdefault((outlet.brand, outlet.district), []).append(oid)
+        with_chilled = pool[oid].temp is Temp.CHILLED or (outlet.brand, outlet.district, outlet.id) in chilled_outlets
+        groups.setdefault((outlet.brand, outlet.district, with_chilled), []).append(oid)
 
-    # Groups with chilled orders go first, so reefers are not spent on ambient ones.
+    # The heaviest group leads (or the lightest, under the other strategy); chilled groups always come first.
     sign = -1 if strategy.heaviest_first else 1
-    group_order: dict[tuple[Brand, str], tuple[bool, float, str, str]] = {
-        key: (
-            not any(pool[o].temp is Temp.CHILLED for o in members),
-            sign * sum(pool[o].weight_kg for o in members),
-            key[0].value,
-            key[1],
-        )
+    group_order: dict[tuple[Brand, str, bool], tuple[bool, float, str, str]] = {
+        key: (not key[2], sign * sum(pool[o].weight_kg for o in members), key[0].value, key[1])
         for key, members in groups.items()
     }
 
@@ -321,6 +370,8 @@ def _plan_depot(
         remaining = sorted(groups[key], key=lambda o: _priority(o, pool, ref))
         has_chilled = any(pool[o].temp is Temp.CHILLED for o in remaining)
         group_trips: list[tuple[_VehicleState, Trip]] = []
+        if not key[2]:
+            remaining = _top_up(states, remaining, pool, ref, service_date, brand, key[1], group_trips)
 
         # Step 5: build trips on the best-fit vehicle until nothing more can be placed.
         while remaining:

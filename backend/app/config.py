@@ -22,6 +22,8 @@ class Settings(BaseSettings):
 
     #: Seed on API start when the database is empty (PRD §14).
     seed_on_start: bool = False
+    #: Without data/*.csv, also generate the rest of the day: the full fleet and ORD3001 upward (212 + 62 orders, A41).
+    seed_generated_orders: bool = True
     data_dir: Path = Path("../data")
     uploads_dir: Path = Path("./uploads")
 
