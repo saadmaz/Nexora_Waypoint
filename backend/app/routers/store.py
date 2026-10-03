@@ -26,6 +26,7 @@ from ..schemas.store import (
     ReportIssueIn,
     UpdatesFeedOut,
 )
+from ..services import store_orders
 
 router = APIRouter(prefix="/store", tags=["store"])
 
@@ -36,25 +37,26 @@ router = APIRouter(prefix="/store", tags=["store"])
 @router.get("/order-form", operation_id="getOrderDraft", response_model=OrderDraftOut)
 def get_order_draft(db: Db, user: Store, date: date | None = None) -> OrderDraftOut:
     """The S1 form for one day. ``date`` defaults to the day an order placed now counts for."""
-    raise not_implemented("getOrderDraft")
+    return store_orders.draft(db, user, date)
 
 
 @router.post("/orders", operation_id="placeOrders", response_model=list[OrderOut], status_code=201)
 def place_orders(body: PlaceOrdersIn, db: Db, user: Store) -> list[OrderOut]:
     """Chilled and dry together: all are received or none is."""
-    raise not_implemented("placeOrders")
+    return store_orders.place(db, user, body)
 
 
 @router.patch("/orders/{order_id}", operation_id="editOrder", response_model=OrderOut)
 def edit_order(order_id: str, body: EditOrderIn, db: Db, user: Store) -> OrderOut:
     """Rejects (409) once the order is past cutoff."""
-    raise not_implemented("editOrder")
+    return store_orders.edit(db, user, order_id, body)
 
 
 @router.post("/orders/{order_id}/cancel", operation_id="cancelOrder", status_code=204)
 def cancel_order(order_id: str, db: Db, user: Store) -> Response:
     """Rejects (409) once the order is past cutoff."""
-    raise not_implemented("cancelOrder")
+    store_orders.cancel(db, user, order_id)
+    return Response(status_code=204)
 
 
 # ---- deliveries, receipt, issues, feed (feature/store-receipt) --------------
