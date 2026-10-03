@@ -221,6 +221,7 @@ const en: Dict = {
   "stop.loadingTitle": "Stop",
 
   "action.callStore": "Call store",
+  "action.callStoreNone": "No store number on file",
 
   "outcome.title": "Deliver · Stop {number}",
   "outcome.sameOutcome": "Same outcome for both orders",
