@@ -23,11 +23,12 @@ const DRIVER_START = { date: HERO_DATE, time: "04:45" };
  * The Driver role root: `/driver/*`. On a wide screen it is a centred column on surface-0
  * (field conventions section 12, built into DriverShell). The theme follows the R1.9 rule: the
  * sunlight switch wins, otherwise the phone's own colour scheme preference (DriverProvider).
+ * The state gallery is dev only: judges never see it (PRD v3 section 15).
  */
 export function DriverApp() {
   return (
     <Routes>
-      <Route path="_states" element={<DriverGallery />} />
+      {import.meta.env.DEV && <Route path="_states" element={<DriverGallery />} />}
       <Route
         path="*"
         element={

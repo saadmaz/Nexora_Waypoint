@@ -21,13 +21,14 @@ const LOADER_START = { date: HERO_EVENING_DATE, time: "23:45" };
 
 /**
  * The Loader role root: `/loader/*`. The state gallery sits outside the runtime and the clock,
- * because each of its frames fakes its own. L1 to L4 are built, and L1.7 swaps the dock and load plan
- * routes for the tablet master-detail from 1024 px.
+ * because each of its frames fakes its own, and is dev only: judges never see it (PRD v3 section 15).
+ * L1 to L4 are built, and L1.7 swaps the dock and load plan routes for the tablet master-detail
+ * from 1024 px.
  */
 export function LoaderApp() {
   return (
     <Routes>
-      <Route path="_states" element={<LoaderGallery />} />
+      {import.meta.env.DEV && <Route path="_states" element={<LoaderGallery />} />}
       <Route
         path="*"
         element={
