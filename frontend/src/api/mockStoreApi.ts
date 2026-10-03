@@ -8,7 +8,7 @@ import type {
   RecentOrderDay,
   UnitFactors,
 } from "../domain/order";
-import { clockTime } from "../domain/format";
+import { clockTime, weekdayShort } from "../domain/format";
 import type { Issue } from "../domain/issue";
 import { isAfterCutoff, isPastCutoff, operatingDayFor } from "../domain/schedule";
 import { EMPTY_RECORD, deriveDelivery, type DeliveryRecord, type OutletFixture } from "./mockDeliveries";
@@ -24,6 +24,8 @@ import {
  * Kandy, orders ORD2001 (chilled, 12 units) and ORD2002 (dry, 8 units) for
  * Tue 29 Sep 2026, both received Mon 28 Sep 15:40, window 05:30 to 08:00.
  */
+import { MOCK_OUTLET } from "./mockOutlet";
+
 const HERO_OUTLET = { id: "OUT084", name: "Waypoint Fresh", district: "Kandy" };
 const HERO_WINDOW = { start: "05:30", end: "08:00" };
 
@@ -221,6 +223,10 @@ export function createMockStoreApi(
   };
 
   return {
+    async getOutlet() {
+      return MOCK_OUTLET;
+    },
+
     async getOrderDraft(outletId, date) {
       const deliveryDate = date ?? operatingDayFor(now());
       const draft: OrderDraft = {
@@ -347,7 +353,7 @@ export function createMockStoreApi(
           };
         });
       return [...current, ...recentFixture()]
-        .filter((day) => new Date(`${day.date}T00:00:00`).getDay() !== 0)
+        .filter((day) => weekdayShort(day.date) !== "Sun")
         .filter((day) => (before ? day.date < before : true))
         .slice(0, limit);
     },

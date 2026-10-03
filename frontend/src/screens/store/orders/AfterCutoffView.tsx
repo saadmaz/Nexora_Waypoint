@@ -6,8 +6,9 @@ import { Tag } from "../../../shared/ui/Tag";
 import { unitsLabel } from "../../../domain/estimate";
 import { dayLabel } from "../../../domain/format";
 import type { OrderKind } from "../../../domain/order";
-import { WINDOW_LABEL } from "../../../domain/outlet";
+import { windowLabel } from "../../../domain/outlet";
 import styles from "./AfterCutoffView.module.css";
+import { useStore } from "../../../app/StoreContext";
 
 export type AfterCutoffViewProps = {
   /** ISO date of the day whose orders just closed, e.g. Tue 29 Sep. */
@@ -21,6 +22,7 @@ export type AfterCutoffViewProps = {
 
 /** S1.4 (after cutoff, before placing) and S1.4 B (placed for the following run). */
 export function AfterCutoffView({ closedDate, runDate, lines, receivedTime }: AfterCutoffViewProps) {
+  const { outlet } = useStore();
   const run = dayLabel(runDate);
   return (
     <>
@@ -60,7 +62,7 @@ export function AfterCutoffView({ closedDate, runDate, lines, receivedTime }: Af
             ))}
           </ul>
           <p className={styles.delivers}>
-            Delivers {run} · window <Mono>{WINDOW_LABEL}</Mono>
+            Delivers {run} · window <Mono>{windowLabel(outlet)}</Mono>
           </p>
         </div>
       </Card>

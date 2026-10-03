@@ -1,4 +1,4 @@
-import { HERO_DATE } from "../../field/clock/clock";
+import { HERO_DATE } from "../../field/clock/mockClock";
 import type { Person, Vehicle } from "../../domain/field";
 import type { DriverStop, HistoryDay, LoaderConfirmation } from "./types";
 

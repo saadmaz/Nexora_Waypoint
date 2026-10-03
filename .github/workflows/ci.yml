@@ -3,7 +3,7 @@ name: CI
 # Contributing §17: the same commands you run before opening a PR. A failure blocks the merge.
 on:
   push:
-    branches: [feature/postgres18-v3-schema-alignment]
+    branches: [develop, main]
   pull_request:
     branches: [develop, main]
 
@@ -27,7 +27,14 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
+      # Every date and time a person reads is Asia/Colombo, so the unit tests must pass wherever the judge's laptop is (DP-26).
+      - run: npm test
+      - run: npm test
+        env:
+          TZ: America/New_York
       - run: npm run build
+      # The production build must carry no mock, persona name or date written in the code (DP-26).
+      - run: npm run check:bundle
 
   backend:
     runs-on: ubuntu-latest
@@ -72,6 +79,8 @@ jobs:
           PGPASSWORD=waypoint psql -h localhost -U waypoint -d waypoint_test -c "CREATE DATABASE waypoint_seed"
           alembic upgrade 0001
           alembic upgrade 0002
+          # then every later migration, so the database is at head before the drift check
+          alembic upgrade head
           alembic check
           python -m seed.run
       - run: pytest

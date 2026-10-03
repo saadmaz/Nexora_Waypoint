@@ -3,7 +3,7 @@ import type { components } from "../../../api/schema";
 import type { Brand, DepotId, OrderTag, PlannedOrder } from "../../../domain/field";
 import { formatTime } from "../../../field/clock/clock";
 import type { ConflictDetail, DriverNotice, DriverNoticeKind, DriverRun, DriverStop } from "../types";
-import type { LocalRunState } from "./mockDriverApi";
+import type { LocalRunState } from "./deviceDriverApi";
 
 type RunOut = components["schemas"]["RunOut"];
 type NoticeOut = components["schemas"]["NoticeOut"];

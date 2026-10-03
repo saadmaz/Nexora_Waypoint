@@ -89,6 +89,7 @@ COLUMNS: dict[str, dict[str, str]] = {
         "district": "district",
         "hour": "hour",
         "speed_index": "speed_index",  # booklet: 100 is free flow; stored as index / 100
+        "monsoon": "monsoon",  # one row per district and hour for each of monsoon and not
     },
     "road_conditions.csv": {
         "service_date": "date",
@@ -334,13 +335,23 @@ def _calendar(row: dict[str, str], name: str) -> CalendarDay:
 def _load_traffic(db: Session, data_dir: Path) -> int:
     name = "traffic_speed.csv"
     n = 0
+    seen: set[tuple[str, int, bool]] = set()
     for row in _rows(data_dir, name):
         district = to_str(_get(row, name, "district"))
         hour = to_int(_get(row, name, "hour"))
         index = to_float(_get(row, name, "speed_index"))
+        monsoon = to_bool(_get(row, name, "monsoon"))
         if district is None or hour is None or not 0 <= hour <= 23 or index is None or index <= 0:
             raise SeedConfigError("traffic_speed.csv requires a district, hour 0..23 and positive speed_index")
-        db.merge(TrafficSpeed(district=district, hour=hour, speed_factor=index / 100))
+        key = (district, hour, monsoon)
+        if key in seen:
+            # Name the row instead of failing later with a database error that hides which file and which key.
+            raise SeedConfigError(
+                f"traffic_speed.csv has more than one row for district {district!r}, hour {hour}, monsoon {monsoon}. "
+                "The key is (district, hour, monsoon)."
+            )
+        seen.add(key)
+        db.merge(TrafficSpeed(district=district, hour=hour, monsoon=monsoon, speed_factor=index / 100))
         n += 1
     db.flush()
     return n

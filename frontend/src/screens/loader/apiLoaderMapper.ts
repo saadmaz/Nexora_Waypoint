@@ -97,6 +97,8 @@ export function mapDock(out: Schemas["DockOut"], dockId: DepotId, local: LocalLo
       activeTrip: (active.tripNo === 2 ? 2 : 1) as 1 | 2,
       departsAt: hhmm(active.departAt),
       status,
+      ...(trips.some((t) => t.replaces) ? { replaces: trips.find((t) => t.replaces)?.replaces ?? "" } : {}),
+      ...(trips.some((t) => t.replacedBy) ? { replacedBy: trips.find((t) => t.replacedBy)?.replacedBy ?? "" } : {}),
     };
   });
   // An acknowledgement the tablet has saved but not yet synced counts at once, for the version it was given for: the server
@@ -153,6 +155,8 @@ export function mapLoadPlan(out: Schemas["LoadPlanOut"], dockId: DepotId, local:
     planVersion: out.planVersion,
     status,
     orders,
+    ...(out.replaces ? { replaces: out.replaces } : {}),
+    ...(out.replacedBy ? { replacedBy: out.replacedBy } : {}),
     ...(confirmedAt ? { confirmedAt } : {}),
     ...(confirmed?.by ? { confirmedBy: confirmed.by } : {}),
   };

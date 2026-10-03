@@ -108,12 +108,16 @@ class CalendarDay(Base):
 
 
 class TrafficSpeed(Base):
-    """Typical traffic by district and hour, normalized from the reference CSV."""
+    """Typical traffic by district, hour and monsoon, normalized from the reference CSV.
+
+    The CSV has one row per district, hour and monsoon flag: a monsoon day has its own speeds (``calendar_days.monsoon``).
+    """
 
     __tablename__ = "traffic_speed"
 
     district: Mapped[str] = mapped_column(ForeignKey("districts.name"), primary_key=True)
     hour: Mapped[int] = mapped_column(Integer, primary_key=True)
+    monsoon: Mapped[bool] = mapped_column(Boolean, primary_key=True)
     speed_factor: Mapped[float] = mapped_column(Float)
 
 

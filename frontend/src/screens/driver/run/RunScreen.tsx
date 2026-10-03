@@ -14,7 +14,7 @@ import { StatusPill } from "../../../shared/ui/StatusPill";
 import { Tag } from "../../../shared/ui/Tag";
 import { useDriverApi, useOutboxOpen, useT } from "../context/DriverContext";
 import { useDriverRun } from "../context/useDriverRun";
-import { RUN_DATE } from "../fixtures";
+import { runDate } from "../../../field/clock/runDate";
 import { buildOfflineBanner } from "../offlineBanner";
 import { DriverShell, type DriverShellProps } from "../shell/DriverShell";
 import { RecordPill } from "../outbox/RecordPill";
@@ -58,7 +58,7 @@ export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadE
   const liveConnectivity = useConnectivity();
   const connectivity = connectivityOverride ?? liveConnectivity;
   const now = useNow();
-  const { run, refresh } = useDriverRun(RUN_DATE);
+  const { run, refresh } = useDriverRun(runDate());
   const outbox = useOutboxOpen();
   const livePhotos = usePhotoState(run);
   const photos = photoStateOverride ?? livePhotos;
@@ -107,7 +107,7 @@ export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadE
       setDownloading(true);
       setProgress({ done: 0, total: 0 });
       try {
-        await api.downloadRun(RUN_DATE, version, (done, total) => setProgress({ done, total }));
+        await api.downloadRun(runDate(), version, (done, total) => setProgress({ done, total }));
         refresh();
       } catch {
         setDownloadError(true);
@@ -115,18 +115,18 @@ export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadE
         setDownloading(false);
       }
     } else {
-      await api.acknowledgePlan(RUN_DATE, version);
+      await api.acknowledgePlan(runDate(), version);
       refresh();
     }
   }
 
   async function handleStartRoute() {
-    await api.startRoute(RUN_DATE);
+    await api.startRoute(runDate());
     refresh();
   }
 
   async function handleArrive(outletId: string) {
-    await api.recordArrival(RUN_DATE, outletId);
+    await api.recordArrival(runDate(), outletId);
     refresh();
     navigate(`/driver/stops/${outletId}`);
   }

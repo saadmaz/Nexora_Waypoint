@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { CutoffError } from "../../../api/StoreApi";
 import { AppBar } from "../../../shared/chrome/AppBar";
@@ -18,7 +18,6 @@ import { useOnline } from "../../../hooks/useOnline";
 import { estimateFor } from "../../../domain/estimate";
 import { clockTime, dayLabel, weekdayShort } from "../../../domain/format";
 import type { NewOrderInput, OrderDraft, OrderKind, RecentOrderDay, UnitFactors } from "../../../domain/order";
-import { OUTLET } from "../../../domain/outlet";
 import {
   addDays,
   isAfterCutoff,
@@ -57,7 +56,6 @@ type Line = { kind: OrderKind; units: number };
 type Quantities = Record<OrderKind, number>;
 
 /** The device copy of an order queued offline (S1.5 A). */
-const ORDER_QUEUE = { kind: "order", outletId: OUTLET.id } as const;
 
 /** Stand-in while the form loads; never shown, because loading renders a skeleton. */
 const NO_FACTORS: UnitFactors = { chilled: { kg: 0, m3: 0 }, dry: { kg: 0, m3: 0 } };
@@ -66,10 +64,10 @@ function linesOf(quantities: Quantities): Line[] {
   return KINDS.filter((kind) => quantities[kind] > 0).map((kind) => ({ kind, units: quantities[kind] }));
 }
 
-function toInput(line: Line, deliveryDate: string, factors: UnitFactors): NewOrderInput {
+function toInput(line: Line, deliveryDate: string, factors: UnitFactors, outletId: string): NewOrderInput {
   const { kg, m3 } = estimateFor(factors, line.kind, line.units);
   return {
-    outletId: OUTLET.id,
+    outletId,
     deliveryDate,
     line: { kind: line.kind, units: line.units, estimatedKg: kg, estimatedM3: m3 },
   };
@@ -82,7 +80,9 @@ function toInput(line: Line, deliveryDate: string, factors: UnitFactors): NewOrd
  */
 export function OrdersPage({ preview }: OrdersPageProps) {
   const navigate = useNavigate();
-  const { api, now, unread } = useStore();
+  const { api, now, unread, outlet } = useStore();
+  /** The device copy of an order queued offline (S1.5 A). */
+  const ORDER_QUEUE = useMemo(() => ({ kind: "order", outletId: outlet.id }) as const, [outlet.id]);
   const toast = useToast();
   const desktop = useMediaQuery("(min-width: 1024px)");
   const currentTime = useNow();
@@ -109,7 +109,7 @@ export function OrdersPage({ preview }: OrdersPageProps) {
       setQueuedState(value);
       if (!preview) saveQueued(ORDER_QUEUE, value);
     },
-    [preview],
+    [preview, ORDER_QUEUE],
   );
   const [reviewOpen, setReviewOpen] = useState(preview === "review");
   const [closedNotice, setClosedNotice] = useState(false);
@@ -126,13 +126,13 @@ export function OrdersPage({ preview }: OrdersPageProps) {
   const quantities: Quantities = edited ?? current?.defaultUnits ?? { chilled: 0, dry: 0 };
 
   const reload = useCallback(async () => {
-    setDay(await api.getOrderDraft(OUTLET.id, target));
-  }, [api, target]);
+    setDay(await api.getOrderDraft(outlet.id, target));
+  }, [api, target, outlet.id]);
 
   // Load the day's form, and reload it when the clock rolls the target day over at 16:00.
   useEffect(() => {
     let alive = true;
-    void Promise.all([api.getOrderDraft(OUTLET.id, target), api.listRecent(OUTLET.id, { limit: 5, before: toIsoDate(now()) })]).then(([d, r]) => {
+    void Promise.all([api.getOrderDraft(outlet.id, target), api.listRecent(outlet.id, { limit: 5, before: toIsoDate(now()) })]).then(([d, r]) => {
       if (!alive) return;
       setDay(d);
       setRecent(r);
@@ -143,7 +143,7 @@ export function OrdersPage({ preview }: OrdersPageProps) {
     return () => {
       alive = false;
     };
-  }, [api, target, preview, now, setQueued]);
+  }, [api, target, preview, now, setQueued, outlet.id]);
 
   // Two `online` events, or a double tap, must not place the same order twice.
   const inFlight = useRef(false);
@@ -155,7 +155,7 @@ export function OrdersPage({ preview }: OrdersPageProps) {
       setSubmit("sending");
       try {
         if (!current) throw new Error("The order form has not loaded.");
-        const placed = await api.placeOrders(lines.map((line) => toInput(line, target, factors)));
+        const placed = await api.placeOrders(lines.map((line) => toInput(line, target, factors, outlet.id)));
         await reload();
         setQueued(null);
         setSubmit("idle");
@@ -167,7 +167,7 @@ export function OrdersPage({ preview }: OrdersPageProps) {
         inFlight.current = false;
       }
     },
-    [api, target, current, factors, reload, afterCutoff, toast, setQueued],
+    [api, target, current, factors, reload, afterCutoff, toast, setQueued, outlet.id],
   );
 
   /** Sends the queued order, once: the queue is taken before the request starts. */
@@ -248,7 +248,7 @@ export function OrdersPage({ preview }: OrdersPageProps) {
           await api.editOrder(order.id, { units, estimatedKg: kg, estimatedM3: m3 });
         }
       }
-      if (fresh.length > 0) await api.placeOrders(fresh.map((line) => toInput(line, target, factors)));
+      if (fresh.length > 0) await api.placeOrders(fresh.map((line) => toInput(line, target, factors, outlet.id)));
       await reload();
       setSubmit("idle");
       setMode("view");
@@ -508,7 +508,7 @@ export function OrdersPage({ preview }: OrdersPageProps) {
         right={
           <>
             <span className={styles.today}>
-              {dayLabel(toIsoDate(currentTime))} · {OUTLET.id}
+              {dayLabel(toIsoDate(currentTime))} · {outlet.id}
             </span>
             <SyncChip state={syncState} />
           </>

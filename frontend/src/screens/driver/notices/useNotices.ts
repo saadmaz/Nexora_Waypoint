@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNow } from "../../../field/clock/useClock";
 import { useDriverApi } from "../context/DriverContext";
-import { RUN_DATE } from "../fixtures";
+import { runDate } from "../../../field/clock/runDate";
 import type { DriverNotice } from "../types";
 
 const REFRESH_MS = 5_000;
@@ -31,7 +31,7 @@ export function useNotices(): NoticesState {
 
   useEffect(() => {
     let active = true;
-    void api.getNotices(RUN_DATE).then((next) => {
+    void api.getNotices(runDate()).then((next) => {
       if (!active) return;
       setNotices(next);
       setLoaded(true);
@@ -43,13 +43,13 @@ export function useNotices(): NoticesState {
 
   const markRead = useCallback(
     async (ids: string[]) => {
-      await api.markNoticesRead(RUN_DATE, ids);
+      await api.markNoticesRead(runDate(), ids);
       setVersion((v) => v + 1);
     },
     [api],
   );
   const markAllRead = useCallback(async () => {
-    await api.markNoticesRead(RUN_DATE);
+    await api.markNoticesRead(runDate());
     setVersion((v) => v + 1);
   }, [api]);
 

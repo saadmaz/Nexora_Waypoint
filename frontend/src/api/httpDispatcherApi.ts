@@ -222,16 +222,14 @@ export function createHttpDispatcherApi(getClient: () => HttpClient = () => apiC
  * server is turned into that, and a time sent to the server is sent as a bare wall-clock string (the server reads a bare time
  * as Asia/Colombo). Colombo has no daylight saving, so the offset the server writes is always +05:30.
  */
-const pad = (value: number) => String(value).padStart(2, "0");
-
-/** "2026-09-28T15:30:00+05:30" as a Date whose local hours and minutes are 15:30. */
+/** "2026-09-28T15:30:00+05:30" as the instant it names. The screens format it in Asia/Colombo whatever the browser's zone is. */
 export function fromServerTime(text: string): Date {
-  return new Date(text.slice(0, 19));
+  return new Date(text);
 }
 
-/** A Date whose local hours and minutes are the scenario time, as the bare string the server reads as Colombo. */
+/** The instant as a UTC timestamp, which the server reads as the same moment and answers in Colombo time. */
 export function toServerTime(date: Date): string {
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  return date.toISOString();
 }
 
 export type DispatcherDemo = {
@@ -241,6 +239,10 @@ export type DispatcherDemo = {
   advance(to: Date): Promise<Date>;
   /** Truncates the operational tables and re-runs the seed, then returns the clock (back at the checkpoint). */
   reset(): Promise<Date>;
+  /** Freezes scenario time where it is (DP-26). Countdowns stop until it is resumed. */
+  pause(): Promise<Date>;
+  /** Lets scenario time run again. */
+  resume(): Promise<Date>;
 };
 
 export function createDispatcherDemo(getClient: () => HttpClient = () => apiClient("dispatcher")): DispatcherDemo {
@@ -255,5 +257,7 @@ export function createDispatcherDemo(getClient: () => HttpClient = () => apiClie
     readClock: () => run("getClock", () => getClient().get("/api/v1/clock")),
     advance: (to) => run("advanceClock", () => getClient().post("/api/v1/demo/advance", { body: { to: toServerTime(to) } })),
     reset: () => run("resetDemo", async () => (await getClient().post("/api/v1/demo/reset")).clock),
+    pause: () => run("pauseClock", () => getClient().post("/api/v1/demo/pause")),
+    resume: () => run("resumeClock", () => getClient().post("/api/v1/demo/resume")),
   };
 }

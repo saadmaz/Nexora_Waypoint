@@ -1,6 +1,7 @@
 import type { Role } from "../../domain/status";
 import type { paths } from "../schema";
 import { ApiError, NetworkUnavailableError, toApiError } from "./errors";
+import { WRITE_EVENT } from "./events";
 import type { Method, OperationOf, OptionsArgs, PathsFor, RequestOptions, ResponseOf } from "./types";
 
 /** Where a client gets the bearer token for a role, and what happens when the server rejects it. */
@@ -126,7 +127,11 @@ export function createHttpClient(config: HttpClientConfig): HttpClient {
     }
 
     const parsed = await readBody(response);
-    if (response.ok) return parsed;
+    if (response.ok) {
+      // A write may have moved the scenario clock or its jobs: tell the clock to look again (DP-26).
+      if (method !== "get" && typeof window !== "undefined") window.dispatchEvent(new Event(WRITE_EVENT));
+      return parsed;
+    }
 
     // Only a real 401 from the server ends a session. A dropped connection never reaches this line.
     if (response.status === 401 && config.role) config.tokens?.onUnauthorized(config.role);

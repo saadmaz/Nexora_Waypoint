@@ -162,6 +162,7 @@ def dock_view(db: Session, user: CurrentUser, dock: str) -> DockOut:
         for s in db.scalars(select(plans.VehicleDayStatus).where(plans.VehicleDayStatus.service_date == service_date))
     }
 
+    stands_in_for = {s.replaced_by: s.vehicle_id for s in status.values() if s.replaced_by}
     vehicles: list[DockVehicleOut] = []
     for t in trips:
         day = status.get(t.vehicle_id)
@@ -179,6 +180,8 @@ def dock_view(db: Session, user: CurrentUser, dock: str) -> DockOut:
                 tags=tags,
                 orders=counts.get(t.id, 0),
                 kg=t.kg,
+                replaces=stands_in_for.get(t.vehicle_id),
+                replaced_by=day.replaced_by if day is not None else None,
             )
         )
     return DockOut(
@@ -315,6 +318,7 @@ def load_plan(db: Session, user: CurrentUser, vehicle_id: str, trip_no: int) -> 
         for stop, order, outlet in rows
     ]
     lines.sort(key=lambda line: line.load_no)
+    day_rows = list(db.scalars(select(plans.VehicleDayStatus).where(plans.VehicleDayStatus.service_date == service_date)))
     return LoadPlanOut(
         vehicle_id=vehicle_id,
         trip_no=trip_no,
@@ -322,6 +326,8 @@ def load_plan(db: Session, user: CurrentUser, vehicle_id: str, trip_no: int) -> 
         depart_at=repo.aware(trip.depart_at),
         lines=lines,
         confirmed_at=_confirmed_at(db, service_date, vehicle_id, trip_no),
+        replaces=next((d.vehicle_id for d in day_rows if d.replaced_by == vehicle_id), None),
+        replaced_by=next((d.replaced_by for d in day_rows if d.vehicle_id == vehicle_id), None),
     )
 
 
