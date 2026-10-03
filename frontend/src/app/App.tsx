@@ -1,9 +1,11 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { ComponentGallery } from "../field/gallery/ComponentGallery";
-import { AuthGallery, RootRedirect, SessionExpiryListener, ShellPlaceholder, SignInRoute, StartRoute } from "../screens/auth";
+import { AuthGallery, RequireSession, RootRedirect, SessionExpiryListener, SignInRoute, StartRoute } from "../screens/auth";
 import { DriverApp } from "../screens/driver/DriverApp";
 import { LoaderApp } from "../screens/loader/LoaderApp";
 import { Gallery } from "../screens/store/gallery/Gallery";
+import DispatcherApp from "../screens/dispatcher/DispatcherApp";
+import { Gallery as DispatcherGallery, GALLERY_PATH as DISPATCHER_GALLERY_PATH } from "../screens/dispatcher/gallery/Gallery";
 import { PresenterControl } from "./PresenterControl";
 import { StoreProvider } from "./StoreProvider";
 import { StoreRoot } from "./StoreRoot";
@@ -21,7 +23,8 @@ const GALLERY_PATH = "/store/_states";
  *   /auth/_states          the app shell state gallery (dev only)
  *   /loader/*              Waypoint Load, Dark · pre-dawn          (LoaderApp)
  *   /driver/*              Driver, Dark · Field · Light            (DriverApp)
- *   /dispatcher/*          Waypoint Dispatch                       (slot, see DispatcherSlot)
+ *   /dispatcher/*          Waypoint Dispatch, Light · office       (DispatcherApp, needs a dispatcher sign-in)
+ *   /dispatcher/_states    the Dispatch state gallery (dev only, outside the router like the Store gallery)
  *   /field/_components     the field component catalogue (dev only)
  *   /store/*               Waypoint Store, Light · office          (StoreApp)
  *   anything else          back to /
@@ -30,6 +33,8 @@ const GALLERY_PATH = "/store/_states";
  * and clock.
  */
 export default function App() {
+  // Each gallery frame runs its own router, so the galleries sit outside the app's router (the dispatcher's is dev only).
+  if (import.meta.env.DEV && window.location.pathname === DISPATCHER_GALLERY_PATH) return <DispatcherGallery />;
   if (window.location.pathname === GALLERY_PATH) return <Gallery />;
 
   return (
@@ -42,10 +47,8 @@ export default function App() {
         <Route path="/auth/_states" element={<AuthGallery />} />
         <Route path="/loader/*" element={<LoaderApp />} />
         <Route path="/driver/*" element={<DriverApp />} />
-        {/* DISPATCHER ROOT: replace this line with <Route path="/dispatcher/*" element={<DispatcherApp />} /> when feature/dispatch-planning merges, and delete DispatcherSlot. */}
-        <Route path="/dispatcher/*" element={<DispatcherSlot />} />
         <Route path="/field/_components" element={<ComponentGallery />} />
-        <Route path="*" element={<StoreOrHome />} />
+        <Route path="*" element={<RoleOrHome />} />
       </Routes>
     </BrowserRouter>
   );
@@ -64,28 +67,25 @@ function StoreApp() {
 }
 
 /**
- * Waypoint Store owns `/store` and everything under it. `StoreRoutes` uses absolute `/store/...`
- * paths, so it cannot sit under a `/store/*` parent: React Router resolves a descendant <Routes>
- * relative to its parent route, and `/store/orders` would never match. It stays at the catch-all
- * and answers only for its own prefix. Every other path goes back to `/`, which sends a signed-in
- * person to their role home and everyone else to sign-in.
+ * Waypoint Store owns `/store` and everything under it, and Waypoint Dispatch owns `/dispatcher`. Both
+ * route sets use absolute paths (`/store/orders`, `/dispatcher/queue`), so neither can sit under a
+ * `/store/*` or `/dispatcher/*` parent: React Router resolves a descendant <Routes> relative to its
+ * parent route, and those paths would never match. They stay at the catch-all and each answers only
+ * for its own prefix. Dispatch also needs a dispatcher session; without one it goes to sign-in. Every
+ * other path goes back to `/`, which sends a signed-in person to their role home and everyone else to
+ * sign-in.
  */
-function StoreOrHome() {
+function RoleOrHome() {
   const { pathname } = useLocation();
   const isStore = pathname === "/store" || pathname.startsWith("/store/");
-  return isStore ? <StoreApp /> : <Navigate to="/" replace />;
-}
-
-/**
- * Stands in for the dispatcher's root until `feature/dispatch-planning` merges. The route has to
- * exist: a signed-in dispatcher is sent from `/` to `/dispatcher/queue`, and without it that path
- * would fall to the catch-all and bounce back to `/` forever.
- */
-function DispatcherSlot() {
-  return (
-    <ShellPlaceholder
-      title="Waypoint Dispatch is not on this branch yet"
-      note="The dispatcher screens arrive with the dispatch planning branch."
-    />
-  );
+  const isDispatcher = pathname === "/dispatcher" || pathname.startsWith("/dispatcher/");
+  if (isStore) return <StoreApp />;
+  if (isDispatcher) {
+    return (
+      <RequireSession role="dispatcher">
+        <DispatcherApp />
+      </RequireSession>
+    );
+  }
+  return <Navigate to="/" replace />;
 }

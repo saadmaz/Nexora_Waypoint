@@ -106,7 +106,7 @@ export interface paths {
         put?: never;
         /**
          * Reset Demo
-         * @description Truncate the operational tables and re-run the seed (PRD §13).
+         * @description Truncate the operational tables and re-run the seed (PRD §13). Presenter only: the dispatcher's avatar menu.
          */
         post: operations["resetDemo"];
         delete?: never;
@@ -385,7 +385,7 @@ export interface paths {
         };
         /**
          * Get Queue
-         * @description D1: the order queue for a depot and service date.
+         * @description D1: the order queue for a depot and service date, grouped, with the filters and search applied.
          */
         get: operations["getQueue"];
         put?: never;
@@ -405,7 +405,7 @@ export interface paths {
         };
         /**
          * Get Order History
-         * @description D1.5: the order's audit events, oldest first.
+         * @description D1.5: the order's history drawer, built from its audit events (oldest first).
          */
         get: operations["getOrderHistory"];
         put?: never;
@@ -547,7 +547,7 @@ export interface paths {
         put?: never;
         /**
          * Notify Deferrals
-         * @description Sends the store notices for the chosen deferrals.
+         * @description Sends the store notices for every deferral at the depot that has not been told yet.
          */
         post: operations["notifyDeferrals"];
         delete?: never;
@@ -767,7 +767,7 @@ export interface paths {
         put?: never;
         /**
          * Decide Exception
-         * @description D8: swap the vehicle, defer orders, or proceed. Creates and releases the next plan version.
+         * @description D8: swap the vehicle and defer orders. Creates and releases the next plan version.
          */
         post: operations["decideException"];
         delete?: never;
@@ -984,20 +984,56 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** AcknowledgementOut */
-        AcknowledgementOut: {
-            /** Actorkind */
-            actorKind: string;
-            /** Actorid */
-            actorId: string;
-            /** Dock */
-            dock?: string | null;
-            /** Vehicleid */
-            vehicleId?: string | null;
-            /** Acknowledgedat */
-            acknowledgedAt?: string | null;
-            /** Pending */
-            pending: boolean;
+        /** AcknowledgementRow */
+        AcknowledgementRow: {
+            /** Person */
+            person: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "Loader" | "Driver";
+            /** Place */
+            place: string;
+            /** Has */
+            has: number;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "pending" | "acknowledged" | "not received" | "no change";
+            /** At */
+            at?: string | null;
+            /** Note */
+            note?: string | null;
+            /** Departsin */
+            departsIn: string;
+        };
+        /** AcknowledgementsBanner */
+        AcknowledgementsBanner: {
+            /**
+             * Tone
+             * @enum {string}
+             */
+            tone: "warning" | "success" | "offline";
+            /** Title */
+            title: string;
+            /** Text */
+            text: string;
+            /** Action */
+            action?: ("call-kandy" | "open-live") | null;
+        };
+        /** AcknowledgementsView */
+        AcknowledgementsView: {
+            /** Version */
+            version: number;
+            /** Acknowledged */
+            acknowledged: number;
+            /** Total */
+            total: number;
+            /** Rows */
+            rows: components["schemas"]["AcknowledgementRow"][];
+            banner: components["schemas"]["AcknowledgementsBanner"] | null;
         };
         /** AdvanceIn */
         AdvanceIn: {
@@ -1018,6 +1054,15 @@ export interface components {
             from: string;
             /** Mayarriveat */
             mayArriveAt?: string | null;
+        };
+        /** AskedStore */
+        AskedStore: {
+            /** At */
+            at: string;
+            /** Minutes */
+            minutes: number;
+            /** Text */
+            text: string;
         };
         /**
          * AttachmentKind
@@ -1042,22 +1087,17 @@ export interface components {
              */
             duplicate: boolean;
         };
-        /**
-         * Binding
-         * @enum {string}
-         */
-        Binding: "reefer_minutes" | "weight" | "volume" | "van_access" | "window" | "fuel";
-        /** BindingOut */
-        BindingOut: {
-            resource: components["schemas"]["Binding"];
-            /** Demand */
-            demand: number;
-            /** Supply */
-            supply: number;
-            /** Percent */
-            percent: number;
-            /** Overby */
-            overBy: number;
+        /** Banner */
+        Banner: {
+            /**
+             * Tone
+             * @enum {string}
+             */
+            tone: "warning" | "info" | "success";
+            /** Title */
+            title: string;
+            /** Text */
+            text: string;
         };
         /** Body_uploadAttachment */
         Body_uploadAttachment: {
@@ -1076,28 +1116,62 @@ export interface components {
          * @enum {string}
          */
         Brand: "Fresh" | "Style" | "Tech";
-        /** CapacityOut */
-        CapacityOut: {
-            /** Depot */
-            depot: string;
+        /** CapacityBinding */
+        CapacityBinding: {
+            /** Resource */
+            resource: string;
+            /** Demand */
+            demand: number;
+            /** Supply */
+            supply: number;
+            /** Available */
+            available: number;
+            /** Pervehicle */
+            perVehicle: number;
+            /** Percent */
+            percent: number;
+            /** Overby */
+            overBy: number;
+        };
+        /** CapacityLane */
+        CapacityLane: {
+            /** Vehicleid */
+            vehicleId: string;
+            /** Title */
+            title: string;
+            /** Summary */
+            summary: string;
+            /** Meters */
+            meters: components["schemas"]["LabelledMeter"][];
+        };
+        /** CapacityView */
+        CapacityView: {
+            /**
+             * Depot
+             * @enum {string}
+             */
+            depot: "peliyagoda" | "kandy";
             /**
              * Servicedate
              * Format: date
              */
             serviceDate: string;
-            /** Headline */
-            headline: string;
-            binding: components["schemas"]["BindingOut"];
-            /** Vehiclesavailable */
-            vehiclesAvailable: number;
-            /** Vehiclestotal */
-            vehiclesTotal: number;
-            /** Reefersavailable */
-            reefersAvailable: number;
-            /** Reeferstotal */
-            reefersTotal: number;
-            /** Vehicles */
-            vehicles: components["schemas"]["VehicleCapacityOut"][];
+            /** Orders */
+            orders: number;
+            plan: components["schemas"]["PlanSummaryRef"] | null;
+            deferrals: components["schemas"]["DeferralTotals"];
+            binding: components["schemas"]["CapacityBinding"] | null;
+            reefers: components["schemas"]["ReeferCounts"];
+            vehicles: components["schemas"]["VehicleCounts"];
+            busiest: components["schemas"]["VehicleCard"];
+            closest: components["schemas"]["ClosestCard"];
+            pool: components["schemas"]["PoolInfo"];
+            spare?: components["schemas"]["SpareVehicle"] | null;
+            fleet?: components["schemas"]["Fleet"] | null;
+            lane?: components["schemas"]["CapacityLane"] | null;
+            released?: components["schemas"]["ReleasedTotals"] | null;
+            /** Freshuse */
+            freshUse?: number | null;
         };
         /**
          * ClockOut
@@ -1121,6 +1195,23 @@ export interface components {
              */
             serviceDate: string;
         };
+        /** ClosestCard */
+        ClosestCard: {
+            /** Label */
+            label: string;
+            /** Vehicleid */
+            vehicleId: string;
+            /** Used */
+            used: number;
+            /** Limit */
+            limit: number;
+            /** Unit */
+            unit: string;
+            /** Note */
+            note: string;
+            /** Caption */
+            caption: string;
+        };
         /** ConfirmReceiptIn */
         ConfirmReceiptIn: {
             /**
@@ -1135,68 +1226,206 @@ export interface components {
             /** Devicetime */
             deviceTime?: string | null;
         };
-        /** ConflictOut */
-        ConflictOut: {
+        /** ConflictOrder */
+        ConflictOrder: {
             /** Id */
-            id: number;
-            /** Orderids */
-            orderIds: string[];
-            /** Serversnapshot */
-            serverSnapshot: {
-                [key: string]: unknown;
-            };
-            /** Devicesnapshot */
-            deviceSnapshot: {
-                [key: string]: unknown;
-            };
-            recommendation: components["schemas"]["ConflictRecommendation"];
-            /** Reasons */
-            reasons: string[];
-            status: components["schemas"]["ConflictStatus"];
-            /** Resolution */
-            resolution?: string | null;
-            /** Resolvedby */
-            resolvedBy?: string | null;
-            /** Resolvedat */
-            resolvedAt?: string | null;
+            id: string;
+            temp: components["schemas"]["Temp"];
+            /** Units */
+            units: number;
         };
         /**
          * ConflictRecommendation
          * @enum {string}
          */
         ConflictRecommendation: "keep_delivery" | "keep_partial" | "keep_deferral";
-        /**
-         * ConflictStatus
-         * @enum {string}
-         */
-        ConflictStatus: "open" | "awaiting_store" | "resolved";
-        /** ConsequenceOut */
-        ConsequenceOut: {
-            sourceBefore?: components["schemas"]["TripSummaryOut"] | null;
-            sourceAfter?: components["schemas"]["TripSummaryOut"] | null;
-            targetBefore?: components["schemas"]["TripSummaryOut"] | null;
-            targetAfter?: components["schemas"]["TripSummaryOut"] | null;
-            /** Deferralchanges */
-            deferralChanges?: string[];
+        /** ConflictRecommendationView */
+        ConflictRecommendationView: {
+            choice: components["schemas"]["ConflictRecommendation"];
+            /** Title */
+            title: string;
+            /** Reasons */
+            reasons: string[];
+            /** Outcome */
+            outcome: string;
+            /** Chip */
+            chip?: string | null;
+            /** Pausednote */
+            pausedNote?: string | null;
+        };
+        /** ConflictResolved */
+        ConflictResolved: {
+            /** By */
+            by: string;
+            /** At */
+            at: string;
+            /** Title */
+            title: string;
+            /** Text */
+            text: string;
+            /** Whoknows */
+            whoKnows: components["schemas"]["WhoKnows"][];
+            /** Toast */
+            toast: string;
+        };
+        /** ConflictView */
+        ConflictView: {
+            /** Id */
+            id: string;
+            /** Outletid */
+            outletId: string;
+            /** Outletname */
+            outletName: string;
+            /** District */
+            district: string;
+            /** Orders */
+            orders: components["schemas"]["ConflictOrder"][];
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "needs decision" | "awaiting store" | "store reported an issue" | "resolved";
+            /** Outcome */
+            outcome?: ("Delivered" | "Partial") | null;
+            /** Timeline */
+            timeline: components["schemas"]["TimelineEntry"][];
+            driverRecord: components["schemas"]["DriverRecord"];
+            dispatchRecord: components["schemas"]["DispatchRecord"];
+            storeReport?: components["schemas"]["StoreReport"] | null;
+            asked?: components["schemas"]["AskedStore"] | null;
+            recommendation: components["schemas"]["ConflictRecommendationView"];
+            resolved?: components["schemas"]["ConflictResolved"] | null;
+        };
+        /** Continuity */
+        Continuity: {
+            /** Protected */
+            protected: boolean;
+            /** Text */
+            text: string;
         };
         /** DecideExceptionIn */
         DecideExceptionIn: {
-            /** Decision */
-            decision: string;
-            /** Replacementvehicleid */
-            replacementVehicleId?: string | null;
+            /**
+             * Decision
+             * @constant
+             */
+            decision: "swap_vehicle";
             /** Deferorderids */
             deferOrderIds?: string[];
-            /** Note */
-            note?: string | null;
+        };
+        /** Decision */
+        Decision: {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "conflict" | "held" | "info";
+            /** Title */
+            title: string;
+            /** Text */
+            text: string;
+            /** At */
+            at?: string | null;
+            /** Chip */
+            chip?: string | null;
+            action?: components["schemas"]["DecisionAction"] | null;
+            /** Infoonly */
+            infoOnly?: boolean | null;
+            /** Countdown */
+            countdown?: string | null;
+        };
+        /** DecisionAction */
+        DecisionAction: {
+            /** Label */
+            label: string;
+            /** To */
+            to: string;
         };
         /** DeferStopIn */
         DeferStopIn: {
             /** Orderids */
             orderIds: string[];
-            type: components["schemas"]["DeferralType"];
+            kind: components["schemas"]["DeferralType"];
             /** Reason */
             reason: string;
+        };
+        /** DeferStopResult */
+        DeferStopResult: {
+            /** Plan */
+            plan: number;
+            /** Deferred */
+            deferred: string[];
+        };
+        /** DeferralCard */
+        DeferralCard: {
+            /** Orderid */
+            orderId: string;
+            /** Outletid */
+            outletId: string;
+            /** Outletname */
+            outletName: string;
+            brand: components["schemas"]["Brand"];
+            temp: components["schemas"]["Temp"];
+            /** Access */
+            access: string[];
+            kind: components["schemas"]["DeferralType"];
+            /** Line */
+            line: string;
+            /** Title */
+            title: string;
+            reason: components["schemas"]["DeferralReason"];
+            /** Decidedby */
+            decidedBy: string;
+            storeTold: components["schemas"]["StoreNotice"];
+            /** Impact */
+            impact: string;
+            /** Frees */
+            frees: string;
+            /** Nextrun */
+            nextRun: string;
+            /** Binding */
+            binding: string;
+            /** Newinversion */
+            newInVersion?: number | null;
+            /** Pairedorderids */
+            pairedOrderIds?: string[] | null;
+            footnote?: components["schemas"]["Footnote"] | null;
+            detail: components["schemas"]["DeferralDetail"];
+        };
+        /** DeferralCounts */
+        DeferralCounts: {
+            /** Total */
+            total: number;
+            /** Capacity */
+            capacity: number;
+            /** Policy */
+            policy: number;
+            /** Storerequest */
+            storeRequest: number;
+        };
+        /** DeferralDetail */
+        DeferralDetail: {
+            /** Type */
+            type: string;
+            /** Bindingtext */
+            bindingText: string;
+            /** Freed */
+            freed: string;
+            /** Nextrun */
+            nextRun: string;
+            /** Decidedline */
+            decidedLine: string;
+            /** Whynotothers */
+            whyNotOthers: components["schemas"]["WhyNotOther"][];
+            window: components["schemas"]["TimeRange"];
+            /** Kg */
+            kg: number;
+            /** M3 */
+            m3: number;
+            /** Dock */
+            dock: string;
         };
         /** DeferralNoticeOut */
         DeferralNoticeOut: {
@@ -1208,54 +1437,93 @@ export interface components {
             /** Nextrun */
             nextRun?: string | null;
         };
-        /** DeferralOut */
-        DeferralOut: {
-            /** Id */
-            id: number;
-            /** Orderid */
-            orderId: string;
-            /** Outletid */
-            outletId: string;
-            type: components["schemas"]["DeferralType"];
-            binding?: components["schemas"]["Binding"] | null;
-            /** Reasontext */
-            reasonText: string;
-            /** Impact */
-            impact: {
-                [key: string]: unknown;
-            };
-            /** Frees */
-            frees: {
-                [key: string]: unknown;
-            };
-            /** Nextrundate */
-            nextRunDate?: string | null;
-            /** Decidedby */
-            decidedBy?: string | null;
-            /** Noticesentat */
-            noticeSentAt?: string | null;
-            /** Noticeseenat */
-            noticeSeenAt?: string | null;
-            /** Withdrawnat */
-            withdrawnAt?: string | null;
+        /** DeferralReason */
+        DeferralReason: {
+            /** Headline */
+            headline: string;
+            /** Detail */
+            detail: string;
+        };
+        /** DeferralTotals */
+        DeferralTotals: {
+            /** Total */
+            total: number;
+            /** Capacity */
+            capacity: number;
+            /** Policy */
+            policy: number;
         };
         /**
          * DeferralType
          * @enum {string}
          */
         DeferralType: "capacity" | "policy" | "store_request";
-        /** DeferralsOut */
-        DeferralsOut: {
-            /** Depot */
-            depot: string;
+        /** DeferralsPlanRef */
+        DeferralsPlanRef: {
+            /** Number */
+            number: number;
+            state: components["schemas"]["PlanState"];
+            /** At */
+            at: string;
+        };
+        /** DeferralsSide */
+        DeferralsSide: {
+            pool: components["schemas"]["SidePool"];
+            driver: components["schemas"]["SideDriver"];
+        };
+        /** DeferralsView */
+        DeferralsView: {
+            /**
+             * Depot
+             * @enum {string}
+             */
+            depot: "peliyagoda" | "kandy";
+            plan: components["schemas"]["DeferralsPlanRef"];
             /** Headline */
             headline: string;
-            /** Capacitycount */
-            capacityCount: number;
-            /** Policycount */
-            policyCount: number;
-            /** Deferrals */
-            deferrals: components["schemas"]["DeferralOut"][];
+            counts: components["schemas"]["DeferralCounts"];
+            banner: components["schemas"]["Banner"];
+            /** Capacity */
+            capacity: components["schemas"]["DeferralCard"][];
+            /** Policy */
+            policy: components["schemas"]["DeferralCard"][];
+            /** Orders */
+            orders: number;
+            /** Served */
+            served: number;
+            /** Policymore */
+            policyMore: number;
+            /** Storerequest */
+            storeRequest: components["schemas"]["DeferralCard"][];
+            /** Protected */
+            protected: components["schemas"]["ProtectedOutlet"][];
+            notices: components["schemas"]["NoticeCounts"];
+            side?: components["schemas"]["DeferralsSide"] | null;
+            /** Canrelease */
+            canRelease: boolean;
+        };
+        /** DeferredCard */
+        DeferredCard: {
+            /** Orderid */
+            orderId: string;
+            /** Outletid */
+            outletId: string;
+            brand: components["schemas"]["Brand"];
+            temp: components["schemas"]["Temp"];
+            kind: components["schemas"]["DeferralType"];
+            /** Binding */
+            binding: string;
+            /** Nextrun */
+            nextRun: string;
+            /** Kg */
+            kg: number;
+            /** M3 */
+            m3: number;
+            window: components["schemas"]["TimeRange"];
+            /** Dock */
+            dock: string;
+            /** District */
+            district: string;
         };
         /** DeliveryDeferralOut */
         DeliveryDeferralOut: {
@@ -1358,11 +1626,47 @@ export interface components {
              */
             receivedAnswered: boolean;
         };
+        /** DepotCounts */
+        DepotCounts: {
+            /** Peliyagoda */
+            peliyagoda: number;
+            /** Kandy */
+            kandy: number;
+        };
+        /** DepotReceivers */
+        DepotReceivers: {
+            /**
+             * Depot
+             * @enum {string}
+             */
+            depot: "peliyagoda" | "kandy";
+            /** Orders */
+            orders: number;
+            /** Served */
+            served: number;
+            /** Deferred */
+            deferred: number;
+            /** Receivers */
+            receivers: string;
+        };
         /**
          * DeviceRecordType
          * @enum {string}
          */
         DeviceRecordType: "driver.ack" | "driver.startRoute" | "driver.arrival" | "driver.outcome" | "driver.problem" | "driver.finishRun" | "loader.ack" | "loader.check" | "loader.confirmLoaded" | "loader.exception";
+        /** DispatchRecord */
+        DispatchRecord: {
+            /** Heading */
+            heading: string;
+            /** Status */
+            status: string;
+            /** Decided */
+            decided: string;
+            /** Reason */
+            reason: string;
+            /** Reached */
+            reached: string;
+        };
         /** DockOut */
         DockOut: {
             /** Dock */
@@ -1399,6 +1703,16 @@ export interface components {
             /** Kg */
             kg: number;
         };
+        /** DriverChip */
+        DriverChip: {
+            /** Label */
+            label: string;
+            /**
+             * Tone
+             * @enum {string}
+             */
+            tone: "live" | "warn";
+        };
         /** DriverHistoryRowOut */
         DriverHistoryRowOut: {
             /**
@@ -1423,6 +1737,21 @@ export interface components {
             /** Finishedat */
             finishedAt?: string | null;
         };
+        /** DriverRecord */
+        DriverRecord: {
+            /** Heading */
+            heading: string;
+            /** Status */
+            status: string;
+            /** Receivedby */
+            receivedBy: string;
+            /** Units */
+            units: string;
+            /** Devicetime */
+            deviceTime: string;
+            /** Photo */
+            photo: string;
+        };
         /** EditOrderIn */
         EditOrderIn: {
             /** Units */
@@ -1446,68 +1775,218 @@ export interface components {
                 [key: string]: unknown;
             } | unknown[] | null;
         };
-        /** ExceptionOut */
-        ExceptionOut: {
-            /** Id */
-            id: number;
-            /** Kind */
-            kind: string;
-            /** Type */
-            type: string;
-            /** Vehicleid */
-            vehicleId?: string | null;
-            /** Tripid */
-            tripId?: number | null;
-            /** Orderids */
-            orderIds: string[];
-            /** Unitsshort */
-            unitsShort: {
-                [key: string]: unknown;
-            };
-            /** Detail */
-            detail?: string | null;
-            /** Raisedby */
-            raisedBy?: string | null;
-            /**
-             * Raisedat
-             * Format: date-time
-             */
-            raisedAt: string;
-            status: components["schemas"]["ExceptionStatus"];
-            /** Decision */
-            decision?: {
-                [key: string]: unknown;
-            } | null;
-            /** Recommendation */
-            recommendation?: {
-                [key: string]: unknown;
-            } | null;
+        /** ExceptionAfter */
+        ExceptionAfter: {
+            weight: components["schemas"]["WarnMeter"];
+            volume: components["schemas"]["WarnMeter"];
+            /** Trip1Minutes */
+            trip1Minutes: number;
+            /** Trip2 */
+            trip2: string;
+            /** Fresh */
+            fresh: string;
+            /** Fuel */
+            fuel: string;
+            /** Stops */
+            stops: string[];
+            /** Stopsnote */
+            stopsNote: string;
         };
-        /**
-         * ExceptionStatus
-         * @enum {string}
-         */
-        ExceptionStatus: "open" | "decided";
-        /** ForecastOut */
-        ForecastOut: {
+        /** ExceptionBefore */
+        ExceptionBefore: {
+            weight: components["schemas"]["OverMeter"];
+            volume: components["schemas"]["OverMeter"];
+            /** Trip2 */
+            trip2: string;
+        };
+        /** ExceptionCandidate */
+        ExceptionCandidate: {
+            /** Outletid */
+            outletId: string;
+            /** Orderid */
+            orderId: string;
+            /** Impact */
+            impact: string;
+            /** Kg */
+            kg: number;
+            /** M3 */
+            m3: number;
+            /** Protected */
+            protected: boolean;
+            /** Leastsurplus */
+            leastSurplus: boolean;
+        };
+        /** ExceptionConfirmed */
+        ExceptionConfirmed: {
+            /** Plan */
+            plan: number;
+            /** At */
+            at: string;
+            /** Text */
+            text: string;
+            /** Whoknows */
+            whoKnows: components["schemas"]["WhoKnows"][];
+            /** Toast */
+            toast: string;
+        };
+        /** ExceptionRecommendation */
+        ExceptionRecommendation: {
+            /** Orderid */
+            orderId: string;
+            /** Outletid */
+            outletId: string;
+            /** Title */
+            title: string;
+            kind: components["schemas"]["DeferralType"];
+            /** Typenote */
+            typeNote: string;
+            /** Reason */
+            reason: string;
+            /** Decidedby */
+            decidedBy: string;
+            /** Impact */
+            impact: string;
+            /** Frees */
+            frees: string;
+            /** Nextrun */
+            nextRun: string;
+            /** Protected */
+            protected: components["schemas"]["ProtectedOutlet"][];
+        };
+        /** ExceptionView */
+        ExceptionView: {
+            /** Id */
+            id: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "working" | "recommendation" | "confirmed";
+            /** Title */
+            title: string;
+            /** Flaggedby */
+            flaggedBy: string;
+            /** Flaggedat */
+            flaggedAt: string;
+            /** Reason */
+            reason: string;
+            /** Orderstext */
+            ordersText: string;
+            /** Minutestodeparture */
+            minutesToDeparture: number;
+            failed: components["schemas"]["FailedVehicle"];
+            replacement?: components["schemas"]["ReplacementVehicle"] | null;
+            before?: components["schemas"]["ExceptionBefore"] | null;
+            recommendation?: components["schemas"]["ExceptionRecommendation"] | null;
+            /** Candidates */
+            candidates: components["schemas"]["ExceptionCandidate"][];
+            need: components["schemas"]["Need"];
+            after?: components["schemas"]["ExceptionAfter"] | null;
+            confirmed?: components["schemas"]["ExceptionConfirmed"] | null;
+        };
+        /** FailedVehicle */
+        FailedVehicle: {
+            /** Vehicleid */
+            vehicleId: string;
+            /** Spec */
+            spec: string;
+            /** Reason */
+            reason: string;
+            /**
+             * Tag
+             * @enum {string}
+             */
+            tag: "Held" | "Replaced";
+        };
+        /** Fill */
+        Fill: {
+            /** Kg */
+            kg: number;
+            /** M3 */
+            m3: number;
+            /** Minutes */
+            minutes: number;
+        };
+        /** Fleet */
+        Fleet: {
+            /** Total */
+            total: number;
+            /** Classes */
+            classes: components["schemas"]["FleetClass"][];
+        };
+        /** FleetClass */
+        FleetClass: {
+            /** Label */
+            label: string;
+            /** Count */
+            count: number;
+            /** Chilled */
+            chilled: boolean;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "reefer-truck" | "dry-truck" | "reefer-van" | "ambient-van";
+        };
+        /** Footnote */
+        Footnote: {
+            /**
+             * Tone
+             * @enum {string}
+             */
+            tone: "info" | "warn";
+            /** Text */
+            text: string;
+        };
+        /** ForecastDay */
+        ForecastDay: {
+            /** Day */
+            day: string;
+            /** Flag */
+            flag?: string | null;
+        };
+        /** ForecastGap */
+        ForecastGap: {
+            /** Minutes */
+            minutes: number;
+        };
+        /** ForecastView */
+        ForecastView: {
+            /** Asof */
+            asOf: string;
+            /**
+             * Depot
+             * @enum {string}
+             */
+            depot: "peliyagoda" | "kandy";
             /**
              * Label
              * @default Baseline forecast: Datathon Task 2A model not wired in
              */
             label: string;
             /** Weeks */
-            weeks: components["schemas"]["ForecastWeekOut"][];
+            weeks: components["schemas"]["ForecastWeek"][];
         };
-        /** ForecastWeekOut */
-        ForecastWeekOut: {
-            /** Isoyear */
-            isoYear: number;
-            /** Isoweek */
-            isoWeek: number;
-            /** Demandminutes */
-            demandMinutes: number;
-            /** Capacityminutes */
-            capacityMinutes: number;
+        /** ForecastWeek */
+        ForecastWeek: {
+            /** Monday */
+            monday: string;
+            /** Percent */
+            percent: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "Short" | "Tight";
+            /** Flags */
+            flags: string[];
+            /** Lever */
+            lever: string;
+            gap?: components["schemas"]["ForecastGap"] | null;
+            /** Days */
+            days?: components["schemas"]["ForecastDay"][] | null;
+            /** Levers */
+            levers?: string[] | null;
         };
         /** HealthOut */
         HealthOut: {
@@ -1517,49 +1996,10 @@ export interface components {
              */
             status: string;
         };
-        /** HistoryEventOut */
-        HistoryEventOut: {
-            /**
-             * At
-             * Format: date-time
-             */
-            at: string;
-            /** Actor */
-            actor: string;
-            /** Type */
-            type: string;
-            /** Payload */
-            payload: {
-                [key: string]: unknown;
-            };
-        };
-        /** InboxItemOut */
-        InboxItemOut: {
-            /**
-             * Kind
-             * @description conflict, exception or notice
-             */
-            kind: string;
-            /** Id */
-            id: string;
-            /** Title */
-            title: string;
-            /** Body */
-            body: string;
-            /**
-             * At
-             * Format: date-time
-             */
-            at: string;
-            /** Link */
-            link: {
-                [key: string]: unknown;
-            };
-        };
-        /** InboxOut */
-        InboxOut: {
+        /** InboxView */
+        InboxView: {
             /** Items */
-            items: components["schemas"]["InboxItemOut"][];
+            items: components["schemas"]["Decision"][];
         };
         /** IssueLineIn */
         IssueLineIn: {
@@ -1602,6 +2042,15 @@ export interface components {
             /** Resolved */
             resolved: boolean;
         };
+        /** IssuesStat */
+        IssuesStat: {
+            /** Value */
+            value: number;
+            /** Foot */
+            foot: string;
+            /** Bad */
+            bad: boolean;
+        };
         /** JourneyStepOut */
         JourneyStepOut: {
             /** Step */
@@ -1616,41 +2065,124 @@ export interface components {
              */
             state: string;
         };
-        /** LiveBoardOut */
-        LiveBoardOut: {
-            /** Depot */
-            depot: string;
-            /**
-             * Asof
-             * Format: date-time
-             */
-            asOf: string;
-            /** Rows */
-            rows: components["schemas"]["LiveRowOut"][];
+        /** LabelledMeter */
+        LabelledMeter: {
+            /** Label */
+            label: string;
+            /** Used */
+            used: number;
+            /** Limit */
+            limit: number;
+            /** Unit */
+            unit: string;
         };
-        /** LiveRowOut */
-        LiveRowOut: {
+        /** LastHeard */
+        LastHeard: {
+            /** Time */
+            time?: string | null;
+            /** Age */
+            age?: string | null;
+            /** Note */
+            note?: string | null;
+            /** Synced */
+            synced?: boolean | null;
+        };
+        /** LiveBoardView */
+        LiveBoardView: {
+            /** Asof */
+            asOf: string;
+            /** Date */
+            date: string;
+            /** Plan */
+            plan?: string | null;
+            /** Decisions */
+            decisions: components["schemas"]["Decision"][];
+            stats: components["schemas"]["LiveStats"];
+            /** Caption */
+            caption: string;
+            /** Rows */
+            rows: components["schemas"]["LiveRow"][];
+            /**
+             * Depot
+             * @enum {string}
+             */
+            depot: "peliyagoda" | "kandy" | "both";
+        };
+        /** LiveOrder */
+        LiveOrder: {
+            /** Id */
+            id: string;
+            temp: components["schemas"]["Temp"];
+            /** Units */
+            units: number;
+        };
+        /** LiveRow */
+        LiveRow: {
             /** Vehicleid */
             vehicleId: string;
-            /** Tripno */
-            tripNo: number;
+            /** Trip */
+            trip: number;
             /** Driver */
-            driver?: string | null;
-            /** Planversion */
-            planVersion: number;
+            driver: string;
+            /** Planondevice */
+            planOnDevice: number;
+            /** Changepending */
+            changePending: boolean;
             /** Nextstop */
-            nextStop?: string | null;
-            /** Stopsdone */
-            stopsDone: number;
-            /** Stopstotal */
-            stopsTotal: number;
-            /** Lastheardat */
-            lastHeardAt?: string | null;
-            status: components["schemas"]["OrderStatus"];
-            /** Lateness */
-            lateness?: string | null;
-            /** Tags */
-            tags?: string[];
+            nextStop: string;
+            /**
+             * Risk
+             * @enum {string}
+             */
+            risk: "On time" | "At risk" | "Unknown · offline" | "Late";
+            stops: components["schemas"]["StopProgress"];
+            lastHeard: components["schemas"]["LastHeard"];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "Departed" | "Planned" | "Delivered" | "Loading";
+            /** Held */
+            held: boolean;
+            /** Stopsdetail */
+            stopsDetail: components["schemas"]["LiveStop"][];
+            /** Expanded */
+            expanded: boolean;
+            /** Offlinenote */
+            offlineNote?: string | null;
+        };
+        /** LiveStats */
+        LiveStats: {
+            departed: components["schemas"]["StatCard"];
+            loading: components["schemas"]["StatCard"];
+            delivered: components["schemas"]["StatCard"];
+            issues: components["schemas"]["IssuesStat"];
+        };
+        /** LiveStop */
+        LiveStop: {
+            /** Outletid */
+            outletId: string;
+            /** Outletname */
+            outletName: string;
+            brand: components["schemas"]["Brand"];
+            /** Orders */
+            orders: components["schemas"]["LiveOrder"][];
+            /** Eta */
+            eta: string;
+            window: components["schemas"]["TimeRange"];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "Departed" | "Delivered" | "Deferred" | "Conflict" | "Change pending" | "Planned" | "Loaded";
+            /** Statusnote */
+            statusNote?: string | null;
+            /** Change */
+            change?: string | null;
+            /** Tooltip */
+            tooltip?: string | null;
+            /** Candefer */
+            canDefer: boolean;
         };
         /** LoadLineOut */
         LoadLineOut: {
@@ -1755,31 +2287,66 @@ export interface components {
             /** Vehicleid */
             vehicleId?: string | null;
         };
-        /**
-         * MoveAction
-         * @enum {string}
-         */
-        MoveAction: "move" | "defer" | "serve";
-        /** MoveIn */
-        MoveIn: {
-            /** @default move */
-            action: components["schemas"]["MoveAction"];
+        /** MovePreview */
+        MovePreview: {
+            /** Headline */
+            headline: string;
+            /** Rows */
+            rows: components["schemas"]["PreviewRow"][];
+            source?: components["schemas"]["PreviewSource"] | null;
+            /** Note */
+            note: string;
+            /** Verdict */
+            verdict: string;
+        };
+        /** MoveRequest */
+        MoveRequest: {
             /** Orderid */
             orderId: string;
-            /** Tovehicleid */
-            toVehicleId?: string | null;
-            /** Totripno */
-            toTripNo?: number | null;
-            /** Toseq */
-            toSeq?: number | null;
+            to: components["schemas"]["MoveTarget"];
         };
-        /** MoveResultOut */
-        MoveResultOut: {
+        /** MoveResult */
+        MoveResult: {
             /** Ok */
             ok: boolean;
+            /** Orderid */
+            orderId: string;
+            to: components["schemas"]["MoveTarget"];
             /** Violations */
-            violations: components["schemas"]["Violation"][];
-            consequence?: components["schemas"]["ConsequenceOut"] | null;
+            violations: components["schemas"]["MoveViolation"][];
+            /** Checks */
+            checks: components["schemas"]["RuleCheck"][];
+            preview?: components["schemas"]["MovePreview"] | null;
+            /** Protectedreason */
+            protectedReason?: string | null;
+            /** Summary */
+            summary: string;
+        };
+        /** MoveTarget */
+        MoveTarget: {
+            /** Vehicleid */
+            vehicleId?: string | null;
+            /** Trip */
+            trip?: number | null;
+            /**
+             * Deferred
+             * @default false
+             */
+            deferred: boolean;
+        };
+        /** MoveViolation */
+        MoveViolation: {
+            /** Rule */
+            rule: string;
+            /** Text */
+            text: string;
+        };
+        /** Need */
+        Need: {
+            /** Kg */
+            kg: number;
+            /** M3 */
+            m3: number;
         };
         /** NewOrderIn */
         NewOrderIn: {
@@ -1801,6 +2368,17 @@ export interface components {
             estimatedKg: number;
             /** Estimatedm3 */
             estimatedM3: number;
+        };
+        /** NoticeCounts */
+        NoticeCounts: {
+            /** Sent */
+            sent: number;
+            /** Total */
+            total: number;
+            /** Seen */
+            seen: number;
+            /** Note */
+            note: string;
         };
         /** NoticeOut */
         NoticeOut: {
@@ -1826,8 +2404,11 @@ export interface components {
         };
         /** NotifyDeferralsIn */
         NotifyDeferralsIn: {
-            /** Deferralids */
-            deferralIds: number[];
+            /**
+             * Depot
+             * @enum {string}
+             */
+            depot: "peliyagoda" | "kandy";
         };
         /** NotifyDeferralsOut */
         NotifyDeferralsOut: {
@@ -1858,6 +2439,48 @@ export interface components {
             };
             /** Orders */
             orders: components["schemas"]["OrderOut"][];
+        };
+        /** OrderHistory */
+        OrderHistory: {
+            order: components["schemas"]["QueueOrder"];
+            /** Outletname */
+            outletName: string;
+            /** Summary */
+            summary: string;
+            continuity: components["schemas"]["Continuity"];
+            /** Lastruns */
+            lastRuns: components["schemas"]["OrderHistoryRun"][];
+            /** Journey */
+            journey: components["schemas"]["OrderJourneyStep"][];
+            /** Notes */
+            notes: string[];
+        };
+        /** OrderHistoryRun */
+        OrderHistoryRun: {
+            /** Date */
+            date: string;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "served" | "deferred" | "pending";
+            /** Label */
+            label: string;
+        };
+        /** OrderJourneyStep */
+        OrderJourneyStep: {
+            /**
+             * Step
+             * @enum {string}
+             */
+            step: "Ordered" | "Confirmed" | "Planned" | "Loaded" | "Departed" | "Delivered" | "Receipt confirmed";
+            /** By */
+            by?: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "done" | "current" | "pending";
         };
         /** OrderLineOut */
         OrderLineOut: {
@@ -1905,6 +2528,26 @@ export interface components {
          * @enum {string}
          */
         OrderStatus: "ordered" | "confirmed" | "planned" | "deferred" | "loaded" | "departed" | "delivered" | "partial" | "issue" | "conflict" | "pending_sync";
+        /** OutletInfo */
+        OutletInfo: {
+            /** Id */
+            id: string;
+            brand?: components["schemas"]["Brand"] | null;
+            /** Dock */
+            dock?: string | null;
+            window?: components["schemas"]["TimeRange"] | null;
+            /** Note */
+            note?: string | null;
+        };
+        /** OverMeter */
+        OverMeter: {
+            /** Used */
+            used: number;
+            /** Limit */
+            limit: number;
+            /** Over */
+            over: string;
+        };
         /** PinPersonOut */
         PinPersonOut: {
             /** Id */
@@ -1921,6 +2564,13 @@ export interface components {
         PlaceOrdersIn: {
             /** Orders */
             orders: components["schemas"]["NewOrderIn"][];
+        };
+        /** PlanCheck */
+        PlanCheck: {
+            /** Text */
+            text: string;
+            /** Ok */
+            ok: boolean;
         };
         /** PlanDiffLineOut */
         PlanDiffLineOut: {
@@ -1951,39 +2601,178 @@ export interface components {
             /** Lines */
             lines: components["schemas"]["PlanDiffLineOut"][];
         };
-        /** PlanOut */
-        PlanOut: {
-            version: components["schemas"]["PlanVersionOut"];
-            /** Versions */
-            versions: components["schemas"]["PlanVersionOut"][];
+        /** PlanLane */
+        PlanLane: {
+            /** Vehicleid */
+            vehicleId: string;
+            /** Kind */
+            kind: string;
+            /** Reefer */
+            reefer: boolean;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "workshop" | "spare" | "replaced";
+            /** Workshopuntil */
+            workshopUntil?: string | null;
+            /** Meters */
+            meters: components["schemas"]["LabelledMeter"][];
             /** Trips */
-            trips: components["schemas"]["TripOut"][];
-            /** Deferrals */
-            deferrals: components["schemas"]["DeferralOut"][];
+            trips: components["schemas"]["PlanTrip"][];
+        };
+        /** PlanReleaseSummary */
+        PlanReleaseSummary: {
+            /** Orders */
+            orders: number;
+            /** Served */
+            served: number;
+            /** Deferred */
+            deferred: number;
+            /** Capacitydeferred */
+            capacityDeferred: number;
+            /** Policydeferred */
+            policyDeferred: number;
+            /** Trips */
+            trips: number;
+            receivers: components["schemas"]["Receivers"];
+            /** Bydepot */
+            byDepot: components["schemas"]["DepotReceivers"][];
         };
         /**
          * PlanState
          * @enum {string}
          */
         PlanState: "draft" | "released";
-        /** PlanVersionOut */
-        PlanVersionOut: {
-            /** Id */
-            id: number;
+        /** PlanStop */
+        PlanStop: {
+            /** Orderid */
+            orderId: string;
+            /** Orderids */
+            orderIds: string[];
+            /** Outletid */
+            outletId: string;
+            /** Seq */
+            seq: number;
+            /** Arrival */
+            arrival: string;
+            /** Note */
+            note?: string | null;
+            /** Protected */
+            protected: boolean;
+            /** Kg */
+            kg: number;
+            /** M3 */
+            m3: number;
+        };
+        /** PlanSummaryRef */
+        PlanSummaryRef: {
             /** Number */
             number: number;
             state: components["schemas"]["PlanState"];
-            /** Note */
-            note?: string | null;
-            /** Createdby */
-            createdBy?: string | null;
-            /**
-             * Createdat
-             * Format: date-time
-             */
-            createdAt: string;
+            /** At */
+            at: string;
             /** Releasedat */
             releasedAt?: string | null;
+        };
+        /** PlanTrip */
+        PlanTrip: {
+            /** Vehicleid */
+            vehicleId: string;
+            /** Trip */
+            trip: number;
+            /** Departs */
+            departs: string;
+            brand: components["schemas"]["Brand"];
+            /** District */
+            district: string;
+            /** Stops */
+            stops: components["schemas"]["PlanStop"][];
+            /** Kg */
+            kg: number;
+            /** Kgcap */
+            kgCap: number | null;
+            /** M3 */
+            m3: number;
+            /** M3Cap */
+            m3Cap: number | null;
+            /** Minutes */
+            minutes: number;
+            fill: components["schemas"]["Fill"];
+        };
+        /** PlanVersionInfo */
+        PlanVersionInfo: {
+            /** Number */
+            number: number;
+            state: components["schemas"]["PlanState"];
+            /** At */
+            at: string;
+            /** Note */
+            note: string;
+            /** Scope */
+            scope?: string | null;
+            /** Current */
+            current: boolean;
+        };
+        /** PlanView */
+        PlanView: {
+            /**
+             * Depot
+             * @enum {string}
+             */
+            depot: "peliyagoda" | "kandy";
+            version: components["schemas"]["PlanVersionInfo"];
+            /** Versions */
+            versions: components["schemas"]["PlanVersionInfo"][];
+            /** Readonly */
+            readOnly: boolean;
+            /** Lanes */
+            lanes: components["schemas"]["PlanLane"][];
+            /** Deferred */
+            deferred: components["schemas"]["DeferredCard"][];
+            /** Deferredtotal */
+            deferredTotal: number;
+            summary: components["schemas"]["PlanReleaseSummary"];
+            /** Checks */
+            checks: components["schemas"]["PlanCheck"][];
+            /** Readytorelease */
+            readyToRelease: boolean;
+        };
+        /** PoolInfo */
+        PoolInfo: {
+            /**
+             * Depot
+             * @enum {string}
+             */
+            depot: "peliyagoda" | "kandy";
+            /** Orders */
+            orders: number;
+            /** Deferred */
+            deferred: number;
+            /** Enough */
+            enough: boolean;
+        };
+        /** PreviewRow */
+        PreviewRow: {
+            /** Label */
+            label: string;
+            /** Text */
+            text: string;
+            /** Before */
+            before?: number | null;
+            /** After */
+            after?: number | null;
+            /** Limit */
+            limit?: number | null;
+            /** Ok */
+            ok: boolean;
+        };
+        /** PreviewSource */
+        PreviewSource: {
+            /** Title */
+            title: string;
+            /** Frees */
+            frees: string;
         };
         /** ProofOfDeliveryOut */
         ProofOfDeliveryOut: {
@@ -1998,51 +2787,102 @@ export interface components {
             /** Units */
             units: number[];
         };
-        /** QueueOrderOut */
-        QueueOrderOut: {
+        /** ProtectedOutlet */
+        ProtectedOutlet: {
+            /** Outletid */
+            outletId: string;
+            /** Orderid */
+            orderId: string;
+            /** Text */
+            text: string;
+        };
+        /** QueueCutoff */
+        QueueCutoff: {
+            /** Closed */
+            closed: boolean;
+            /** At */
+            at: string;
+            /** Minutesleft */
+            minutesLeft: number;
+        };
+        /** QueueGroup */
+        QueueGroup: {
+            /** Key */
+            key: string;
+            /** Title */
+            title: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "carry" | "other" | "outlet";
+            outlet?: components["schemas"]["OutletInfo"] | null;
+            /** Orders */
+            orders: components["schemas"]["QueueOrder"][];
+        };
+        /** QueueOrder */
+        QueueOrder: {
             /** Id */
             id: string;
             /** Outletid */
             outletId: string;
-            /** Outletname */
-            outletName?: string | null;
             brand: components["schemas"]["Brand"];
             /** District */
             district: string;
             temp: components["schemas"]["Temp"];
+            /** Access */
+            access: string[];
+            window: components["schemas"]["TimeRange"];
+            /** Mallwindow */
+            mallWindow: boolean;
             /** Units */
             units: number;
-            /** Weightkg */
-            weightKg: number;
-            /** Volumem3 */
-            volumeM3: number;
+            /** Kg */
+            kg: number;
+            /** M3 */
+            m3: number;
             status: components["schemas"]["OrderStatus"];
             /** Tags */
-            tags: string[];
-            window: components["schemas"]["Window"];
+            tags: ("Carry-over" | "Protected" | "After cutoff" | "No legal vehicle")[];
             /** Receivedat */
-            receivedAt?: string | null;
-            /** Aftercutoff */
-            afterCutoff: boolean;
+            receivedAt: string;
+            /** Note */
+            note?: string | null;
+            /** Dayssinceserved */
+            daysSinceServed?: number | null;
+            /** Justin */
+            justIn?: boolean | null;
         };
-        /** QueueOut */
-        QueueOut: {
-            /** Depot */
-            depot: string;
+        /** QueueView */
+        QueueView: {
+            /**
+             * Depot
+             * @enum {string}
+             */
+            depot: "peliyagoda" | "kandy";
             /**
              * Servicedate
              * Format: date
              */
             serviceDate: string;
-            /** Orders */
-            orders: components["schemas"]["QueueOrderOut"][];
-            /**
-             * Counts
-             * @description Orders per status
-             */
-            counts: {
-                [key: string]: number;
-            };
+            cutoff: components["schemas"]["QueueCutoff"];
+            counts: components["schemas"]["DepotCounts"];
+            /** Carryovers */
+            carryOvers: number;
+            /** Atrisk */
+            atRisk: number;
+            /** Groups */
+            groups: components["schemas"]["QueueGroup"][];
+            /** Shown */
+            shown: number;
+            /** Total */
+            total: number;
+            /** Matching */
+            matching?: number | null;
+            /** Hiddencarryovers */
+            hiddenCarryOvers: number;
+            /** Lastreceived */
+            lastReceived?: string | null;
         };
         /** ReceiptLine */
         ReceiptLine: {
@@ -2050,6 +2890,13 @@ export interface components {
             orderId: string;
             /** Received */
             received: number;
+        };
+        /** Receivers */
+        Receivers: {
+            /** Docks */
+            docks: number;
+            /** Drivers */
+            drivers: number;
         };
         /** RecentOrderDayOut */
         RecentOrderDayOut: {
@@ -2080,10 +2927,42 @@ export interface components {
             /** Current */
             current?: boolean | null;
         };
+        /** ReeferCounts */
+        ReeferCounts: {
+            /** Available */
+            available: number;
+            /** Total */
+            total: number;
+            /** Note */
+            note: string;
+        };
         /** ReleasePlanIn */
         ReleasePlanIn: {
-            /** Version */
-            version?: number | null;
+            /**
+             * Sendnotices
+             * @default true
+             */
+            sendNotices: boolean;
+        };
+        /** ReleasedTotals */
+        ReleasedTotals: {
+            /** Orders */
+            orders: number;
+            /** Served */
+            served: number;
+            /** Deferred */
+            deferred: number;
+            /** At */
+            at: string;
+        };
+        /** ReplacementVehicle */
+        ReplacementVehicle: {
+            /** Vehicleid */
+            vehicleId: string;
+            /** Spec */
+            spec: string;
+            /** Since */
+            since: string;
         };
         /** ReportIssueIn */
         ReportIssueIn: {
@@ -2113,14 +2992,21 @@ export interface components {
         /** ResolveConflictIn */
         ResolveConflictIn: {
             resolution: components["schemas"]["ConflictRecommendation"];
-            /** Note */
-            note?: string | null;
         };
         /**
          * Role
          * @enum {string}
          */
         Role: "dispatcher" | "loader" | "driver" | "store";
+        /** RuleCheck */
+        RuleCheck: {
+            /** Rule */
+            rule: string;
+            /** Detail */
+            detail: string;
+            /** Ok */
+            ok: boolean;
+        };
         /**
          * RunOut
          * @description The route package the phone caches for offline use.
@@ -2179,30 +3065,85 @@ export interface components {
         /** SaveMovesIn */
         SaveMovesIn: {
             /** Moves */
-            moves: components["schemas"]["MoveIn"][];
+            moves: components["schemas"]["MoveRequest"][];
             /** Note */
             note?: string | null;
         };
-        /** StopOut */
-        StopOut: {
-            /** Orderid */
-            orderId: string;
-            /** Outletid */
-            outletId: string;
-            /** Seq */
-            seq: number;
-            /** Loadno */
-            loadNo: number;
-            /** Plannedarrival */
-            plannedArrival?: string | null;
-            /** Handlingstart */
-            handlingStart?: string | null;
-            /** Handlingend */
-            handlingEnd?: string | null;
+        /** SideDriver */
+        SideDriver: {
+            /** Heading */
+            heading: string;
+            /** Chips */
+            chips: components["schemas"]["DriverChip"][];
+            /** Note */
+            note: string;
+        };
+        /** SidePool */
+        SidePool: {
+            /** Title */
+            title: string;
+            /** Orders */
+            orders: number;
+            /** Deferred */
+            deferred: number;
+            /** Label */
+            label: string;
+            /** Used */
+            used: number;
+            /** Limit */
+            limit: number;
+            /** Vehicleid */
+            vehicleId: string;
+        };
+        /** SpareVehicle */
+        SpareVehicle: {
+            /** Vehicleid */
+            vehicleId: string;
+            /** Label */
+            label: string;
             /** Kg */
             kg: number;
             /** M3 */
             m3: number;
+            /** Since */
+            since: string;
+        };
+        /** StatCard */
+        StatCard: {
+            /** Value */
+            value: number;
+            /** Foot */
+            foot: string;
+        };
+        /** StopProgress */
+        StopProgress: {
+            /** Done */
+            done: number;
+            /** Total */
+            total: number;
+        };
+        /** StoreNotice */
+        StoreNotice: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "not sent" | "sent" | "seen";
+            /** At */
+            at?: string | null;
+            /** Note */
+            note?: string | null;
+        };
+        /** StoreReport */
+        StoreReport: {
+            /** Heading */
+            heading: string;
+            /** Tags */
+            tags: string[];
+            /** Text */
+            text: string;
+            /** At */
+            at: string;
         };
         /** StoreUpdateOut */
         StoreUpdateOut: {
@@ -2295,49 +3236,32 @@ export interface components {
          * @enum {string}
          */
         Temp: "chilled" | "ambient";
-        /** TripOut */
-        TripOut: {
-            /** Id */
-            id: number;
-            /** Vehicleid */
-            vehicleId: string;
-            /** Tripno */
-            tripNo: number;
-            brand: components["schemas"]["Brand"];
-            /** District */
-            district: string;
+        /** TimeRange */
+        TimeRange: {
             /**
-             * Departat
-             * Format: date-time
+             * Start
+             * @example 05:30
              */
-            departAt: string;
-            /** Minutes */
-            minutes: number;
-            /** Kg */
-            kg: number;
-            /** M3 */
-            m3: number;
-            /** Plannedkm */
-            plannedKm: number;
-            /** Plannedfuell */
-            plannedFuelL: number;
-            /** Stops */
-            stops: components["schemas"]["StopOut"][];
+            start: string;
+            /**
+             * End
+             * @example 08:00
+             */
+            end: string;
         };
-        /** TripSummaryOut */
-        TripSummaryOut: {
-            /** Vehicleid */
-            vehicleId: string;
-            /** Tripno */
-            tripNo: number;
-            /** Minutes */
-            minutes: number;
-            /** Kg */
-            kg: number;
-            /** M3 */
-            m3: number;
-            /** Stops */
-            stops: number;
+        /** TimelineEntry */
+        TimelineEntry: {
+            /** Time */
+            time: string;
+            /** Title */
+            title: string;
+            /** Detail */
+            detail: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "offline" | "deferred" | "arrived" | "delivered" | "synced";
         };
         /** UnitFactor */
         UnitFactor: {
@@ -2353,22 +3277,29 @@ export interface components {
             /** Unread */
             unread: number;
         };
-        /** VehicleCapacityOut */
-        VehicleCapacityOut: {
+        /** VehicleCard */
+        VehicleCard: {
+            /** Label */
+            label: string;
             /** Vehicleid */
             vehicleId: string;
-            /** Type */
-            type: string;
-            /** Temp */
-            temp: string;
-            /** Availability */
-            availability: string;
-            /** Availablefrom */
-            availableFrom?: string | null;
-            /** Weightcapkg */
-            weightCapKg: number;
-            /** Volumecapm3 */
-            volumeCapM3: number;
+            /** Used */
+            used: number;
+            /** Limit */
+            limit: number;
+            /** Unit */
+            unit: string;
+            /** Note */
+            note: string;
+        };
+        /** VehicleCounts */
+        VehicleCounts: {
+            /** Available */
+            available: number;
+            /** Total */
+            total: number;
+            /** Inworkshop */
+            inWorkshop: number;
         };
         /** VerifyPinIn */
         VerifyPinIn: {
@@ -2383,16 +3314,32 @@ export interface components {
             ok: boolean;
             person?: components["schemas"]["PinPersonOut"] | null;
         };
-        /** Violation */
-        Violation: {
-            /** Ruleid */
-            ruleId: string;
-            /** Message */
-            message: string;
-            /** Figures */
-            figures?: {
-                [key: string]: number | string | null;
-            };
+        /** WarnMeter */
+        WarnMeter: {
+            /** Used */
+            used: number;
+            /** Limit */
+            limit: number;
+            /** Warn */
+            warn: string;
+        };
+        /** WhoKnows */
+        WhoKnows: {
+            /** Who */
+            who: string;
+            /** What */
+            what: string;
+        };
+        /** WhyNotOther */
+        WhyNotOther: {
+            /** Outletid */
+            outletId: string;
+            /** Orderid */
+            orderId: string;
+            /** Text */
+            text: string;
+            /** Protected */
+            protected: boolean;
         };
         /** Window */
         Window: {
@@ -3758,8 +4705,16 @@ export interface operations {
         parameters: {
             query: {
                 /** @description peliyagoda or kandy */
-                depot: string;
+                depot: "peliyagoda" | "kandy";
                 date?: string | null;
+                brand?: components["schemas"]["Brand"][] | null;
+                temp?: components["schemas"]["Temp"][] | null;
+                status?: components["schemas"]["OrderStatus"][] | null;
+                /** @description early before 05:00, mid 05:00 to 06:00, late after */
+                window?: ("early" | "mid" | "late")[] | null;
+                tags?: string[] | null;
+                district?: string[] | null;
+                search?: string | null;
             };
             header?: never;
             path?: never;
@@ -3773,7 +4728,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["QueueOut"];
+                    "application/json": components["schemas"]["QueueView"];
                 };
             };
             /** @description Unauthorized */
@@ -3840,7 +4795,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HistoryEventOut"][];
+                    "application/json": components["schemas"]["OrderHistory"];
                 };
             };
             /** @description Unauthorized */
@@ -3894,7 +4849,7 @@ export interface operations {
         parameters: {
             query: {
                 /** @description peliyagoda or kandy */
-                depot: string;
+                depot: "peliyagoda" | "kandy";
             };
             header?: never;
             path?: never;
@@ -3908,7 +4863,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CapacityOut"];
+                    "application/json": components["schemas"]["CapacityView"];
                 };
             };
             /** @description Unauthorized */
@@ -3960,7 +4915,9 @@ export interface operations {
     };
     getPlan: {
         parameters: {
-            query?: {
+            query: {
+                /** @description peliyagoda or kandy */
+                depot: "peliyagoda" | "kandy";
                 version?: number | null;
             };
             header?: never;
@@ -3975,7 +4932,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PlanOut"];
+                    "application/json": components["schemas"]["PlanView"];
                 };
             };
             /** @description Unauthorized */
@@ -4027,7 +4984,10 @@ export interface operations {
     };
     redraftPlan: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The depot whose view is returned */
+                depot?: "peliyagoda" | "kandy";
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -4040,7 +5000,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PlanOut"];
+                    "application/json": components["schemas"]["PlanView"];
                 };
             };
             /** @description Unauthorized */
@@ -4099,7 +5059,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["MoveIn"];
+                "application/json": components["schemas"]["MoveRequest"];
             };
         };
         responses: {
@@ -4109,7 +5069,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MoveResultOut"];
+                    "application/json": components["schemas"]["MoveResult"];
                 };
             };
             /** @description Unauthorized */
@@ -4161,7 +5121,10 @@ export interface operations {
     };
     saveMoves: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The depot whose view is returned */
+                depot?: "peliyagoda" | "kandy";
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -4178,7 +5141,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PlanOut"];
+                    "application/json": components["schemas"]["PlanView"];
                 };
             };
             /** @description Unauthorized */
@@ -4232,7 +5195,7 @@ export interface operations {
         parameters: {
             query: {
                 /** @description peliyagoda or kandy */
-                depot: string;
+                depot: "peliyagoda" | "kandy";
             };
             header?: never;
             path?: never;
@@ -4246,7 +5209,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DeferralsOut"];
+                    "application/json": components["schemas"]["DeferralsView"];
                 };
             };
             /** @description Unauthorized */
@@ -4367,7 +5330,10 @@ export interface operations {
     };
     releasePlan: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The depot whose view is returned */
+                depot?: "peliyagoda" | "kandy";
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -4384,7 +5350,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PlanOut"];
+                    "application/json": components["schemas"]["PlanView"];
                 };
             };
             /** @description Unauthorized */
@@ -4451,7 +5417,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AcknowledgementOut"][];
+                    "application/json": components["schemas"]["AcknowledgementsView"];
                 };
             };
             /** @description Unauthorized */
@@ -4503,7 +5469,10 @@ export interface operations {
     };
     getForecast: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description peliyagoda or kandy */
+                depot: "peliyagoda" | "kandy";
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -4516,7 +5485,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ForecastOut"];
+                    "application/json": components["schemas"]["ForecastView"];
                 };
             };
             /** @description Unauthorized */
@@ -4568,9 +5537,11 @@ export interface operations {
     };
     getLiveBoard: {
         parameters: {
-            query: {
-                /** @description peliyagoda or kandy */
-                depot: string;
+            query?: {
+                /** @description peliyagoda, kandy or both */
+                depot?: "peliyagoda" | "kandy" | "both";
+                /** @description Include vehicles that need no attention */
+                all?: boolean;
             };
             header?: never;
             path?: never;
@@ -4584,7 +5555,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiveBoardOut"];
+                    "application/json": components["schemas"]["LiveBoardView"];
                 };
             };
             /** @description Unauthorized */
@@ -4653,7 +5624,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DeferralOut"][];
+                    "application/json": components["schemas"]["DeferStopResult"];
                 };
             };
             /** @description Unauthorized */
@@ -4718,7 +5689,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["InboxOut"];
+                    "application/json": components["schemas"]["InboxView"];
                 };
             };
             /** @description Unauthorized */
@@ -4785,7 +5756,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ConflictOut"];
+                    "application/json": components["schemas"]["ConflictView"];
                 };
             };
             /** @description Unauthorized */
@@ -4852,7 +5823,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ConflictOut"];
+                    "application/json": components["schemas"]["ConflictView"];
                 };
             };
             /** @description Unauthorized */
@@ -4923,7 +5894,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ConflictOut"];
+                    "application/json": components["schemas"]["ConflictView"];
                 };
             };
             /** @description Unauthorized */
@@ -4990,7 +5961,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ExceptionOut"];
+                    "application/json": components["schemas"]["ExceptionView"];
                 };
             };
             /** @description Unauthorized */
@@ -5061,7 +6032,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ExceptionOut"];
+                    "application/json": components["schemas"]["ExceptionView"];
                 };
             };
             /** @description Unauthorized */

@@ -34,6 +34,14 @@ data/
 # Claude/AI project docs and specs: kept locally, not committed.
 claude/
 
+# Claude Code local files (CLAUDE.md itself is tracked: it points at Contributing.md)
+.claude/
+.claude.json
+.claude.json.backup
+CLAUDE.local.md
+**/CLAUDE.local.md
+.mcp.json
+
 # Python
 .venv/
 __pycache__/

@@ -5,6 +5,7 @@ export { mockAuthApi } from "./mockAuthApi";
 export { ROLES, clearSession, readAllSessions, readAnySession, readSession, sessionKey, writeSession } from "./session";
 export { AuthGallery } from "./gallery/AuthGallery";
 export { RootRedirect } from "./RootRedirect";
+export { RequireSession } from "./RequireSession";
 export { SessionExpiryListener } from "./SessionExpiryListener";
 export { SignInRoute } from "./SignInRoute";
 export { StartRoute } from "./StartRoute";
