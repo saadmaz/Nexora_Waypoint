@@ -93,3 +93,15 @@ def test_right_role_reaches_the_route(client, auth, role, method, path, status):
     assert res.status_code == status, res.text
     if status != 200:
         assert set(res.json()) == {"code", "message", "details"}
+
+
+def test_a_store_account_is_told_its_outlet(client, auth):
+    """The store's screens name their outlet from /me, not from a constant in the app."""
+    me = client.get("/api/v1/me", headers=auth("store")).json()
+    outlet = me["outlet"]
+    assert outlet["id"] == me["outletId"]
+    assert {"name", "brand", "district", "dock", "window"} <= set(outlet)
+    assert set(outlet["window"]) == {"start", "end"}
+    # Nobody else manages an outlet.
+    for role in ("dispatcher", "loader", "driver"):
+        assert client.get("/api/v1/me", headers=auth(role)).json()["outlet"] is None, role
