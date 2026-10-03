@@ -6,6 +6,7 @@ The walkthrough they follow is PRD v3 §16 steps 2 to 6, on the pinned orders an
 
 from __future__ import annotations
 
+import pytest
 from sqlalchemy import select
 
 PLAN = "/api/v1/dispatcher/plan"
@@ -280,3 +281,143 @@ def test_the_planning_endpoints_are_dispatcher_only(client, auth):
 def test_an_unknown_plan_version_is_a_404(client, auth):
     res = client.get(PLAN + DEPOT + "&version=99", headers=auth("dispatcher"))
     assert res.status_code == 404 and res.json()["code"] == "not_found"
+
+
+def test_invalid_planner_result_is_rejected_before_version_write(client, auth, reseed, monkeypatch):
+    from dataclasses import replace
+
+    from sqlalchemy import func
+
+    from app.db import SessionLocal
+    from app.models.plans import PlanVersion, TripOrder
+    from app.services import planning
+
+    advance(client, auth, "2026-09-28T16:06:00+05:30")
+    real = planning.draft_plan
+
+    def corrupted(*args, **kwargs):
+        result = real(*args, **kwargs)
+        trip = result.trips[0]
+        repeated = replace(trip, stops=(*trip.stops, trip.stops[0]))
+        return replace(result, trips=(repeated, *result.trips[1:]))
+
+    monkeypatch.setattr(planning, "draft_plan", corrupted)
+    with SessionLocal() as db:
+        before = (db.scalar(select(func.count()).select_from(PlanVersion)), db.scalar(select(func.count()).select_from(TripOrder)))
+    res = client.post(PLAN + "/redraft", headers=auth("dispatcher"))
+    assert res.status_code == 409 and res.json()["code"] == "invalid_plan"
+    assert any("exactly once" in item for item in res.json()["details"])
+    with SessionLocal() as db:
+        assert before == (db.scalar(select(func.count()).select_from(PlanVersion)), db.scalar(select(func.count()).select_from(TripOrder)))
+
+
+@pytest.mark.parametrize("destination", ["trip", "deferred"])
+def test_redraft_rejects_an_injected_ordered_order(client, auth, reseed, monkeypatch, destination):
+    from dataclasses import replace
+    from datetime import date, datetime
+
+    from sqlalchemy import func
+
+    from app.db import SessionLocal
+    from app.models.comms import AuditEvent
+    from app.models.enums import ServerStatus
+    from app.models.orders import Deferral, Order
+    from app.models.plans import PlanVersion, TripOrder
+    from app.services import planning
+    from waypoint_rules.planner import DraftDeferral, DraftStop
+    from waypoint_rules.vocab import DeferralType
+
+    advance(client, auth, "2026-09-28T16:06:00+05:30")
+    real = planning.draft_plan
+    service_date = date(2026, 9, 29)
+    with SessionLocal() as db:
+        day = planning.repo.load_day(db, service_date, datetime(2026, 9, 28, 16, 6))
+        source = db.get(Order, day.trips[-1].order_ids[0])
+        db.add(Order(
+            id="ORDERED-EXTRA", outlet_id=source.outlet_id, service_date=source.service_date, temp=source.temp,
+            units=1, weight_kg=1, volume_m3=0.01, status=ServerStatus.ORDERED, tags=[], after_cutoff=False,
+            row_version=1, received_at=source.received_at, placed_by="test",
+        ))
+        db.commit()
+        day = planning.repo.load_day(db, source.service_date, datetime(2026, 9, 28, 16, 6))
+        assert "ORDERED-EXTRA" in day.orders and "ORDERED-EXTRA" not in day.plannable
+        before = tuple(db.scalar(select(func.count()).select_from(model)) for model in (PlanVersion, TripOrder, Deferral, AuditEvent))
+
+    def corrupted(*args, **kwargs):
+        result = real(*args, **kwargs)
+        if destination == "trip":
+            trip = result.trips[-1]
+            injected = replace(trip, stops=(*trip.stops, DraftStop("ORDERED-EXTRA", len(trip.stops) + 1, 1)))
+            return replace(result, trips=(*result.trips[:-1], injected))
+        order = day.orders["ORDERED-EXTRA"]
+        extra = DraftDeferral(
+            order.id, DeferralType.STORE_REQUEST, None, "Store asked to wait",
+            planning.impact_on_store(order, day.ref), planning.frees(order, day.ref), service_date,
+        )
+        return replace(result, deferrals=(*result.deferrals, extra))
+
+    monkeypatch.setattr(planning, "draft_plan", corrupted)
+    res = client.post(PLAN + "/redraft", headers=auth("dispatcher"))
+    assert res.status_code == 409 and res.json()["code"] == "invalid_plan"
+    assert "Unknown order ORDERED-EXTRA in the plan" in res.json()["details"]
+    with SessionLocal() as db:
+        assert before == tuple(db.scalar(select(func.count()).select_from(model)) for model in (PlanVersion, TripOrder, Deferral, AuditEvent))
+        assert db.get(Order, "ORDERED-EXTRA").status is ServerStatus.ORDERED
+        assert db.get(Order, "ORDERED-EXTRA-R") is None
+
+
+@pytest.mark.parametrize("status", ["loaded", "departed"])
+def test_live_deferral_preserves_owned_orders_after_loading(client, auth, reseed, status):
+    from datetime import date, datetime
+
+    from app.db import SessionLocal
+    from app.models.enums import ServerStatus
+    from app.models.orders import Order
+    from app.services import planning
+    from app.services.plan_logic import plan_of
+
+    advance(client, auth, "2026-09-28T16:06:00+05:30")
+    assert client.post(PLAN + "/release", json={"sendNotices": True}, headers=auth("dispatcher")).status_code == 200
+    with SessionLocal() as db:
+        day = planning.repo.load_day(db, date(2026, 9, 29), datetime(2026, 9, 28, 16, 6))
+        owned = [oid for trip in day.trips for oid in trip.order_ids]
+        target, retained = owned[:2]
+        for oid in (target, retained):
+            db.get(Order, oid).status = ServerStatus(status)
+        db.commit()
+        day = planning.repo.load_day(db, day.service_date, day.now)
+        assert {target, retained}.isdisjoint(day.plannable)
+        before = day.latest.number
+
+    res = client.post(
+        "/api/v1/dispatcher/stops/defer",
+        json={"orderIds": [target], "kind": "store_request", "reason": "Store asked to wait"},
+        headers=auth("dispatcher"),
+    )
+    assert res.status_code == 200, res.text
+    assert res.json() == {"plan": before + 1, "deferred": [target]}
+    with SessionLocal() as db:
+        day = planning.repo.load_day(db, day.service_date, day.now)
+        assert target in plan_of(day).deferred
+        assert plan_of(day).trip_of_order(retained) is not None
+        assert db.get(Order, target).status is ServerStatus.DEFERRED
+        assert db.get(Order, retained).status is ServerStatus(status)
+
+
+def test_real_planning_api_walkthrough(client, auth, reseed):
+    """Redraft, read/capacity/deferrals, validate/apply, release through the real repository and PostgreSQL."""
+    advance(client, auth, "2026-09-28T16:06:00+05:30")
+    redraft = client.post(PLAN + "/redraft", headers=auth("dispatcher"))
+    assert redraft.status_code == 200 and redraft.json()["version"]["number"] == 2
+    plan = get_plan(client, auth)
+    for path in ("/capacity", "/deferrals"):
+        assert client.get("/api/v1/dispatcher" + path + DEPOT, headers=auth("dispatcher")).status_code == 200
+    order_id = next(oid for lane in plan["lanes"] for trip in lane["trips"] for stop in trip["stops"]
+                    if not stop["protected"] for oid in stop["orderIds"])
+    move = {"orderId": order_id, "to": {"deferred": True}}
+    check = client.post(PLAN + "/validate-move", json=move, headers=auth("dispatcher"))
+    assert check.status_code == 200 and check.json()["ok"]
+    applied = client.post(PLAN + "/moves", json={"moves": [move]}, headers=auth("dispatcher"))
+    assert applied.status_code == 200 and applied.json()["version"]["number"] == 3
+    released = client.post(PLAN + "/release", json={"sendNotices": True}, headers=auth("dispatcher"))
+    assert released.status_code == 200 and released.json()["version"]["state"] == "released"

@@ -3,7 +3,7 @@ name: CI
 # Contributing §17: the same commands you run before opening a PR. A failure blocks the merge.
 on:
   push:
-    branches: [feature/postgres18-v3-schema-alignment]
+    branches: [feature/postgres18-v3-schema-alignment, feature/allocation-engine-v3]
   pull_request:
     branches: [develop, main]
 
@@ -98,6 +98,7 @@ jobs:
           curl --fail http://localhost:8000/api/v1/health
           curl --fail http://localhost:8080/api/v1/health
           curl --fail http://localhost:8080/ | grep '<div id="root">'
+          python backend/tests/allocation_smoke.py
       - name: Startup logs
         if: always()
         run: docker compose -p waypoint-schema-${{ github.run_id }}-${{ github.run_attempt }} logs --no-color

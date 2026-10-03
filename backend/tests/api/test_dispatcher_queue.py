@@ -176,7 +176,7 @@ def test_the_journey_advances_with_the_plan(client, auth, reseed):
     assert current["step"] == "Planned"  # a deferred order stays on the planned step
     assert body["notes"][0].startswith("Deferred (capacity): van_only and 1,250 kg")
     assert body["notes"][1] == "Next run Wed 30 Sep"
-    planned = next(s for s in client.get("/api/v1/dispatcher/orders/ORD1002/history", headers=auth("dispatcher")).json()["journey"] if s["step"] == "Planned")
+    planned = next(s for s in client.get("/api/v1/dispatcher/orders/ORD1001/history", headers=auth("dispatcher")).json()["journey"] if s["step"] == "Planned")
     assert planned["by"] == "System · 16:06" and planned["state"] == "current"
 
 

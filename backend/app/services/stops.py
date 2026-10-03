@@ -11,10 +11,9 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from waypoint_rules import Violation, frees, impact_on_store, is_offline, legal_vehicles
-from waypoint_rules import messages as msg
+from waypoint_rules import Violation, frees, impact_on_store, is_offline, validate_policy_action
 from waypoint_rules.schedule import next_operating_day
-from waypoint_rules.vocab import DeferralType, OrderStatus, RuleId
+from waypoint_rules.vocab import DeferralType, OrderStatus
 
 from .. import clock
 from ..errors import ApiError, not_found
@@ -75,8 +74,7 @@ def defer_stop(
         if statuses.get(oid) not in DEFERRABLE:
             raise ApiError(409, "already_done", f"{oid} is {statuses.get(oid, OrderStatus.PLANNED).value}, so it can't be deferred now.")
         order = day.orders[oid]
-        if kind is DeferralType.POLICY and order.deferred_yesterday and legal_vehicles(order, day.ref, day.vehicle_days):
-            violations.append(Violation(RuleId.CONT, msg.continuity(order.outlet_id)))
+        violations.extend(validate_policy_action(order, kind, day.ref, reason=reason.strip() or "Deferred by the dispatcher"))
     if violations:
         raise ApiError(409, "illegal_move", " ".join(v.message for v in violations), [{"rule": v.rule.value, "message": v.message} for v in violations])
 

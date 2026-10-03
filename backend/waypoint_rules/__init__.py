@@ -5,13 +5,28 @@ checks and the Datathon notebook (PRD v3 §11). The frontend never re-implements
 asks the API, which asks this package.
 """
 
-from .calc import StopTiming, TripClock, TripFuel, hhmm, planned_clock, planned_fuel, trip_load, trip_minutes
+from .calc import (
+    RunLeg,
+    StopTiming,
+    TripClock,
+    TripFuel,
+    hhmm,
+    planned_clock,
+    planned_fuel,
+    planned_run_legs,
+    trip_load,
+    trip_minutes,
+)
 from .constraints import (
     Violation,
+    capable_vehicles,
+    check_plan,
     check_trip,
     check_vehicle_day,
     legal_vehicles,
     order_vehicle_violations,
+    usable_vehicles,
+    validate_policy_action,
     vehicle_day_totals,
 )
 from .deferrals import (
@@ -34,7 +49,17 @@ from .deferrals import (
 from .lifecycle import IllegalTransition, OrderEvent, allowed_events, transition
 from .model import District, Order, Outlet, Plan, RefData, Trip, Vehicle, VehicleDay
 from .moves import CheckItem, Move, MoveResult, TripSummary, validate_move, why_this_vehicle
-from .planner import DraftDeferral, DraftStop, DraftTrip, OutletHistory, PlanDraft, draft_plan
+from .planner import (
+    DraftDeferral,
+    DraftStop,
+    DraftTrip,
+    FeasibleInsertion,
+    OutletHistory,
+    PlanDraft,
+    draft_plan,
+    feasible_insertions,
+    repair_continuity,
+)
 from .reconcile import (
     DeviceRecord,
     Outcome,
@@ -71,6 +96,15 @@ from .vocab import (
 )
 
 __all__ = [
+    "repair_continuity",
+    "FeasibleInsertion",
+    "feasible_insertions",
+    "capable_vehicles",
+    "check_plan",
+    "usable_vehicles",
+    "validate_policy_action",
+    "RunLeg",
+    "planned_run_legs",
     "Binding",
     "BindingResult",
     "Brand",

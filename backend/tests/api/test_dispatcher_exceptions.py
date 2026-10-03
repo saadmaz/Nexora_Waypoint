@@ -24,6 +24,36 @@ def advance(client, auth, to: str) -> None:
 
 def release(client, auth) -> dict:
     advance(client, auth, "2026-09-28T23:40:00+05:30")
+    # D8 is a prescribed swap on the documented v3 trips, not a constraint on the generic
+    # current-order allocator. Persist that canonical fixture through the real write validator.
+    from app.db import SessionLocal
+    from app.models.enums import AuditType
+    from app.services import planning
+    from app.services import planning_repo as repo
+    from tests.rules.conftest import plan_v3
+    from waypoint_rules import classify_deferral, frees, impact_on_store
+
+    with SessionLocal() as db:
+        now = datetime(2026, 9, 28, 23, 40)
+        day = repo.load_day(db, datetime(2026, 9, 29).date(), now)
+        canonical = plan_v3()
+        for trip in canonical.trips.values():
+            trip.order_ids = [oid for oid in trip.order_ids if oid in day.orders]
+        canonical.deferred = [oid for oid in canonical.deferred if oid in day.orders]
+        represented = {oid for trip in canonical.trips.values() for oid in trip.order_ids} | set(canonical.deferred)
+        canonical.deferred.extend(sorted(set(day.orders) - represented))
+        specs = []
+        for oid in canonical.deferred:
+            order = day.orders[oid]
+            impact, freed = impact_on_store(order, day.ref), frees(order, day.ref)
+            specs.append(planning.DeferralSpec(
+                oid, classify_deferral(order, day.ref), None, "Reference v3 constraint",
+                {"deferred_yesterday": impact.deferred_yesterday, "days_since_served": impact.days_since_served, "consequence": impact.consequence},
+                {"kg": freed.kg, "m3": freed.m3, "minutes": freed.minutes}, datetime(2026, 9, 30).date(), "Kumari",
+            ))
+        planning._save_draft(db, day, canonical, specs, note="Canonical D8 reference fixture", actor="Kumari",
+                             audit_type=AuditType.PLAN_DRAFTED, now=now)
+        db.commit()
     res = client.post("/api/v1/dispatcher/plan/release", json={"sendNotices": True}, headers=auth("dispatcher"))
     assert res.status_code == 200, res.text
     return res.json()
