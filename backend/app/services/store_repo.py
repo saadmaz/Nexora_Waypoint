@@ -25,6 +25,7 @@ from waypoint_rules.vocab import DockType, OrderStatus, Temp
 from ..models import comms, field, people, plans, reference
 from ..models import orders as order_models
 from ..models.enums import (
+    AudienceKind,
     AuditType,
     DeviceRecordType,
     ExceptionKind,
@@ -652,19 +653,38 @@ def notices(db: Session, outlet_id: str) -> list[comms.Notice]:
     return list(
         db.scalars(
             select(comms.Notice)
-            .where(comms.Notice.audience == f"store:{outlet_id}")
+            .where(comms.Notice.audience_kind == AudienceKind.STORE, comms.Notice.outlet_id == outlet_id)
             .order_by(comms.Notice.created_at.desc(), comms.Notice.id.desc())
         )
     )
 
 
-def unread_notices(db: Session, outlet_id: str) -> list[comms.Notice]:
-    return [n for n in notices(db, outlet_id) if n.read_at is None]
+def read_at_of(db: Session, user_id: int, notice_ids: Iterable[int]) -> dict[int, datetime]:
+    """When this account read each row. Read state is per account (``notice_reads``), not per notice."""
+    ids = list(notice_ids)
+    if not ids:
+        return {}
+    rows = db.scalars(
+        select(comms.NoticeRead).where(comms.NoticeRead.user_id == user_id, comms.NoticeRead.notice_id.in_(ids))
+    )
+    out: dict[int, datetime] = {}
+    for row in rows:
+        at = repo.naive(row.read_at)
+        if at is not None:
+            out[row.notice_id] = at
+    return out
 
 
-def notice_facts(db: Session, outlet_id: str) -> list[NoticeFacts]:
+def unread_notices(db: Session, outlet_id: str, user_id: int) -> list[comms.Notice]:
+    rows = notices(db, outlet_id)
+    seen = read_at_of(db, user_id, [n.id for n in rows])
+    return [n for n in rows if n.id not in seen]
+
+
+def notice_facts(db: Session, outlet_id: str, user_id: int) -> list[NoticeFacts]:
     rows = notices(db, outlet_id)
     resolved = _resolved_conflicts(db, rows)
+    seen = read_at_of(db, user_id, [n.id for n in rows])
     out: list[NoticeFacts] = []
     for n in rows:
         refs = dict(n.refs or {})
@@ -679,7 +699,7 @@ def notice_facts(db: Session, outlet_id: str) -> list[NoticeFacts]:
                 link=link,
                 refs=refs,
                 created_at=repo.naive(n.created_at) or n.created_at,
-                read_at=repo.naive(n.read_at),
+                read_at=seen.get(n.id),
                 resolved_at=resolved.get(conflict_id) if isinstance(conflict_id, int) else None,
                 service_date=_notice_day(db, refs, link),
             )

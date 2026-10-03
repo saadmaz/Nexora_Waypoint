@@ -25,7 +25,7 @@ from ..deps import CurrentUser, require_outlet
 from ..errors import ApiError, forbidden, not_found
 from ..models import reference
 from ..models.comms import Notice
-from ..models.enums import AuditType, NoticeTag, ServerStatus
+from ..models.enums import AudienceKind, AuditType, NoticeTag, ServerStatus
 from ..models.orders import Order
 from ..schemas.common import Window
 from ..schemas.store import (
@@ -189,11 +189,15 @@ def place(db: Session, user: CurrentUser, body: PlaceOrdersIn) -> list[OrderOut]
         )
         db.add(row)
         rows.append(row)
+    # The orders land first: an audit row carries an ``order_id`` foreign key, and nothing tells the unit of
+    # work that it depends on the insert above, so an unflushed order would fail the constraint.
+    db.flush()
+    for row, line in zip(rows, body.orders, strict=True):
         audit.record(
             db,
             actor=user.email,
             entity_type="order",
-            entity_id=order_id,
+            entity_id=row.id,
             type=AuditType.ORDER_PLACED,
             payload={
                 "event": "place",
@@ -229,7 +233,8 @@ def _received_notice(outlet_id: str, rows: list[Order], sd: ServiceDay, now: dat
     phrases = [f"{r.id} ({STORE_TEMP[r.temp]}, {_units(r.units)})" for r in rows]
     editable = "" if now >= sd.editable_until else f" You can edit until {sd.editable_until:%H:%M}."
     return Notice(
-        audience=f"store:{outlet_id}",
+        audience_kind=AudienceKind.STORE,
+        outlet_id=outlet_id,
         tag=NoticeTag.ORDER,
         title="Order received",
         body=f"{_join(phrases)} count for {day_label(sd.service_date)}.{editable}",

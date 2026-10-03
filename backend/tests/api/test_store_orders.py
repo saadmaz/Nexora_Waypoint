@@ -171,13 +171,15 @@ def test_placing_is_store_only(client: TestClient, auth: Any) -> None:
 def test_placing_writes_one_notice_and_an_audit_row_for_each_order(client: TestClient, auth: Any, reseed: None) -> None:
     from app.db import SessionLocal
     from app.models.comms import AuditEvent, Notice
-    from app.models.enums import AuditType
+    from app.models.enums import AudienceKind, AuditType
 
     advance(client, auth, "2026-09-28T15:40:00+05:30")
     place_hero(client, auth)
 
     with SessionLocal() as db:
-        notices = list(db.scalars(select(Notice).where(Notice.audience == "store:OUT084")))
+        notices = list(
+            db.scalars(select(Notice).where(Notice.audience_kind == AudienceKind.STORE, Notice.outlet_id == "OUT084"))
+        )
         placed = list(db.scalars(select(AuditEvent).where(AuditEvent.type == AuditType.ORDER_PLACED)))
 
     assert len(notices) == 1, [(n.tag.value, n.title) for n in notices]

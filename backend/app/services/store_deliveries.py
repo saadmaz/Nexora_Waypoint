@@ -18,6 +18,7 @@ from waypoint_rules.vocab import Temp
 from .. import clock
 from ..deps import CurrentUser
 from ..errors import not_found
+from ..models.comms import NoticeRead
 from ..schemas.store import DeliveryOut, IssueOut, RecentOrderDayOut, UpdatesFeedOut
 from . import store_repo, store_views
 from .store_model import DeliveryDay
@@ -88,17 +89,17 @@ def list_issues(db: Session, user: CurrentUser) -> list[IssueOut]:
 
 
 def get_updates(db: Session, user: CurrentUser) -> UpdatesFeedOut:
-    """The S4 feed, newest first, with the unread count for the bell."""
+    """The S4 feed, newest first, with the unread count for the bell. Read state is this account's own."""
     outlet = outlet_of(db, user)
-    return store_views.updates_out(store_repo.notice_facts(db, outlet.id))
+    return store_views.updates_out(store_repo.notice_facts(db, outlet.id, user.id))
 
 
 def mark_all_read(db: Session, user: CurrentUser) -> None:
-    """"Mark all read" reads everything sent up to now (A53)."""
+    """"Mark all read" reads everything sent up to now (A53). One ``notice_reads`` row per row read."""
     outlet = outlet_of(db, user)
     now = clock.now(db)
-    for notice in store_repo.unread_notices(db, outlet.id):
-        notice.read_at = now
+    for notice in store_repo.unread_notices(db, outlet.id, user.id):
+        db.add(NoticeRead(notice_id=notice.id, user_id=user.id, read_at=now))
     db.commit()
 
 

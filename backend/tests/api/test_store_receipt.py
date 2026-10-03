@@ -61,9 +61,13 @@ def audit_types(entity_id: str) -> list[str]:
 def dispatch_notices() -> list[tuple[str, str]]:
     from app.db import SessionLocal
     from app.models.comms import Notice
+    from app.models.enums import AudienceKind
 
     with SessionLocal() as db:
-        return [(n.title, n.body) for n in db.scalars(select(Notice).where(Notice.audience == "dispatch").order_by(Notice.id))]
+        rows = db.scalars(
+            select(Notice).where(Notice.audience_kind == AudienceKind.DISPATCHER).order_by(Notice.id)
+        )
+        return [(n.title, n.body) for n in rows]
 
 
 # --------------------------------------------------------------------------- S3.2: a clean receipt

@@ -29,6 +29,7 @@ from ..errors import ApiError, not_found
 from ..models import field as field_models
 from ..models.comms import Notice
 from ..models.enums import (
+    AudienceKind,
     AuditType,
     ConflictStatus,
     ExceptionKind,
@@ -231,7 +232,7 @@ def _receipt_notice(day: DeliveryDay, short: dict[str, int], reason: str | None,
         ids = " + ".join(o.id for o in day.orders)
         body = f"{day.outlet.id} confirmed receipt of {ids} for {day_label(day.service_date)}."
     return Notice(
-        audience="dispatch",
+        audience_kind=AudienceKind.DISPATCHER,
         tag=NoticeTag.DELIVERY,
         title=f"{day.outlet.id}: receipt confirmed",
         body=body,
@@ -338,7 +339,7 @@ def _issue_notice(day: DeliveryDay, kind: str, units: dict[str, int], note: str 
     parts = [f"{oid} ({_affected(kind, units[oid])})" for oid in sorted(units)]
     body = f"{day.outlet.id} reported {kind.lower()} on {', '.join(parts)} for {day_label(day.service_date)}."
     return Notice(
-        audience="dispatch",
+        audience_kind=AudienceKind.DISPATCHER,
         tag=NoticeTag.CHANGE,
         title=f"{day.outlet.id}: {kind.lower()} reported by the store",
         body=f"{body} {note}" if note else body,
@@ -427,7 +428,7 @@ def answer_received(db: Session, user: CurrentUser, conflict_id: int, body: Answ
     ids = " + ".join(o.id for o in orders)
     db.add(
         Notice(
-            audience="dispatch",
+            audience_kind=AudienceKind.DISPATCHER,
             tag=NoticeTag.REVIEW,
             title=f"{first.outlet_id}: the store confirms it received the delivery",
             body=f"{user.display_name} answered yes for {ids}. Nothing is short.",
