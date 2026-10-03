@@ -22,6 +22,8 @@ def test_clock_is_the_scenario_checkpoint_after_seed(client, auth):
     assert datetime.fromisoformat(body["checkpoint"]) == CHECKPOINT
     # An order placed Mon 15:30 counts for Tue 29 Sep (before the 16:00 cutoff).
     assert body["serviceDate"] == "2026-09-29"
+    assert body["runDate"] == "2026-09-29"  # the run being prepared tonight, until midday on the day
+    assert body["rate"] == 0 and body["serverWall"]  # tests run with CLOCK_RATE=0
 
 
 def test_clock_needs_a_sign_in(client):

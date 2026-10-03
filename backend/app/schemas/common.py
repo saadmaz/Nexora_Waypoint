@@ -43,6 +43,7 @@ class ClockOut(ApiModel):
     now: datetime
     checkpoint: datetime
     service_date: date = Field(description="The delivery day an order placed now counts for")
+    run_date: date = Field(description="The delivery run the apps are working on: today's until midday, then the next operating day")
     rate: float = Field(description="Scenario seconds per wall second: 1 is real time, 0 is paused")
     server_wall: datetime = Field(description="The server's wall clock when this was read, for extrapolating between polls")
 

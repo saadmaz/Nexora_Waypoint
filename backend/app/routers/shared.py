@@ -11,6 +11,7 @@ from .. import clock
 from ..deps import AnyUser, Db, Dispatcher
 from ..models.reference import CalendarDay
 from ..schemas.common import AdvanceIn, ClockOut, ResetOut
+from ..services.planning_repo import active_service_date
 
 router = APIRouter(tags=["shared"])
 
@@ -20,8 +21,10 @@ def clock_out(db: Db) -> ClockOut:
     ops = list(db.scalars(select(CalendarDay.date).where(CalendarDay.is_operating)))
     # With no calendar loaded yet (empty database) the next calendar day stands in.
     service = service_day_for(now.replace(tzinfo=None), ops).service_date if ops else now.date()
+    run = active_service_date(now.replace(tzinfo=None), ops) if ops else now.date()
     return ClockOut(
-        now=now, checkpoint=clock.checkpoint(db), service_date=service, rate=clock.rate(db), server_wall=clock.wall_now()
+        now=now, checkpoint=clock.checkpoint(db), service_date=service, run_date=run, rate=clock.rate(db),
+        server_wall=clock.wall_now(),
     )
 
 
