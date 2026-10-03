@@ -47,14 +47,36 @@ def _cutoff_day(service: date, placed: date, ops: Sequence[date]) -> date:
     return earlier[-1] if earlier else placed
 
 
+@dataclass(frozen=True, slots=True)
+class Arrival:
+    """The two times the store is shown: when unloading can start, and the earlier arrival behind it."""
+
+    #: The time the store is told to be ready from.
+    start: datetime
+    #: The predicted arrival, set only when the truck is expected before the window opens.
+    may_arrive_at: datetime | None
+
+
+def store_arrival_range(predicted: datetime, window_open: datetime) -> Arrival:
+    """Shown arrival = the later of predicted arrival and window open, as a range (PRD §4a).
+
+    A truck expected before the window opens waits, so the store hears the window's time and the
+    arrival behind it. One expected inside the window is simply told that time.
+    """
+    if predicted < window_open:
+        return Arrival(window_open, predicted)
+    return Arrival(predicted, None)
+
+
 def store_arrival(predicted: datetime, window_open: datetime) -> str:
-    """Shown arrival = the later of predicted arrival and window open, as a range.
+    """:func:`store_arrival_range` as the one sentence the screens print.
 
     "from 05:30 (truck may arrive 05:26 and wait)".
     """
-    if predicted < window_open:
-        return f"from {hhmm(window_open)} (truck may arrive {hhmm(predicted)} and wait)"
-    return f"about {hhmm(predicted)}"
+    shown = store_arrival_range(predicted, window_open)
+    if shown.may_arrive_at is not None:
+        return f"from {hhmm(shown.start)} (truck may arrive {hhmm(shown.may_arrive_at)} and wait)"
+    return f"about {hhmm(shown.start)}"
 
 
 @dataclass(frozen=True, slots=True)

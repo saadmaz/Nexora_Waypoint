@@ -12,7 +12,6 @@ from typing import Annotated
 from fastapi import APIRouter, Query, Response
 
 from ..deps import Db, Store
-from ..errors import not_implemented
 from ..schemas.store import (
     AnswerReceivedIn,
     ConfirmReceiptIn,
@@ -26,7 +25,7 @@ from ..schemas.store import (
     ReportIssueIn,
     UpdatesFeedOut,
 )
-from ..services import store_orders
+from ..services import receipts, store_deliveries, store_orders
 
 router = APIRouter(prefix="/store", tags=["store"])
 
@@ -70,13 +69,13 @@ def list_deliveries(
     to: date | None = None,
 ) -> list[DeliveryOut]:
     """The outlet's delivery days, earliest first (S2)."""
-    raise not_implemented("listDeliveries")
+    return store_deliveries.list_deliveries(db, user, from_, to)
 
 
 @router.get("/deliveries/{day}", operation_id="getDeliveryDay", response_model=list[DeliveryOut])
 def get_delivery_day(day: date, db: Db, user: Store) -> list[DeliveryOut]:
     """One day's delivery; an empty list when the outlet has no orders for it."""
-    raise not_implemented("getDeliveryDay")
+    return store_deliveries.get_delivery_day(db, user, day)
 
 
 @router.get("/history", operation_id="listRecent", response_model=list[RecentOrderDayOut])
@@ -84,45 +83,49 @@ def list_recent(
     db: Db, user: Store, limit: int = Query(5, ge=1, le=60), before: date | None = None
 ) -> list[RecentOrderDayOut]:
     """Past delivery days, newest first, Sundays skipped (S1.6, S2.10, S4 History)."""
-    raise not_implemented("listRecent")
+    return store_deliveries.list_recent(db, user, limit=limit, before=before)
 
 
 @router.get("/issues", operation_id="listIssues", response_model=list[IssueOut])
 def list_issues(db: Db, user: Store) -> list[IssueOut]:
     """The problems the store has reported, open first, newest first (S3.7)."""
-    raise not_implemented("listIssues")
+    return store_deliveries.list_issues(db, user)
 
 
 @router.post("/deferrals/{deferral_id}/seen", operation_id="acknowledgeDeferral", status_code=204)
 def acknowledge_deferral(deferral_id: int, db: Db, user: Store) -> Response:
     """The store tapped Got it (S2.6, S2.9). Dispatch then sees it was read."""
-    raise not_implemented("acknowledgeDeferral")
+    receipts.acknowledge_deferral(db, user, deferral_id)
+    return Response(status_code=204)
 
 
 @router.post("/reviews/{conflict_id}/answer", operation_id="answerReceivedQuestion", status_code=204)
 def answer_received_question(conflict_id: int, body: AnswerReceivedIn, db: Db, user: Store) -> Response:
     """The store's answer to "Did you receive this delivery?" while Dispatch is reviewing (S2.7, S3.5)."""
-    raise not_implemented("answerReceivedQuestion")
+    receipts.answer_received(db, user, conflict_id, body)
+    return Response(status_code=204)
 
 
 @router.post("/receipts", operation_id="confirmReceipt", response_model=DeliveryOut, status_code=201)
 def confirm_receipt(body: ConfirmReceiptIn, db: Db, user: Store) -> DeliveryOut:
     """Confirms what arrived (S3.1), or records a shortfall (S3.1 B). 409 when nothing has been delivered."""
-    raise not_implemented("confirmReceipt")
+    return receipts.confirm(db, user, body)
 
 
 @router.post("/issues", operation_id="reportIssue", response_model=IssueOut, status_code=201)
 def report_issue(body: ReportIssueIn, db: Db, user: Store) -> IssueOut:
     """A problem tied to the proof of delivery (S3.3). Dispatch is told at once."""
-    raise not_implemented("reportIssue")
+    return receipts.report_issue(db, user, body)
 
 
 @router.get("/updates", operation_id="getUpdates", response_model=UpdatesFeedOut)
 def get_updates(db: Db, user: Store) -> UpdatesFeedOut:
     """The S4 feed, newest first, with the unread count for the bell."""
-    raise not_implemented("getUpdates")
+    return store_deliveries.get_updates(db, user)
 
 
 @router.post("/updates/read-all", operation_id="markAllRead", status_code=204)
 def mark_all_read(db: Db, user: Store) -> Response:
-    raise not_implemented("markAllRead")
+    """Everything sent up to now counts as read (A53)."""
+    store_deliveries.mark_all_read(db, user)
+    return Response(status_code=204)

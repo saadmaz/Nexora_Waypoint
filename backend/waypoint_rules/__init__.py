@@ -48,12 +48,14 @@ from .reconcile import (
 )
 from .schedule import (
     OFFLINE_AFTER_MINUTES,
+    Arrival,
     RemainingStop,
     ServiceDay,
     is_offline,
     lateness_risk,
     service_day_for,
     store_arrival,
+    store_arrival_range,
 )
 from .vocab import (
     Binding,
@@ -71,6 +73,7 @@ from .vocab import (
 )
 
 __all__ = [
+    "Arrival",
     "Binding",
     "BindingResult",
     "Brand",
@@ -146,6 +149,7 @@ __all__ = [
     "service_day_for",
     "status_label",
     "store_arrival",
+    "store_arrival_range",
     "transition",
     "trip_load",
     "trip_minutes",

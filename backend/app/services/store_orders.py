@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from waypoint_rules import OrderEvent
 from waypoint_rules.schedule import ServiceDay, service_day_for
-from waypoint_rules.vocab import DockType, OrderStatus, Temp
+from waypoint_rules.vocab import OrderStatus, Temp
 
 from .. import clock
 from ..deps import CurrentUser, require_outlet
@@ -69,10 +69,9 @@ def outlet_of(db: Session, user: CurrentUser) -> reference.Outlet:
 
 
 def _window(outlet: reference.Outlet) -> Window:
-    """The window the store is told to expect. A mall bay keeps the mall's hours, not the outlet's own."""
-    if outlet.dock_type is DockType.MALL_BAY and outlet.mall_window_open is not None and outlet.mall_window_close is not None:
-        return Window(start=_hhmm(outlet.mall_window_open), end=_hhmm(outlet.mall_window_close))
-    return Window(start=_hhmm(outlet.window_open), end=_hhmm(outlet.window_close))
+    """The window the store is told to expect. The rule itself is ``store_repo.window_of`` (S1 and S2 agree)."""
+    opens, closes = store_repo.window_of(outlet)
+    return Window(start=_hhmm(opens), end=_hhmm(closes))
 
 
 def _hhmm(value: time) -> str:
