@@ -3,11 +3,14 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { ClockProvider } from "../../field/clock/ClockContext";
 import { HERO_DATE } from "../../field/clock/clock";
 import { FieldRuntime } from "../../field/FieldRuntime";
-import { PlaceholderScreen } from "../../field/PlaceholderScreen";
 import { RoleRoot } from "../../shared/RoleRoot";
 import { DriverProvider } from "./context/DriverProvider";
 import { useDriverSettings } from "./context/DriverContext";
 import { DriverGallery } from "./gallery/DriverGallery";
+import { FinishScreen } from "./finish/FinishScreen";
+import { HistoryDayScreen, HistoryScreen } from "./history/HistoryScreen";
+import { IssuesScreen } from "./issues/IssuesScreen";
+import { ProblemScreen } from "./issues/ProblemScreen";
 import { MeScreen } from "./me/MeScreen";
 import { NotificationsScreen } from "./notices/NotificationsScreen";
 import { RunScreen } from "./run/RunScreen";
@@ -60,20 +63,13 @@ function DriverRoutes() {
       <Route path="sync-result" element={<SyncResultScreen />} />
       <Route path="stops/:stopId" element={<StopScreen />} />
       <Route path="stops/:stopId/outcome" element={<OutcomeScreen />} />
-      <Route
-        path="issues"
-        element={<PlaceholderScreen id="R6" title="Issues" note="Problems recorded on the road. Built in driver prompt 5 (R6)." />}
-      />
-      <Route
-        path="history"
-        element={<PlaceholderScreen id="R7" title="History" note="Trip history, read-only. Built in driver prompt 5 (R7)." />}
-      />
+      <Route path="issues" element={<IssuesScreen />} />
+      <Route path="issues/new" element={<ProblemScreen />} />
+      <Route path="history" element={<HistoryScreen />} />
+      <Route path="history/:date" element={<HistoryDayScreen />} />
       <Route path="notifications/photo/:blobId" element={<PhotoFailureScreen />} />
       <Route path="notifications" element={<NotificationsScreen />} />
-      <Route
-        path="finish"
-        element={<PlaceholderScreen id="R9" title="Finish run" back="/driver/run" note="Close the run with a GPS distance. Built in driver prompt 5 (R9)." />}
-      />
+      <Route path="finish" element={<FinishScreen />} />
       <Route path="me" element={<MeScreen />} />
       <Route path="*" element={<Navigate to="run" replace />} />
     </Routes>
