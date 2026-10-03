@@ -1833,6 +1833,8 @@ export interface components {
         ExceptionRecommendation: {
             /** Orderid */
             orderId: string;
+            /** Orderids */
+            orderIds: string[];
             /** Outletid */
             outletId: string;
             /** Title */
@@ -1977,7 +1979,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "Short" | "Tight";
+            status: "Short" | "Tight" | "OK";
             /** Flags */
             flags: string[];
             /** Lever */

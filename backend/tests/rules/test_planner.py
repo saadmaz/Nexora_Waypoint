@@ -170,10 +170,29 @@ def test_each_trip_has_one_brand_and_one_district(draft):
 def test_departures_follow_the_brand(draft):
     for t in draft.trips:
         if t.trip_no == 1 and t.brand.value == "Fresh":
-            assert hhmm(t.depart_at) == "03:30"
+            first = planned_clock(t.to_trip(), ORDERS, REF).stops[0]
+            # Never before 03:30. Later only when the first window opens later, and then it is reached 4 minutes ahead.
+            assert hhmm(t.depart_at) == "03:30" or (first.handling_start - first.arrival).total_seconds() == 4 * 60
     mall = next(t for t in draft.trips if "ORD1007" in t.order_ids)
     assert hhmm(mall.depart_at) == "08:36"  # reaches the 09:00 mall window as it opens
     assert hhmm(planned_clock(mall.to_trip(), ORDERS, REF).stops[0].arrival) == "09:00"
+
+
+def test_veh039_leaves_just_in_time_for_the_hero_orders():
+    """A5: OUT084 opens 05:30 and is 16 minutes out, so VEH039 leaves at 05:10 and waits 4 minutes at the door."""
+    hero = {k: v for k, v in ORDERS.items() if k in ("ORD2001", "ORD2002")}
+    draft = draft_plan(hero, REF, VEHICLE_DAYS, service_date=SERVICE)
+    (trip,) = draft.trips
+    assert trip.vehicle_id == "VEH039" and hhmm(trip.depart_at) == "05:10"
+    stop = planned_clock(trip.to_trip(), hero, REF).stops[0]
+    assert (hhmm(stop.arrival), hhmm(stop.handling_start)) == ("05:26", "05:30")
+    assert check_trip(trip.to_trip(), hero, REF, VEHICLE_DAYS.get("VEH039")) == []
+
+
+def test_a_first_window_before_03_30_still_leaves_at_03_30(draft):
+    """VEH003 and VEH035 open at 03:00, which is before the Fresh window, so the slack never moves them earlier."""
+    firsts = {t.vehicle_id: hhmm(t.depart_at) for t in draft.trips if t.trip_no == 1 and t.vehicle_id in ("VEH003", "VEH035")}
+    assert firsts == {"VEH003": "03:30", "VEH035": "03:30"}
 
 
 def test_the_kandy_orders_ride_together_on_veh039_trip_1(draft):

@@ -54,6 +54,7 @@ export function exceptionView(m: Milestones, id: string): ExceptionView {
     },
     recommendation: {
       orderId: "ORD1002",
+      orderIds: ["ORD1002"],
       outletId: "OUT009",
       title: "OUT009: chilled order",
       kind: "policy",

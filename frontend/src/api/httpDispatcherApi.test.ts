@@ -272,7 +272,7 @@ describe("every operation, on the wire", () => {
   const wireException = {
     id: "3", state: "recommendation", title: "", flaggedBy: "", flaggedAt: "", reason: "", ordersText: "", minutesToDeparture: 20,
     failed: { vehicleId: "VEH003", spec: "", reason: "", tag: "Held" }, replacement: null, before: null,
-    recommendation: { orderId: "ORD1002", outletId: "OUT1", title: "", kind: "policy", typeNote: "", reason: "", decidedBy: "", impact: "", frees: "", nextRun: "", protected: [] },
+    recommendation: { orderId: "ORD1002", orderIds: ["ORD1002", "ORD1010", "ORD1011", "ORD1012"], outletId: "OUT1", title: "", kind: "policy", typeNote: "", reason: "", decidedBy: "", impact: "", frees: "", nextRun: "", protected: [] },
     candidates: [], need: { kg: 1, m3: 1 }, after: null, confirmed: null,
   };
 
@@ -288,6 +288,17 @@ describe("every operation, on the wire", () => {
     expect(path(calls[1]!)).toBe("/api/v1/dispatcher/exceptions/3/decide");
     expect(calls[1]!.body).toEqual({ decision: "swap_vehicle", deferOrderIds: ["ORD1002"] });
     expect(decided.recommendation).toBeUndefined();
+  });
+
+  it("the whole recommended set reaches the decide request, not just the first order", async () => {
+    const { api, calls } = harness(json(wireException), json({ ...wireException, state: "confirmed" }));
+    const rec = (await api.getExceptionForReview("3")).recommendation!;
+    expect(rec.orderId).toBe("ORD1002");
+    expect(rec.orderIds).toEqual(["ORD1002", "ORD1010", "ORD1011", "ORD1012"]);
+
+    // The confirm button sends rec.orderIds. A swap that is short by more than one order is refused if only one goes.
+    await api.decideException("3", { decision: "swap vehicle", deferOrderIds: rec.orderIds });
+    expect(calls[1]!.body).toEqual({ decision: "swap_vehicle", deferOrderIds: ["ORD1002", "ORD1010", "ORD1011", "ORD1012"] });
   });
 
   it("getForecast sends the depot and compacts the weeks", async () => {
