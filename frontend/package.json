@@ -18,7 +18,8 @@
     "test:api-roles": "node scripts/api-roles-check.ts",
     "test:api-dispatcher": "node scripts/api-dispatcher-check.ts",
     "test:api-sync": "node scripts/api-sync-check.ts",
-    "test:loader-stories": "node scripts/loader-stories.ts"
+    "test:loader-stories": "node scripts/loader-stories.ts",
+    "test:loader-devices": "node scripts/loader-device-shots.ts"
   },
   "dependencies": {
     "@fontsource-variable/archivo": "^5.3.0",
