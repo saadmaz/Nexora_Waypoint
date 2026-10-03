@@ -11,6 +11,7 @@ from ..deps import Db, FieldUser
 from ..errors import not_implemented
 from ..models.enums import AttachmentKind
 from ..schemas.sync import AttachmentOut, SyncIn, SyncOut
+from ..services import sync as sync_service
 
 router = APIRouter(tags=["sync"])
 
@@ -21,7 +22,9 @@ def sync(body: SyncIn, db: Db, user: FieldUser) -> SyncOut:
 
     Rules live in ``waypoint_rules.reconcile`` (PRD §19 reconciliation rule).
     """
-    raise not_implemented("sync")
+    out = sync_service.sync(db, user, body)
+    db.commit()
+    return out
 
 
 @router.post("/attachments", operation_id="uploadAttachment", response_model=AttachmentOut, status_code=201)
