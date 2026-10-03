@@ -28,6 +28,22 @@ def next_operating_day(after: date, operating_days: Iterable[date]) -> date:
     return days[0]
 
 
+#: When Dispatch releases a day's plan, the evening before (the scenario's 23:40 release; a person's action, not a job).
+PLAN_RELEASE = time(23, 40)
+
+
+def next_plan_at(after: date, operating_days: Iterable[date]) -> datetime | None:
+    """When the driver can expect the next plan: 23:40 the evening before the next operating day. None past the calendar.
+
+    Sun 28 Jun → Sun 28 Jun 23:40 (for Mon 29 Jun).
+    """
+    try:
+        day = next_operating_day(after, operating_days)
+    except ValueError:
+        return None
+    return datetime.combine(day - timedelta(days=1), PLAN_RELEASE)
+
+
 def service_day_for(placed_at: datetime, operating_days: Iterable[date]) -> ServiceDay:
     """R-CUTOFF and R-OPDAY. Before 16:00 → next operating day; after → the one after that.
 

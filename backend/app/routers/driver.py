@@ -18,10 +18,11 @@ router = APIRouter(prefix="/driver", tags=["driver"])
 
 
 @router.get("/runs/{day}", operation_id="getRun", response_model=RunOut)
-def get_run(day: date, db: Db, user: Driver) -> RunOut:
+def get_run(day: date, db: Db, user: Driver, trip: int | None = None) -> RunOut:
     """The route package: the current plan version and each order's server state after sync.
 
     ``DriverApi.getRun`` and ``DriverApi.downloadRun`` are the same endpoint; ``downloadRun`` also caches it.
+    Without ``trip`` it is the earliest trip not finished yet. On a day with no run, ``state`` is ``no_run`` and says why.
     """
     return views.run(db, user, day)
 
