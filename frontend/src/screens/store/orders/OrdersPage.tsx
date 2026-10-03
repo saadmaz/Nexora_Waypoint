@@ -35,6 +35,7 @@ import { EmptyOrders } from "./EmptyOrders";
 import { PhoneForm } from "./PhoneForm";
 import { ReceivedView } from "./ReceivedView";
 import { ReviewBody } from "./ReviewBody";
+import { isQueuedOrder, loadQueued, saveQueued } from "../queue";
 import styles from "./OrdersPage.module.css";
 
 const KINDS: OrderKind[] = ["chilled", "dry"];
@@ -54,6 +55,9 @@ type Mode = "view" | "edit" | "cancelled";
 type Submit = "idle" | "sending" | "error" | "queued";
 type Line = { kind: OrderKind; units: number };
 type Quantities = Record<OrderKind, number>;
+
+/** The device copy of an order queued offline (S1.5 A). */
+const ORDER_QUEUE = { kind: "order", outletId: OUTLET.id } as const;
 
 /** Stand-in while the form loads; never shown, because loading renders a skeleton. */
 const NO_FACTORS: UnitFactors = { chilled: { kg: 0, m3: 0 }, dry: { kg: 0, m3: 0 } };
@@ -91,16 +95,22 @@ export function OrdersPage({ preview }: OrdersPageProps) {
   const [mode, setMode] = useState<Mode>(preview === "edit" ? "edit" : preview === "cancelled" ? "cancelled" : "view");
   // What the store has typed into the steppers; until then the API's starting quantities.
   const [edited, setEdited] = useState<Quantities | null>(preview === "edit" ? { chilled: 10, dry: 8 } : null);
+  // An order queued offline is kept on the device, so it survives the tab closing (PRD v3 section 15). Gallery states never touch it.
+  const [restored] = useState(() => (preview ? null : loadQueued(ORDER_QUEUE, isQueuedOrder)));
   const [submit, setSubmit] = useState<Submit>(
-    preview === "sending" ? "sending" : preview === "error" ? "error" : preview === "queued" ? "queued" : "idle",
+    preview === "sending" ? "sending" : preview === "error" ? "error" : preview === "queued" || restored ? "queued" : "idle",
   );
-  const [queued, setQueuedState] = useState<{ at: string; lines: Line[] } | null>(null);
+  const [queued, setQueuedState] = useState<{ at: string; lines: Line[] } | null>(restored);
   // The ref is what the online handler reads, so a second event finds the queue already taken.
-  const queuedRef = useRef<{ at: string; lines: Line[] } | null>(null);
-  const setQueued = useCallback((value: { at: string; lines: Line[] } | null) => {
-    queuedRef.current = value;
-    setQueuedState(value);
-  }, []);
+  const queuedRef = useRef<{ at: string; lines: Line[] } | null>(restored);
+  const setQueued = useCallback(
+    (value: { at: string; lines: Line[] } | null) => {
+      queuedRef.current = value;
+      setQueuedState(value);
+      if (!preview) saveQueued(ORDER_QUEUE, value);
+    },
+    [preview],
+  );
   const [reviewOpen, setReviewOpen] = useState(preview === "review");
   const [closedNotice, setClosedNotice] = useState(false);
 
@@ -174,6 +184,11 @@ export function OrdersPage({ preview }: OrdersPageProps) {
     window.addEventListener("online", flushQueue);
     return () => window.removeEventListener("online", flushQueue);
   }, [submit, flushQueue]);
+
+  // One saved on an earlier visit goes out once the page is online and the day's form has loaded.
+  useEffect(() => {
+    if (submit === "queued" && online && current) flushQueue();
+  }, [submit, online, current, flushQueue]);
 
   function changeUnits(kind: OrderKind, units: number) {
     setEdited({ ...quantities, [kind]: units });

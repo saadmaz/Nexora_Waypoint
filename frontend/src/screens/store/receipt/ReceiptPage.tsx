@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar } from "../../../shared/chrome/AppBar";
 import { ConnectivityBar } from "../../../shared/chrome/ConnectivityBar";
@@ -22,6 +22,7 @@ import { useStore } from "../../../app/StoreContext";
 import { OrderRows } from "../deliveries/OrderRows";
 import { ReceiptQuestion, ReviewNotice } from "../deliveries/ReviewNotice";
 import { IssueSheet, type IssueReport } from "./IssueSheet";
+import { isQueuedReceipt, loadQueued, saveQueued } from "../queue";
 import { PodCard } from "./PodCard";
 import { ReceiptCounts } from "./ReceiptCounts";
 import { ReceiptOutcome } from "./ReceiptOutcome";
@@ -71,12 +72,19 @@ export function ReceiptPage({ outletId = OUTLET.id, date, preview, openReport }:
   const [shortfallOpen, setShortfallOpen] = useState(false);
   // A confirmation made offline is saved here and goes out when the connection returns. The ref is
   // what the online handler reads, so a second `online` event finds the queue already taken.
-  const [queued, setQueuedState] = useState<Queued | null>(null);
-  const queuedRef = useRef<Queued | null>(null);
-  const setQueued = useCallback((value: Queued | null) => {
-    queuedRef.current = value;
-    setQueuedState(value);
-  }, []);
+  // It is also kept on the device, so closing the tab offline does not lose it. Gallery states never touch it.
+  const queueKey = useMemo(() => ({ kind: "receipt", outletId, date }) as const, [outletId, date]);
+  const [restored] = useState(() => (preview ? null : loadQueued(queueKey, isQueuedReceipt)));
+  const [queued, setQueuedState] = useState<Queued | null>(restored);
+  const queuedRef = useRef<Queued | null>(restored);
+  const setQueued = useCallback(
+    (value: Queued | null) => {
+      queuedRef.current = value;
+      setQueuedState(value);
+      if (!preview) saveQueued(queueKey, value);
+    },
+    [preview, queueKey],
+  );
   const inFlight = useRef(false);
   const loadedOnce = useRef(false);
 
@@ -145,8 +153,10 @@ export function ReceiptPage({ outletId = OUTLET.id, date, preview, openReport }:
       void send(taken);
     };
     window.addEventListener("online", flush);
+    // One saved on an earlier visit goes out once the page is online and the delivery has loaded.
+    if (online && delivery) flush();
     return () => window.removeEventListener("online", flush);
-  }, [queued, preview, send, setQueued]);
+  }, [queued, preview, send, setQueued, online, delivery]);
 
   function confirm(reason?: ShortfallReason) {
     if (!delivery) return;
