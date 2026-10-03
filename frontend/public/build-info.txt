@@ -1,0 +1,2 @@
+Waypoint frontend
+Build trigger: 2026-10-03. Safe to delete.
