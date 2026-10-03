@@ -86,7 +86,7 @@ def _notify(db: Session, day: DispatchDay, swap: Swap, old: int, new: int, defer
     stamp = repo.aware(now)
     db.add(
         Notice(
-            audience=f"dock:{depot}", tag=NoticeTag.CHANGE, title=f"Plan changed v{old} → v{new}, review",
+            audience_kind="dock", depot_id=depot, tag=NoticeTag.CHANGE, title=f"Plan changed v{old} → v{new}, review",
             body=f"{swap.failed} is replaced by {swap.replacement.id}.", link={"screen": "plan"},
             refs={"planVersion": new, "vehicle": swap.replacement.id}, created_at=stamp,
         )
@@ -94,14 +94,14 @@ def _notify(db: Session, day: DispatchDay, swap: Swap, old: int, new: int, defer
     moved = sum(len(t.order_ids) for t in swap.plan.trips.values() if t.vehicle_id == swap.replacement.id)
     db.add(
         Notice(
-            audience=f"driver:{swap.replacement.id}", tag=NoticeTag.CHANGE, title=f"Plan v{new}: a new trip for you",
+            audience_kind="driver", vehicle_id=swap.replacement.id, tag=NoticeTag.CHANGE, title=f"Plan v{new}: a new trip for you",
             body=f"{swap.replacement.id} takes over {swap.failed}'s trips: {moved} orders.", link={"screen": "run"},
             refs={"planVersion": new}, created_at=stamp,
         )
     )
     db.add(
         Notice(
-            audience=f"driver:{swap.failed}", tag=NoticeTag.CHANGE, title=f"Plan v{new}: your trip moved",
+            audience_kind="driver", vehicle_id=swap.failed, tag=NoticeTag.CHANGE, title=f"Plan v{new}: your trip moved",
             body=f"{swap.failed} did not pass its check. {swap.replacement.id} takes the trips.", link={"screen": "run"},
             refs={"planVersion": new}, created_at=stamp,
         )
@@ -181,6 +181,7 @@ def decide(db: Session, exception_id: int, defer_order_ids: list[str], *, actor:
 
     e.status = ExceptionStatus.DECIDED
     e.decided_by = actor_name
+    e.decided_by_user_id = audit.user_id_for(db, actor)
     e.decided_at = repo.aware(now)
     e.decision = {
         "decision": "swap_vehicle",

@@ -151,6 +151,26 @@ docker compose up
 
 Docker Compose starts the application, database, and seed data.
 
+The local database uses `postgres:18.6`. Its named `pgdata` volume mounts at
+`/var/lib/postgresql` (the PostgreSQL 18 image manages its versioned data directory there).
+No custom `PGDATA` is needed. A fresh startup runs Alembic `0001 → 0002`, the deterministic seed,
+and FastAPI before starting the web service.
+
+**Upgrading an old PostgreSQL 16 local volume:** local Hackathon data is disposable. Stop Compose
+and remove only your project's old `pgdata` volume, then run the normal first-run command again.
+Do not attach the PG16 data directory to PG18 or attempt an in-place upgrade. Inspect the exact
+volume name before removing it; keep the separate uploads volume.
+
+```bash
+docker compose down
+docker volume ls  # identify this project's old <project>_pgdata volume
+docker volume rm <project>_pgdata  # replace with the exact name you identified
+docker compose up --build
+```
+
+These are manual development steps. Startup and seed scripts never delete Docker volumes.
+See [the v3 data model](docs/data-model.md) and [database validation](docs/database-validation.md).
+
 ---
 
 ## 🎯 Judge Walkthrough

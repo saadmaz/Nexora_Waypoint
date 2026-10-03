@@ -39,7 +39,7 @@ def flag_veh003() -> int:
     with SessionLocal() as db:
         trip = db.scalars(select(Trip).where(Trip.vehicle_id == "VEH003").order_by(Trip.id.desc())).first()
         row = FieldException(
-            kind=ExceptionKind.LOADER_FLAG, type="Vehicle check failed", vehicle_id="VEH003", trip_id=trip.id if trip else None,
+            kind=ExceptionKind.LOADER_SHORTFALL, type="Vehicle check failed", vehicle_id="VEH003", trip_id=trip.id if trip else None,
             order_ids=[], units_short={}, detail="Reefer not holding temperature", raised_by="Priya",
             raised_at=datetime(2026, 9, 29, 2, 55, tzinfo=COLOMBO), status=ExceptionStatus.OPEN,
         )
@@ -149,7 +149,7 @@ def test_the_deferred_orders_are_policy_deferrals_with_their_notices_and_copies(
     with SessionLocal() as db:
         order = db.get(Order, rec_order)
         copy = db.get(Order, f"{rec_order}-R")
-        audiences = {(n.audience, n.tag.value) for n in db.scalars(select(Notice))}
+        audiences = {(f"{n.audience_kind.value}:{n.outlet_id or n.vehicle_id or n.depot_id}", n.tag.value) for n in db.scalars(select(Notice))}
         swaps = list(db.scalars(select(AuditEvent).where(AuditEvent.type == AuditType.VEHICLE_SWAPPED)))
         exc = db.get(FieldException, eid)
         status = db.get(VehicleDayStatus, ("VEH003", datetime(2026, 9, 29).date()))
