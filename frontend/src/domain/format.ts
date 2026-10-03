@@ -1,29 +1,23 @@
+import { colomboMs, formatDate, formatTime } from "../field/clock/clock";
 import type { Order } from "./order";
 import { isPastCutoff } from "./schedule";
 import type { OrderStatus } from "./status";
 
-const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-function parseIsoDate(iso: string): Date {
-  return new Date(`${iso}T00:00:00`);
-}
+// Every date and time a person reads is in Asia/Colombo, whatever the browser's own time zone is.
 
 /** "Tue 29 Sep" */
 export function dayLabel(iso: string): string {
-  const d = parseIsoDate(iso);
-  return `${WEEKDAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  return formatDate(colomboMs(iso, "12:00"));
 }
 
 /** "Wed" */
 export function weekdayShort(iso: string): string {
-  return WEEKDAYS[parseIsoDate(iso).getDay()] ?? "";
+  return dayLabel(iso).split(" ")[0] ?? "";
 }
 
-/** "15:40", local time, from a Date or an ISO timestamp. */
+/** "15:40": Asia/Colombo time, from a Date or an ISO timestamp. */
 export function clockTime(value: Date | string): string {
-  const d = typeof value === "string" ? new Date(value) : value;
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  return formatTime(typeof value === "string" ? Date.parse(value) : value.getTime());
 }
 
 /**
