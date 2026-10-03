@@ -1,0 +1,33 @@
+.desktop {
+  min-height: 100dvh;
+  background: var(--surface-0);
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 480px;
+  margin: 0 auto;
+  padding: var(--space-8) var(--gutter-phone);
+}
+
+.phone {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.title {
+  font: var(--text-h2);
+}
+
+.name {
+  font: var(--text-h3);
+  color: var(--ink);
+}
+
+.helper {
+  font: var(--text-body-sm);
+  color: var(--ink-muted);
+}

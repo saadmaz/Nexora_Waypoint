@@ -11,6 +11,7 @@ import { Mono } from "../../../shared/ui/Mono";
 import { Sheet } from "../../../shared/ui/Sheet";
 import { LoadingSkeleton } from "../../../shared/ui/StateScreen";
 import { useToast } from "../../../shared/ui/useToast";
+import { useUnsavedWork } from "../../../shared/unsavedWork";
 import { useMediaQuery } from "../../../hooks/useMediaQuery";
 import { useNow } from "../../../hooks/useNow";
 import { useOnline } from "../../../hooks/useOnline";
@@ -266,6 +267,17 @@ export function OrdersPage({ preview }: OrdersPageProps) {
   const showEdit = !loading && orders.length > 0 && mode === "edit";
   const showDraftAfterCutoff = !loading && orders.length === 0 && !showEmpty && afterCutoff;
   const showForm = !loading && orders.length === 0 && !showEmpty && !afterCutoff;
+
+  // Edits and an order queued offline live only in this page's state, so log out asks before dropping them.
+  const unplacedChanges = ((showForm || showDraftAfterCutoff) && edited !== null) || showEdit;
+  useUnsavedWork(
+    "store.orders",
+    submit === "queued" && queued
+      ? "An order is waiting for the connection. It will not be sent if you log out."
+      : unplacedChanges
+        ? "Your order changes are not placed yet."
+        : null,
+  );
 
   const errorAlert = (
     <Alert

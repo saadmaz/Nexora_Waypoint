@@ -10,3 +10,6 @@ export { SessionExpiryListener } from "./SessionExpiryListener";
 export { SignInRoute } from "./SignInRoute";
 export { StartRoute } from "./StartRoute";
 export { ShellPlaceholder } from "./ShellPlaceholder";
+export { AccountMenu, LogOutButton } from "./AccountMenu";
+export { accountName } from "./accountName";
+export { useLogOut } from "./useLogOut";

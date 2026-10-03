@@ -3,6 +3,7 @@ import { ChoiceChips, FieldSwitch } from "../../../field/components";
 import { Card } from "../../../shared/ui/Card";
 import { Facts } from "../../../shared/ui/Facts";
 import { Tag } from "../../../shared/ui/Tag";
+import { LogOutButton } from "../../auth/AccountMenu";
 import { DRIVER, VEHICLE } from "../fixtures";
 import { useDriverSettings, useT } from "../context/DriverContext";
 import { DriverShell } from "../shell/DriverShell";
@@ -22,7 +23,7 @@ export type MeScreenProps = {
   storageOverride?: string;
 };
 
-/** R1.9: the Me tab. Sunlight screen, text size, language, distance tracking and offline storage. */
+/** R1.9: the Me tab. Sunlight screen, text size, language, distance tracking, offline storage and Log out. */
 export function MeScreen({ storageOverride }: MeScreenProps) {
   const t = useT();
   const { settings, setSunlight, setTextSize, setLanguage } = useDriverSettings();
@@ -105,6 +106,8 @@ export function MeScreen({ storageOverride }: MeScreenProps) {
           <Facts items={[{ key: t("me.offlineStorage"), value: storage }]} />
         </div>
       </Card>
+
+      <LogOutButton role="driver" label={t("me.logOut")} />
     </DriverShell>
   );
 }

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { ConnectivityChip, type ChipStatus } from "../../../field/components";
+import { AccountMenu } from "../../auth/AccountMenu";
 import styles from "./TabletShell.module.css";
 
 export type TabletShellProps = {
@@ -49,6 +50,7 @@ export function TabletShell({ dockLabel, dateLabel, connectivity, master, detail
           {dateLabel} · {dockLabel}
         </span>
         <ConnectivityChip status={connectivity.status} time={connectivity.time} count={connectivity.count} size="tablet" />
+        <AccountMenu role="loader" />
       </header>
       <div className={styles.panes}>
         <aside className={styles.master} aria-label="Vehicles">
