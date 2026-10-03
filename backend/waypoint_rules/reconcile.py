@@ -126,3 +126,18 @@ def reconcile(state: ServerOrderState | None, record: DeviceRecord, *, current_v
     if record.outcome is Outcome.DELIVERED:
         return Reconciled(SyncResult.ACCEPTED, OrderStatus.DELIVERED)
     return Reconciled(SyncResult.ACCEPTED, OrderStatus.ISSUE, tag=_ISSUE_TAG[record.outcome])
+
+
+def reconcile_store_answer(reasons: list[str], *, units_ordered: int, units_received: int) -> tuple[Recommendation, list[str]]:
+    """D7.3: the store answered "Did you receive this delivery?". Fewer units than ordered turns the recommendation into
+    **keep as partial**; everything received keeps it at **keep delivery**.
+
+    The first two reasons (the goods are at the store; the deferral never reached the driver) still stand. "Reversing
+    means a return trip" is dropped when the shortage is what decides it, because a partial is not reversed.
+    """
+    if units_received >= units_ordered:
+        return Recommendation.KEEP_DELIVERY, list(reasons)
+    short = units_ordered - units_received
+    kept = [r for r in reasons if not r.startswith("Reversing")]
+    kept.append(f"The store confirms goods arrived, {short} units short: Partial matches the evidence")
+    return Recommendation.KEEP_PARTIAL, kept

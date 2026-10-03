@@ -39,8 +39,17 @@ from .reconcile import (
     ServerOrderState,
     SyncResult,
     reconcile,
+    reconcile_store_answer,
 )
-from .schedule import RemainingStop, ServiceDay, lateness_risk, service_day_for, store_arrival
+from .schedule import (
+    OFFLINE_AFTER_MINUTES,
+    RemainingStop,
+    ServiceDay,
+    is_offline,
+    lateness_risk,
+    service_day_for,
+    store_arrival,
+)
 from .vocab import (
     Binding,
     Brand,
@@ -74,6 +83,7 @@ __all__ = [
     "LatenessRisk",
     "Move",
     "MoveResult",
+    "OFFLINE_AFTER_MINUTES",
     "Order",
     "OrderEvent",
     "OrderStatus",
@@ -113,6 +123,7 @@ __all__ = [
     "frees",
     "headline",
     "hhmm",
+    "is_offline",
     "impact_on_store",
     "lateness_risk",
     "legal_vehicles",
@@ -120,6 +131,7 @@ __all__ = [
     "planned_clock",
     "planned_fuel",
     "reconcile",
+    "reconcile_store_answer",
     "recommend_swap",
     "service_day_for",
     "status_label",

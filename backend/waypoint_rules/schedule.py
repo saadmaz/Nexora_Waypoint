@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 
 from .calc import hhmm
 from .vocab import LatenessRisk
@@ -71,3 +71,16 @@ def lateness_risk(remaining: Sequence[RemainingStop], *, offline: bool, held: bo
     if held or any(s.predicted_arrival > s.window_close for s in remaining):
         return LatenessRisk.AT_RISK
     return LatenessRisk.ON_TIME
+
+
+#: A run in progress that has not been heard from for this long is out of coverage (D6 "Unknown · offline").
+OFFLINE_AFTER_MINUTES = 3
+
+
+def is_offline(last_heard: datetime | None, now: datetime, *, in_progress: bool) -> bool:
+    """No event since the vehicle went out of coverage (PRD §4a lateness risk).
+
+    A vehicle on a run that has been silent for more than ``OFFLINE_AFTER_MINUTES`` is offline: the board says
+    "Unknown · offline" and never guesses that it is late. A vehicle that is not on a run is not offline, it is parked.
+    """
+    return in_progress and last_heard is not None and now - last_heard > timedelta(minutes=OFFLINE_AFTER_MINUTES)

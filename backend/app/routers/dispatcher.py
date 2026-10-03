@@ -18,6 +18,7 @@ from waypoint_rules.vocab import Brand, OrderStatus, Temp
 from .. import clock
 from ..deps import Db, Dispatcher
 from ..errors import ApiError, not_found, not_implemented
+from ..models.enums import ConflictRecommendation
 from ..models.orders import Order as OrderRow
 from ..schemas.dispatcher import (
     AcknowledgementsView,
@@ -43,9 +44,9 @@ from ..schemas.dispatcher import (
     ResolveConflictIn,
     SaveMovesIn,
 )
+from ..services import conflicts, live_repo, live_views, planning, queue_repo, queue_views, stops
 from ..services import dispatcher_views as views
 from ..services import exceptions as exception_service
-from ..services import planning, queue_repo, queue_views
 from ..services import planning_repo as repo
 from ..services.dispatch_model import DispatchDay
 from ..services.plan_logic import after_move, plan_of
@@ -79,6 +80,12 @@ def _day(db: Db, *, version: int | None = None) -> tuple[date, DispatchDay]:
     if version is not None and day.chosen is None:
         raise not_found(f"Plan v{version}")
     return service_date, day
+
+
+def _live(db: Db):  # noqa: ANN202 - the board's plain-data bundle, private to this module
+    """The live picture of the run the dispatcher is working on."""
+    now = clock.now(db).replace(tzinfo=None)
+    return live_repo.load_live(db, repo.active_service_date(now, repo.operating_days(db)), now)
 
 
 def _target(request: MoveRequest) -> tuple[str, int] | None:
@@ -232,37 +239,43 @@ def get_forecast(db: Db, user: Dispatcher, depot: DepotId = DEPOT_Q) -> Forecast
 @router.get("/live", operation_id="getLiveBoard", response_model=LiveBoardView)
 def get_live_board(db: Db, user: Dispatcher, depot: LiveDepotQ = "both", show_all: ShowAllQ = False) -> LiveBoardView:
     """D6: one row per vehicle trip with lateness risk and last heard."""
-    raise not_implemented("getLiveBoard")
+    return live_views.live_board_view(_live(db), depot, show_all=show_all)
 
 
 @router.post("/stops/defer", operation_id="deferStop", response_model=DeferStopResult)
 def defer_stop(body: DeferStopIn, db: Db, user: Dispatcher) -> DeferStopResult:
     """D6: defer stops after release. Creates and releases the next plan version at once."""
-    raise not_implemented("deferStop")
+    plan_no, deferred = stops.defer_stop(db, body.order_ids, body.kind, body.reason, actor=user.email, actor_name=user.display_name)
+    db.commit()
+    return DeferStopResult(plan=plan_no, deferred=deferred)
 
 
 @router.get("/inbox", operation_id="getInbox", response_model=InboxView)
 def get_inbox(db: Db, user: Dispatcher) -> InboxView:
     """Open conflicts, exceptions and dispatch notices."""
-    raise not_implemented("getInbox")
+    return live_views.inbox_view(_live(db))
 
 
 @router.get("/conflicts/{conflict_id}", operation_id="getConflict", response_model=ConflictView)
 def get_conflict(conflict_id: int, db: Db, user: Dispatcher) -> ConflictView:
     """D7: both records, the recommendation and its reasons."""
-    raise not_implemented("getConflict")
+    return conflicts.review(db, conflict_id)
 
 
 @router.post("/conflicts/{conflict_id}/ask-store", operation_id="askStore", response_model=ConflictView)
 def ask_store(conflict_id: int, db: Db, user: Dispatcher) -> ConflictView:
     """D7: asks the store "Did you receive this delivery?" (status ``awaiting_store``)."""
-    raise not_implemented("askStore")
+    view = conflicts.ask_store(db, conflict_id, actor=user.email)
+    db.commit()
+    return view
 
 
 @router.post("/conflicts/{conflict_id}/resolve", operation_id="resolveConflict", response_model=ConflictView)
 def resolve_conflict(conflict_id: int, body: ResolveConflictIn, db: Db, user: Dispatcher) -> ConflictView:
     """D7.4: writes the decision and posts notices to driver, store and dock."""
-    raise not_implemented("resolveConflict")
+    view = conflicts.resolve(db, conflict_id, ConflictRecommendation(body.resolution), actor=user.email, actor_name=user.display_name)
+    db.commit()
+    return view
 
 
 @router.get("/exceptions/{exception_id}", operation_id="getExceptionForReview", response_model=ExceptionView)

@@ -243,3 +243,17 @@ def test_hero_order_lifecycle():
 def test_store_never_sees_conflict():
     assert status_label(OrderStatus.CONFLICT, Role.STORE) == "Under review"
     assert status_label(OrderStatus.CONFLICT, Role.DISPATCHER) == "Conflict"
+
+
+# --------------------------------------------------------------------------- offline (D6)
+
+
+def test_a_silent_run_is_offline_and_a_parked_vehicle_is_not():
+    from waypoint_rules import OFFLINE_AFTER_MINUTES, is_offline
+
+    heard = datetime(2026, 9, 29, 5, 17)
+    assert OFFLINE_AFTER_MINUTES == 3
+    assert not is_offline(heard, datetime(2026, 9, 29, 5, 20), in_progress=True)  # exactly 3 minutes is not yet silent
+    assert is_offline(heard, datetime(2026, 9, 29, 5, 21), in_progress=True)  # H12: the deferral at 05:21 meets a silent phone
+    assert not is_offline(heard, datetime(2026, 9, 29, 5, 21), in_progress=False)
+    assert not is_offline(None, datetime(2026, 9, 29, 5, 21), in_progress=True)
