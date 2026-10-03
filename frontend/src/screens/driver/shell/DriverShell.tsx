@@ -5,7 +5,7 @@ import { useFieldClock, useNow } from "../../../field/clock/useClock";
 import { ConnectivityChip, FieldTabBar, FieldTopBar, NotificationBell, type ChipStatus, type FieldTab } from "../../../field/components";
 import { connectivity as connectivityStore, useConnectivity, type ConnectivitySnapshot } from "../../../field/offline";
 import { useCoverageGap, useDriverApi, useDriverSettings, useOutboxOpen, useT } from "../context/DriverContext";
-import { RUN_DATE } from "../fixtures";
+import { runDate } from "../../../field/clock/runDate";
 import { resolveConflictNow, setFailNextUpload } from "../api/mockDriverApi";
 import { OutboxSheet, type OutboxProgress, type OutboxPrototypeControls } from "../outbox/OutboxSheet";
 import type { OutboxRow } from "../outbox/outboxModel";
@@ -101,7 +101,7 @@ export function DriverShell({
   const wentOffline = !clock.fixed && connectivity.status === "offline";
   const spellKey = connectivity.lastSyncAt ?? 0;
   useEffect(() => {
-    if (wentOffline) void api.noteWentOffline(RUN_DATE, spellKey);
+    if (wentOffline) void api.noteWentOffline(runDate(), spellKey);
   }, [api, wentOffline, spellKey]);
   // A finished sync shows once, on the Run screen or over an open Outbox, never while recording.
   const recording = location.pathname.endsWith("/outcome");
@@ -121,7 +121,7 @@ export function DriverShell({
           setFailNextUpload(on);
         },
         onResolve: view.openConflictOutletId
-          ? (decision) => void resolveConflictNow(RUN_DATE, view.openConflictOutletId as string, clock.nowMs, decision, decision === "keep_partial" ? 10 : undefined)
+          ? (decision) => void resolveConflictNow(runDate(), view.openConflictOutletId as string, clock.nowMs, decision, decision === "keep_partial" ? 10 : undefined)
           : undefined,
       }
     : undefined;

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useFieldClock, useNow } from "../../../field/clock/useClock";
 import { onSyncResult, useConnectivity } from "../../../field/offline";
 import { useDriverApi } from "../context/DriverContext";
-import { RUN_DATE } from "../fixtures";
+import { runDate } from "../../../field/clock/runDate";
 import type { DriverRun } from "../types";
 import { queueResolution, restoreSyncView } from "./syncView";
 
@@ -38,12 +38,12 @@ export function useSyncWatcher(run: DriverRun | null): void {
 
   useEffect(() => {
     if (!enabled || !conflictOpen || !connected) return;
-    void api.getNotices(RUN_DATE);
+    void api.getNotices(runDate());
   }, [api, enabled, conflictOpen, connected, tick]);
 
   useEffect(() => {
     if (!enabled || !conflictOpen) return undefined;
-    return onSyncResult(() => void api.getNotices(RUN_DATE));
+    return onSyncResult(() => void api.getNotices(runDate()));
   }, [api, enabled, conflictOpen]);
 
   useEffect(() => {

@@ -7,7 +7,7 @@ import { Icon } from "../../../shared/ui/Icon";
 import { Mono } from "../../../shared/ui/Mono";
 import { Tag } from "../../../shared/ui/Tag";
 import { useDriverApi, useT } from "../context/DriverContext";
-import { RUN_DATE } from "../fixtures";
+import { runDate } from "../../../field/clock/runDate";
 import { DriverShell } from "../shell/DriverShell";
 import type { ProblemThread } from "../types";
 import styles from "./Issues.module.css";
@@ -26,7 +26,7 @@ export function IssuesScreen() {
   useEffect(() => {
     let active = true;
     // Re-read on every clock tick, so "Saved on phone" turns into "Waiting for Dispatch" once the sync has run.
-    void api.listProblems(RUN_DATE).then((next) => {
+    void api.listProblems(runDate()).then((next) => {
       if (active) setThreads(next);
     });
     return () => {

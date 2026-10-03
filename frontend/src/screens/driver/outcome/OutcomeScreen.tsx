@@ -13,7 +13,8 @@ import { LoadingSkeleton, StateScreen } from "../../../shared/ui/StateScreen";
 import { Tag } from "../../../shared/ui/Tag";
 import { useDriverApi, useT } from "../context/DriverContext";
 import { useDriverRun } from "../context/useDriverRun";
-import { RECENT_RECEIVERS, RUN_DATE } from "../fixtures";
+import { runDate } from "../../../field/clock/runDate";
+import { RECENT_RECEIVERS } from "../fixtures";
 import { buildOfflineBanner } from "../offlineBanner";
 import { DriverShell } from "../shell/DriverShell";
 import type { TFn } from "../stopFormat";
@@ -77,7 +78,7 @@ export function OutcomeScreen({ connectivityOverride, stopIdOverride, subviewOve
   const liveConnectivity = useConnectivity();
   const connectivity = connectivityOverride ?? liveConnectivity;
   const now = useNow();
-  const { run } = useDriverRun(RUN_DATE);
+  const { run } = useDriverRun(runDate());
 
   const [subview, setSubview] = useState<Subview>(subviewOverride ?? "form");
   const [sameOutcome, setSameOutcome] = useState(initial?.sameOutcome ?? true);
@@ -164,7 +165,7 @@ export function OutcomeScreen({ connectivityOverride, stopIdOverride, subviewOve
 
     setSaving(true);
     try {
-      await api.recordOutcome(RUN_DATE, stop.outletId, inputs);
+      await api.recordOutcome(runDate(), stop.outletId, inputs);
     } finally {
       setSaving(false);
     }

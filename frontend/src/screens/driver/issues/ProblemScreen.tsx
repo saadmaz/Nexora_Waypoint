@@ -8,7 +8,7 @@ import { Icon } from "../../../shared/ui/Icon";
 import { Mono } from "../../../shared/ui/Mono";
 import { useDriverApi, useT } from "../context/DriverContext";
 import { useDriverRun } from "../context/useDriverRun";
-import { RUN_DATE } from "../fixtures";
+import { runDate } from "../../../field/clock/runDate";
 import { CameraCapture } from "../outcome/CameraCapture";
 import { DriverShell } from "../shell/DriverShell";
 import { PROBLEM_TYPES, type ProblemRecord, type ProblemType } from "../types";
@@ -27,7 +27,7 @@ export function ProblemScreen() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const updatesClientId = params.get("updates") ?? undefined;
-  const { run } = useDriverRun(RUN_DATE);
+  const { run } = useDriverRun(runDate());
   const [parent, setParent] = useState<ProblemRecord | null>(null);
   const [step, setStep] = useState<Step>(updatesClientId ? "record" : "choose");
   const [type, setType] = useState<ProblemType | null>(null);
@@ -42,7 +42,7 @@ export function ProblemScreen() {
   useEffect(() => {
     if (!updatesClientId) return;
     let active = true;
-    void api.listProblems(RUN_DATE).then((threads) => {
+    void api.listProblems(runDate()).then((threads) => {
       const thread = threads.find((th) => th.parent.clientId === updatesClientId);
       if (!active || !thread) return;
       setParent(thread.parent);
@@ -73,7 +73,7 @@ export function ProblemScreen() {
     if (!type) return;
     setSaving(true);
     try {
-      const record = await api.recordProblem(RUN_DATE, {
+      const record = await api.recordProblem(runDate(), {
         type,
         ...(stopId ? { stopId } : {}),
         orderIds: stopId ? orderIds : [],

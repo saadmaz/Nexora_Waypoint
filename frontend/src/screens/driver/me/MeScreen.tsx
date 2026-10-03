@@ -5,7 +5,8 @@ import { Facts } from "../../../shared/ui/Facts";
 import { Tag } from "../../../shared/ui/Tag";
 import { LogOutButton } from "../../auth/AccountMenu";
 import { accountName } from "../../auth/accountName";
-import { RUN_DATE, VEHICLE } from "../fixtures";
+import { runDate } from "../../../field/clock/runDate";
+import { VEHICLE } from "../fixtures";
 import { useDriverRun } from "../context/useDriverRun";
 import { useDriverSettings, useT } from "../context/DriverContext";
 import { DriverShell } from "../shell/DriverShell";
@@ -31,7 +32,7 @@ export function MeScreen({ storageOverride }: MeScreenProps) {
   const { settings, setSunlight, setTextSize, setLanguage } = useDriverSettings();
   const [storage, setStorage] = useState(storageOverride ?? "…");
   // Who is signed in, and the vehicle of the run the phone holds (the server's in API mode); the fixture only until it loads.
-  const { run } = useDriverRun(RUN_DATE);
+  const { run } = useDriverRun(runDate());
   const name = accountName("driver");
   const vehicleId = run?.vehicle.id ?? VEHICLE.id;
 
