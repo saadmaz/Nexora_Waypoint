@@ -39,7 +39,8 @@ from .exception_logic import (
 from .planning import DeferralSpec, spec_of
 
 
-def _row(e: field.FieldException) -> ExceptionRow:
+def row_of(e: field.FieldException) -> ExceptionRow:
+    """A stored exception as plain data."""
     return ExceptionRow(
         e.id, e.kind.value, e.type, e.vehicle_id, e.trip_id, tuple(e.order_ids or ()), e.detail, e.raised_by,
         repo.naive(e.raised_at) or e.raised_at, e.status, dict(e.decision) if e.decision else None, e.decided_by, repo.naive(e.decided_at),
@@ -50,7 +51,7 @@ def _load(db: Session, exception_id: int) -> tuple[field.FieldException, Excepti
     e = db.get(field.FieldException, exception_id)
     if e is None:
         raise not_found(f"Exception {exception_id}")
-    return e, _row(e)
+    return e, row_of(e)
 
 
 def _service_date(db: Session, e: field.FieldException, now: datetime) -> date:

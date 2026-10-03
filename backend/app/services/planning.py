@@ -201,7 +201,8 @@ def _set_statuses(db: Session, placed: set[str], deferred: set[str], *, actor: s
         order_service.apply(db, row, OrderEvent.PLAN, actor=actor, commit=False, payload={"plan": version})
     for oid in sorted(deferred):
         row = rows.get(oid)
-        if row is None or row.status.value not in PLANNABLE or row.status is ServerStatus.DEFERRED:
+        # A stop can be deferred up to the moment it is delivered: Loaded and Departed may defer too (the lifecycle allows it).
+        if row is None or row.status.value not in (*PLANNABLE, "loaded", "departed") or row.status is ServerStatus.DEFERRED:
             continue
         order_service.apply(db, row, OrderEvent.DEFER, actor=actor, commit=False, payload={"plan": version})
 
@@ -443,8 +444,8 @@ def release_change(
     deferred = {s.order_id for s in specs}
     _set_statuses(db, placed, deferred, actor=actor_name, version=version.number)
     sync_rerun_copies(db, day.service_date, {s.order_id: s.next_run_date for s in specs}, now=now)
-    for spec in specs:
-        outlet_id = day.orders[spec.order_id].outlet_id
+    # Once per outlet: two orders at one stop share one history row.
+    for outlet_id in sorted({day.orders[spec.order_id].outlet_id for spec in specs}):
         db.merge(order_models.OutletServiceHistory(outlet_id=outlet_id, service_date=day.service_date, outcome=HistoryOutcome.DEFERRED))
     audit.record(
         db, actor=actor, entity_type="plan", entity_id=str(version.id), type=AuditType.PLAN_RELEASED,
@@ -501,8 +502,7 @@ def release(db: Session, service_date: date, *, send_notices: bool, actor: str, 
         )
 
     # An outlet whose order is deferred was skipped today: the continuity guard protects it next run.
-    for d in day.deferrals:
-        outlet_id = day.orders[d.order_id].outlet_id
+    for outlet_id in sorted({day.orders[d.order_id].outlet_id for d in day.deferrals}):
         db.merge(order_models.OutletServiceHistory(outlet_id=outlet_id, service_date=service_date, outcome=HistoryOutcome.DEFERRED))
     audit.record(
         db, actor=actor, entity_type="plan", entity_id=str(version.id), type=AuditType.PLAN_RELEASED,
