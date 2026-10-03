@@ -1126,6 +1126,7 @@ Start with these. Add a row the day a visible difference from the Day 5 frames i
 | DP-23 | R10 frames show routes and states for June and April dates | In API mode these three dates use the driver fixture | No plan exists for them in the seeded database |
 | DP-24 | "Other…" has no PIN | A typed name plus the guest PIN `0000` (extends DP-09) | A55 |
 | DP-25 | No Dispatch handling drawn for loader flags other than a failed vehicle check, or for driver problems | Stored, listed in D6, marked seen on open | G-14 |
+| DP-26 | §13: the scenario clock moves only by actions and the presenter | Scenario time ticks in real time between presenter jumps (`CLOCK_RATE`, default 1), so countdowns and ages update live; the presenter can pause and resume; timed jobs run themselves when the clock crosses them | Judges watch a live system, not a still one; a jump still works and still refuses to go backwards |
 
 **How departures reach the README.** Each role prompt writes its own README section and lists its departures there. Role branches do not number DP rows (they would collide). HH merges every role's list into this register on Sat 3 Oct, numbering at that point.
 
@@ -1151,7 +1152,7 @@ All under `/api/v1`, JSON, bearer auth, role-checked. Full schema at `/api/docs`
 
 | Interface · operation | Endpoint |
 |---|---|
-| **Shared** | `POST /auth/login` · `GET /me` · `GET /clock` · `POST /demo/advance` · `POST /demo/reset` |
+| **Shared** | `POST /auth/login` · `GET /me` · `GET /clock` · `POST /demo/advance` · `POST /demo/pause` · `POST /demo/resume` · `POST /demo/reset` |
 | **StoreApi** `getOrderDraft` · `placeOrders` · `editOrder` · `cancelOrder` | `GET /store/order-form?date=` · `POST /store/orders` · `PATCH /store/orders/{id}` · `POST /store/orders/{id}/cancel` |
 | `listDeliveries` · `listRecent` · `listIssues` | `GET /store/deliveries?from=&to=` (and `/{date}`) · `GET /store/history` · `GET /store/issues` |
 | `acknowledgeDeferral` · `answerReceivedQuestion` | `POST /store/deferrals/{id}/seen` · `POST /store/reviews/{conflictId}/answer` |

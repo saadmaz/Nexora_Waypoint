@@ -46,6 +46,12 @@ class Settings(BaseSettings):
     #: Scenario start (A38): Mon 28 Sep 2026 15:30, Asia/Colombo.
     scenario_start: datetime = datetime(2026, 9, 28, 15, 30, tzinfo=COLOMBO)
 
+    #: Scenario seconds per wall second: 1 is real time, 0 is paused, 60 is a minute a second (DP-26).
+    clock_rate: float = 1.0
+    #: Run the due jobs on a timer inside the API process. Off in tests, which drive the clock themselves.
+    job_loop: bool = True
+    job_loop_seconds: float = 5.0
+
     #: Demo passwords (O-4). Overridden in .env; listed in the README.
     demo_password: str = "waypoint-demo"
 

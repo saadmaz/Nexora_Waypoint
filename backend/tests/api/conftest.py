@@ -22,6 +22,9 @@ os.environ["DATA_DIR"] = str(Path(__file__).parent / "_no_data")  # does not exi
 os.environ["SEED_ON_START"] = "false"
 # The small world (pinned orders, six story vehicles) keeps these tests fast; test_seed_generated.py covers the full day.
 os.environ["SEED_GENERATED_ORDERS"] = "false"
+# Tests drive the clock themselves: it must hold still, and no timer may run jobs behind a test's back.
+os.environ["CLOCK_RATE"] = "0"
+os.environ["JOB_LOOP"] = "false"
 
 import pytest  # noqa: E402
 from alembic import command  # noqa: E402

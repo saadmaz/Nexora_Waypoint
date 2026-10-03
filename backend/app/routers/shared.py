@@ -20,7 +20,9 @@ def clock_out(db: Db) -> ClockOut:
     ops = list(db.scalars(select(CalendarDay.date).where(CalendarDay.is_operating)))
     # With no calendar loaded yet (empty database) the next calendar day stands in.
     service = service_day_for(now.replace(tzinfo=None), ops).service_date if ops else now.date()
-    return ClockOut(now=now, checkpoint=clock.checkpoint(db), service_date=service)
+    return ClockOut(
+        now=now, checkpoint=clock.checkpoint(db), service_date=service, rate=clock.rate(db), server_wall=clock.wall_now()
+    )
 
 
 @router.get("/clock", operation_id="getClock", response_model=ClockOut)
@@ -37,6 +39,22 @@ def advance_clock(body: AdvanceIn, db: Db, user: Dispatcher) -> ClockOut:
     (PRD §13); the store's own control moves a local scenario clock and never reaches the server.
     """
     clock.advance(db, body.to, actor=user.email)
+    db.commit()
+    return clock_out(db)
+
+
+@router.post("/demo/pause", operation_id="pauseClock", response_model=ClockOut)
+def pause_clock(db: Db, user: Dispatcher) -> ClockOut:
+    """Freeze scenario time where it is (DP-26). Countdowns stop and no timed job comes due until it is resumed."""
+    clock.pause(db, actor=user.email)
+    db.commit()
+    return clock_out(db)
+
+
+@router.post("/demo/resume", operation_id="resumeClock", response_model=ClockOut)
+def resume_clock(db: Db, user: Dispatcher) -> ClockOut:
+    """Let scenario time run again at the configured ``CLOCK_RATE`` (real time if that is 0)."""
+    clock.resume(db, actor=user.email)
     db.commit()
     return clock_out(db)
 

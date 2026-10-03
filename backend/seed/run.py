@@ -21,6 +21,7 @@ import yaml
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
+from app import clock
 from app.config import COLOMBO, get_settings
 from app.db import SessionLocal
 from app.models.comms import Clock, ScenarioEvent
@@ -39,7 +40,7 @@ SCENARIO_EVENTS = Path(__file__).parent / "scenario_events.yaml"
 #: Everything the seed or a demo run writes that is not reference data or accounts.
 OPERATIONAL_TABLES = [
     "notice_reads", "conflict_orders", "exception_orders", "device_record_orders", "demand_forecasts",
-    "audit_events", "notices", "scenario_events", "clock", "receipts", "conflicts", "exceptions", "attachments",
+    "audit_events", "notices", "scenario_events", "job_runs", "clock", "receipts", "conflicts", "exceptions", "attachments",
     "device_records", "runs", "load_gates", "load_checks", "acknowledgements", "trip_orders", "trips",
     "deferrals", "plan_versions", "fuel_ledger", "vehicle_day_status", "outlet_service_history", "orders",
 ]
@@ -77,12 +78,16 @@ def _orders_by_depot(db: Session, service_date: date) -> dict[str, int]:
 
 
 def seed_clock(db: Session) -> None:
-    start = get_settings().scenario_start
+    settings = get_settings()
+    start = settings.scenario_start
+    wall = clock.wall_now()
     row = db.get(Clock, 1)
     if row is None:
-        db.add(Clock(id=1, scenario_now=start, checkpoint=start, updated_at=start))
+        db.add(Clock(id=1, anchor_scenario=start, anchor_wall=wall, rate=settings.clock_rate, checkpoint=start, updated_at=start))
     else:
-        row.scenario_now = row.checkpoint = row.updated_at = start
+        row.anchor_scenario = row.checkpoint = row.updated_at = start
+        row.anchor_wall = wall
+        row.rate = settings.clock_rate
     db.flush()
 
 

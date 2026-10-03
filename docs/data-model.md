@@ -20,7 +20,7 @@ matching `_user_id` or `_pin_id` foreign key, so every action can be traced to a
 Order links are stored in join tables (`conflict_orders`, `exception_orders`, `device_record_orders`),
 never as arrays, so every reference is checked by the database.
 
-## Full ER diagram (37 tables)
+## Full ER diagram (38 tables)
 
 This is the latest v3 relational model supplied for the database foundation. It supersedes the
 older column lists in PRD §10. Nullable existing fields remain nullable unless this version requires
@@ -356,9 +356,15 @@ erDiagram
     }
     clock {
         integer id PK
-        timestamptz scenario_now
+        timestamptz anchor_scenario
+        timestamptz anchor_wall
+        float rate
         timestamptz checkpoint
         timestamptz updated_at
+    }
+    job_runs {
+        text key PK
+        timestamptz ran_at
     }
     notices {
         integer id PK
@@ -552,7 +558,7 @@ erDiagram
 | Orders and deferrals | `deferrals`, `orders`, `outlet_service_history` | One order record from the store's order to its receipt; every deferral is typed and explained. |
 | Plans, trips and loading | `acknowledgements`, `demand_forecasts`, `fuel_ledger`, `load_checks`, `load_gates`, `plan_versions`, `trip_orders`, `trips`, `vehicle_day_status` | Versioned plans, their trips and stops, vehicle availability, fuel, acknowledgements, the load gate and the weekly demand forecast. |
 | Field execution and reconciliation | `attachments`, `conflict_orders`, `conflicts`, `device_record_orders`, `device_records`, `exception_orders`, `exceptions`, `receipts`, `runs` | Runs, the idempotent device records from the outbox, photos, exceptions, conflicts, receipts and the order links for each. Stop outcomes are copied onto `trip_orders` when a device record is accepted. |
-| Communication, audit and the scenario clock | `audit_events`, `clock`, `notice_reads`, `notices`, `scenario_events` | Notices feed every role's updates, addressed by real foreign keys and read per person; audit events are append-only history. |
+| Communication, audit and the scenario clock | `audit_events`, `clock`, `job_runs`, `notice_reads`, `notices`, `scenario_events` | Notices feed every role's updates, addressed by real foreign keys and read per person; audit events are append-only history. |
 
 ## Changes in this version
 

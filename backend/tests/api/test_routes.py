@@ -20,6 +20,8 @@ SECTION_19 = [
     ("GET", "/me", "getMe"),
     ("GET", "/clock", "getClock"),
     ("POST", "/demo/advance", "advanceClock"),
+    ("POST", "/demo/pause", "pauseClock"),
+    ("POST", "/demo/resume", "resumeClock"),
     ("POST", "/demo/reset", "resetDemo"),
     # StoreApi
     ("GET", "/store/order-form", "getOrderDraft"),

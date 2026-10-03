@@ -32,7 +32,7 @@ def expected_schema():
 def test_metadata_matches_every_v3_table_column_type_and_key():
     expected, diagram = expected_schema()
     assert set(Base.metadata.tables) == set(expected)
-    assert len(expected) == 37
+    assert len(expected) == 38
     types = {"text": "TEXT", "integer": "INTEGER", "bigint": "BIGINTEGER", "float": "FLOAT", "date": "DATE",
              "time": "TIME", "boolean": "BOOLEAN", "uuid": "UUID", "jsonb": "JSONB", "text_array": "ARRAY"}
     for name, columns in expected.items():
