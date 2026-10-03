@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -114,6 +114,10 @@ def seed_pinned_orders(db: Session) -> dict[str, int]:
     # Deferred yesterday (continuity guard input) is kept as outlet history until the full history seed lands.
     for outlet in protected_outlets:
         db.merge(OutletServiceHistory(outlet_id=outlet, service_date=received_date, outcome=HistoryOutcome.DEFERRED))
+    # Days since served (impact on the store, priority): the outlet was last served that many days before the run.
+    for o in data["orders"]:
+        served = service_date - timedelta(days=int(o["days_since_served"]))
+        db.merge(OutletServiceHistory(outlet_id=o["outlet"], service_date=served, outcome=HistoryOutcome.SERVED))
     db.flush()
     return {"orders": len(data["orders"]), "unspecified": len(data.get("unspecified", []))}
 

@@ -66,6 +66,10 @@ def advance(db: Session, to: datetime, *, actor: str = "system") -> datetime:
         at=target,
     )
     db.flush()
+    # The jobs the clock owes between the old time and the new one (cutoff, draft, scripted events), in the same transaction.
+    from . import jobs
+
+    jobs.run_due(db, current.astimezone(COLOMBO).replace(tzinfo=None), target.astimezone(COLOMBO).replace(tzinfo=None))
     return target.astimezone(COLOMBO)
 
 
