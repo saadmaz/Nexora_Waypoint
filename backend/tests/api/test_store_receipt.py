@@ -150,7 +150,10 @@ def test_a_lower_count_makes_the_order_partial_and_keeps_the_reason(client: Test
     short = next(o for o in delivery["orders"] if o["id"] == "ORD2001")
     assert short["status"] == "partial"
     assert short["received"] == 10  # "ORD2001 - 10 of 12 units received" (A50)
-    assert next(o for o in delivery["orders"] if o["id"] == "ORD2002")["status"] == "delivered"
+    complete = next(o for o in delivery["orders"] if o["id"] == "ORD2002")
+    assert complete["status"] == "delivered"
+    # A line counted in full carries no count: S3 would print "8 of 8 units received" and the shortfall reason under it.
+    assert complete["received"] is None
     assert "Receipt confirmed" in delivery["tags"]
 
 

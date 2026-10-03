@@ -19,6 +19,7 @@
     "test:api-dispatcher": "node scripts/api-dispatcher-check.ts",
     "test:api-sync": "node scripts/api-sync-check.ts",
     "test:api-store": "node scripts/api-store-check.ts",
+    "test:store-live": "node scripts/store-live-walkthrough.ts",
     "test:loader-stories": "node scripts/loader-stories.ts"
   },
   "dependencies": {

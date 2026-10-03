@@ -202,7 +202,7 @@ See the deployed application and `/docs` for the full walkthrough.
 
 The store manager role, built in `frontend/`. Branch: `feature/store-manager-frontend`.
 
-**Status:** done for the hackathon scope: all four phases of the store frontend (S1 to S4) are built, verified and documented. Folder layout follows PRD v3 (see "Folder layout").
+**Status:** done for the hackathon scope. The store frontend (S1 to S4) is built, verified and documented, and the store runs on the real backend: all twelve `StoreApi` routes are built on `feature/order-management` and `feature/store-receipt`, and the screens were played end to end against them (see "The store against the real API"). Mock mode is still the default; `VITE_STORE_API=api` switches to the API. Folder layout follows PRD v3 (see "Folder layout").
 
 ### How to run
 
@@ -317,8 +317,14 @@ Older entries below name the files by the paths they had when the phase landed;
 | 6b | S4 Updates and history: all 7 frames (S4.1, S4.1 B, S4.2, S4.S A to D) at `/store/updates` and `/store/history`: feed grouped by day (Order/Plan/Delivery/Deferral/Review tags, each View opens its source S1/S2 state), Mark all read and All caught up, a settled review marked Resolved 06:44, History with All/Deferred/Partial filters, and the bell's unread dot on every screen. Added to the phase plan 30 Sep after finding it built in Figma but missing from the PRD text (gap G-10). Pulled from Figma section `585:40956` on 30 Sep | Done |
 | 7 | Routes, the state gallery and the scenario clock: the full route set, `/store/_states` (48 frames, each openable full screen with `?frame=`), one clock (`?at=` infers the day, `?date=` overrides) read through one `useNow()`, `data-theme="light"` on the store root, no clipping at 320 px | Done |
 | 8 | README (walkthrough, departures, run and gallery), accessibility pass, a full browser pass of every gallery frame against Figma, the hero flow end to end, typecheck, lint and build | Done |
+| Backend 1 | `feature/order-management`: the four order routes (S1 form, place, edit, cancel) | Done |
+| Backend 2 | `feature/store-receipt`: the eight remaining routes (S2 deliveries, S3 receipt and issues, S4 history and updates) | Done |
+| Backend 3 | `feature/store-receipt`: follow the v3 schema alignment, regenerate `schema.ts`, the live client check (`test:api-store`), the screens against the real API (`test:store-live`), and two backend fixes that pass found | Done |
 
-### The store's part of the judge walkthrough (mock mode)
+### The store's part of the judge walkthrough
+
+The steps below are written for mock mode, which needs no backend. In API mode the same steps play the same
+way; what differs is under "The store against the real API" just after.
 
 PRD v3 section 16 steps 1, 2, 3, 6, 8, 13, 15, 16 and 17, the Anusha (store) side, in one browser
 tab with no backend. The scenario clock starts at Mon 28 Sep 15:40 and the **presenter control**
@@ -366,6 +372,44 @@ asks for a reason and the order reads Partial), **Report issue** (S3.3, S3.4, th
 S3.7), an order placed after 16:00 (S1.4, placed for Wed), going offline while ordering or
 confirming (S1.5 A, S3.S C; both send on reconnect), and every state in the gallery at
 `/store/_states`.
+
+### The store against the real API
+
+```bash
+CORS_ORIGINS='["http://localhost:8080","http://localhost:5173"]' docker compose up -d --build db api
+cd frontend
+VITE_AUTH_API=api VITE_STORE_API=api npm run dev -- --port 5173 --strictPort
+# then sign in as store@waypoint.demo (password waypoint-demo)
+```
+
+Two scripts prove it. Each runs against the API in Docker and the app above, and each resets the demo at the start and the end:
+
+| Command | Proves |
+|---|---|
+| `npm run test:api-store` | The data. Drives the app's own `createApiStoreApi` through the hero day (S1 to S4), so a reply the mappers reject fails it. Asserts on the values the PRD fixes, not on HTTP 200 |
+| `npm run test:store-live` | The product. Plays the store's part of PRD §16 through the rendered screens: place and review (S1.1 to S1.3), Edit order and Cancel order offered, Edit withdrawn after 16:00, S1.4 rolled to Wed, S2.1 to S2.8 with Got it reaching D4 and the S2.7 question answered, the receipt with the report sheet and a short count, S3.7, S4.1 with Mark all read, S4.2. Then the browser goes offline, the `api` container is really stopped (the error state and its Try again), and the screen recovers. `--skip-offline` leaves out the part that stops the container |
+
+Both pass on the fallback seed (no `data/*.csv`). Pass `--base` when the app is not on `:5173`, and add that origin to `CORS_ORIGINS`.
+
+**What differs from the mock.**
+
+- **Two clocks.** In API mode the store still runs its own `?at=` clock and does not read the server's `/clock` (the dispatcher does). The server decides what each reply says, so its clock has to be moved with the presenter control or `/demo/advance`. A screen opened at an `?at=` the server has not reached shows the earlier state. Both scripts move the two together. Reading `/clock` in `StoreProvider`, as the dispatcher does, would remove the problem. It was left alone because it changes the shared provider and the mock path.
+- **`?state=`, `?preset=` and `?preview=` do nothing**, as "API mode" says. Every state is reached by the day actually happening on the server. The gallery stays a mock-mode tool.
+- **The outlet name.** The top bar reads "OUT084 · Waypoint Fresh Kandy" from the frontend's own `OUTLET` constant. S2 and S3 print `outletName` from the reply, which is `OUT084` on the fallback seed because `outlets.name` is NULL there. With the competition CSVs both show the real name. It is listed under "Still open" below.
+- **S2.4 and S2.5 on the fallback seed.** The planner puts OUT084 on VEH040 there, and the demo phone is bound to VEH039, so in the scripts the truck never departs and those two states are skipped with a message. On the competition data, or on the small world the backend tests use, they run.
+- **No neutral values.** Unlike the driver and loader clients, `apiStoreApi` fills nothing in. `storeMappers.ts` fails a reply that lacks a field as `unexpected_reply`. Both scripts ran without hitting one, so the store has no gap list.
+
+**Fixed on the backend because of this pass.** The contract is the mock and the PRD, so the backend changed and the mapper did not.
+
+- **S2.7 never showed the review.** While a review was open, the reply still carried the standing deferral. `DeliveriesPage` draws the deferral card ahead of everything else, so the store kept seeing "Deferred at your request" and never got "Why you're seeing this" or "Yes, we received it". `store_views.deferral_out` now holds the notice back while a review is open. The deferral itself still stands, so the arrival range stays off. The mock sends no deferral at that stage either. Test: `test_the_deferral_card_gives_way_to_the_review_while_it_is_open`.
+- **A line counted in full read as short.** `order.received` was sent for every counted line, but the screens read it as "this line came up short", so S3 printed "ORD2002 · 8 of 8 units received · Missing". It is now sent only for a short line, as the mock does. Test: the shortfall test in `test_store_receipt.py`.
+
+**Still open.** These go into the PR and were not fixed here:
+
+- `Outlet.units_to_kg` / `units_to_m3` is one pair per outlet, not one per temperature. It is unpopulated in the seed, so the A14 and A42 fallbacks ship and chilled and dry differ correctly. If it were filled, both temperatures would collapse to one factor. A `feature/backend-foundation` question.
+- `outlets.name` is NULL in the fallback seed, so `outletName` is the outlet id there (see above).
+- "A store account with no outlet is 403" is implemented but untested, because the seed has no such account.
+- The store's clock in API mode (see above).
 
 ### Checks run (phase 8)
 
@@ -1407,8 +1451,8 @@ CORS_ORIGINS='["http://localhost:8080","http://localhost:5173","http://localhost
 | Route | Status | Client that calls it | Proven |
 |---|---|---|---|
 | `GET /health`, `POST /auth/login`, `GET /me`, `GET /clock`, `POST /demo/advance`, `POST /demo/reset` | built | `apiAuthApi`, the field transport (`driver.getMe`) | live |
-| `GET /store/order-form`, `POST /store/orders`, `PATCH /store/orders/{id}`, `POST /store/orders/{id}/cancel` | 501 | `StoreApi` | stubbed `fetch`; live 501 |
-| `GET /store/deliveries`, `/deliveries/{day}`, `/history`, `/issues`, `/updates`; `POST /store/receipts`, `/issues`, `/deferrals/{id}/seen`, `/reviews/{id}/answer`, `/updates/read-all` | 501 | `StoreApi` | stubbed `fetch`; live 501 |
+| `GET /store/order-form`, `POST /store/orders`, `PATCH /store/orders/{id}`, `POST /store/orders/{id}/cancel` | built (`feature/order-management`) | `StoreApi` | backend tests; `test:api-store` and `test:store-live` live |
+| `GET /store/deliveries`, `/deliveries/{day}`, `/history`, `/issues`, `/updates`; `POST /store/receipts`, `/issues`, `/deferrals/{id}/seen`, `/reviews/{id}/answer`, `/updates/read-all` | built (`feature/store-receipt`) | `StoreApi` | backend tests; `test:api-store` and `test:store-live` live |
 | `GET /driver/runs/{day}`, `/driver/notices`, `/driver/history` | 501 | `DriverApi` (`history` has no caller yet) | stubbed `fetch`; live 501 |
 | `GET /loader/docks/{dock}`, `/docks/{dock}/diff`, `/vehicles/{id}/trips/{trip}`, `/exceptions/{id}`; `POST /loader/pins/verify` | 501 | `LoaderApi` | stubbed `fetch`; live 501 |
 | `POST /sync`, `POST /attachments` | 501 | the field transport | stubbed `fetch`; live 501 |

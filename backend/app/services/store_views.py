@@ -230,9 +230,13 @@ def _temps(day: DeliveryDay) -> str:
 
 
 def deferral_out(day: DeliveryDay) -> DeliveryDeferralOut | None:
-    """The deferral as S2 announces it: the type's own headline, the reason, who decided and the next run."""
+    """The deferral as S2 announces it: the type's own headline, the reason, who decided and the next run.
+
+    Not announced while a review is open: the driver delivered anyway, so the store is told Under review (S2.7), and
+    a deferral card drawn over that would hide the question it has to answer. The deferral itself still stands.
+    """
     d = _standing_deferral(day)
-    if d is None:
+    if d is None or (day.conflict is not None and day.conflict.resolved_at is None):
         return None
     next_run = d.next_run_date or day.next_run
     label = day_label(next_run) if next_run is not None else "the next run"
@@ -277,7 +281,9 @@ def _issue_tag(issues: list[IssueFacts], order: OrderFacts) -> str | None:
 
 
 def delivery_orders(day: DeliveryDay) -> list[DeliveryOrderOut]:
-    received = {r.order_id: r.units_received for r in day.receipts}
+    # `received` is the count of a line that came up short, as the mock sends it: S3 prints "10 of 12 units received"
+    # and the shortfall reason under it, which a line counted in full must not get.
+    counted = {r.order_id: r.units_received for r in day.receipts}
     return [
         DeliveryOrderOut(
             id=o.id,
@@ -285,7 +291,7 @@ def delivery_orders(day: DeliveryDay) -> list[DeliveryOrderOut]:
             units=o.units,
             status=_order_status(o, day),
             issue=_issue_tag(day.issues, o),
-            received=received.get(o.id),
+            received=counted[o.id] if o.id in counted and counted[o.id] < o.units else None,
         )
         for o in day.orders
     ]

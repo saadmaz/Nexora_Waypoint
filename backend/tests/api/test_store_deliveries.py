@@ -398,6 +398,18 @@ def test_a_synced_delivery_that_disagrees_reads_as_under_review(client: TestClie
     assert current_step(delivery) == "Receipt confirmed"  # the step that waits on the store (A45)
 
 
+def test_the_deferral_card_gives_way_to_the_review_while_it_is_open(client: TestClient, auth: Any, reseed: None) -> None:
+    cid = to_review(client, auth)
+    client.post(f"/api/v1/dispatcher/conflicts/{cid}/ask-store", headers=auth("dispatcher"))
+    delivery = day(client, auth)
+
+    # S2.7: the store is told Under review with the question. A deferral notice drawn over it would hide the question,
+    # so there is none, and the arrival range stays off because the deferral still stands.
+    assert delivery["deferral"] is None
+    assert delivery["review"]["conflictId"] == str(cid)
+    assert delivery["arrival"] is None
+
+
 def test_the_review_question_appears_only_once_dispatch_has_asked(client: TestClient, auth: Any, reseed: None) -> None:
     cid = to_review(client, auth)
     assert day(client, auth)["review"] is None  # A51: no ask, no question
