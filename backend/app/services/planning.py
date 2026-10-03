@@ -24,6 +24,7 @@ from waypoint_rules import (
     Plan,
     RefData,
     Trip,
+    check_plan,
     draft_plan,
     frees,
     impact_on_store,
@@ -259,6 +260,7 @@ def _save_draft(
     audit_type: AuditType,
     now: datetime,
 ) -> plans.PlanVersion:
+    _validate_for_write(day, plan, specs)
     version = _write_version(db, day.service_date, state=PlanState.DRAFT, note=note, actor=actor, now=now)
     trips = [t for t in plan.trips.values() if t.order_ids]
     _write_trips(db, version, trips, day.orders, day.ref)
@@ -278,6 +280,17 @@ def _save_draft(
     )
     db.flush()
     return version
+
+
+def _validate_for_write(day: DispatchDay, plan: Plan, specs: list[DeferralSpec]) -> None:
+    """Fail before any version/trip/status/audit mutation; database constraints remain the final safety net."""
+    expected = day.plannable | {oid for trip in plan.trips.values() for oid in trip.order_ids} | set(plan.deferred)
+    pool = {oid: order for oid, order in day.orders.items() if oid in expected}
+    reasons = {spec.order_id: (spec.type, spec.reason_text) for spec in specs}
+    violations = check_plan(plan, pool, day.ref, day.vehicle_days, deferral_reasons=reasons)
+    if len(reasons) != len(specs) or violations:
+        raise ApiError(409, "invalid_plan", "Plan validation failed before persistence",
+                       [v.message for v in violations] or ["Duplicate deferral records"])
 
 
 # ---- the system draft -------------------------------------------------------
@@ -436,6 +449,7 @@ def release_change(
     step: the dispatcher's decision is the review. Order statuses, next-run copies, the continuity history and the audit
     row follow, exactly as they do for a release. Notices are the caller's, because each change tells different people.
     """
+    _validate_for_write(day, plan, specs)
     version = _write_version(db, day.service_date, state=PlanState.RELEASED, note=note, actor=actor_name, now=now)
     trips = [t for t in plan.trips.values() if t.order_ids]
     _write_trips(db, version, trips, day.orders, day.ref)
@@ -472,6 +486,8 @@ def release(db: Session, service_date: date, *, send_notices: bool, actor: str, 
     failed = [text for text, ok in gate(day) if not ok]
     if failed:
         raise ApiError(409, "gate_blocked", "The plan can't be released yet: " + "; ".join(failed), failed)
+
+    _validate_for_write(day, plan_of(day), [spec_of(d) for d in day.deferrals])
 
     version = db.get(plans.PlanVersion, day.latest.id)
     assert version is not None
@@ -541,4 +557,3 @@ def notify_deferrals(db: Session, service_date: date, depot: str, *, actor: str)
         sent += 1
     db.flush()
     return sent
-

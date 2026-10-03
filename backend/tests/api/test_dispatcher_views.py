@@ -158,9 +158,11 @@ def test_a_plan_with_an_unmanned_vehicle_fails_the_gate():
 
 def test_an_unplaced_order_without_a_reason_fails_the_gate():
     day = _day()
-    day.deferrals = [d for d in day.deferrals if d.order_id != "ORD1017"]
+    missing = next(d.order_id for d in day.deferrals if d.type is DeferralType.POLICY)
+    day.deferrals = [d for d in day.deferrals if d.order_id != missing]
     failed = [text for text, ok in gate(day) if not ok]
-    assert failed == ["1 unplaced orders without a reason"]
+    assert "1 unplaced orders without a reason" in failed
+    assert "All trips pass every rule" in failed  # complete-plan validation also rejects a missing assignment
 
 
 def test_no_plan_yet_is_an_empty_plan_not_an_error():
@@ -244,16 +246,17 @@ def test_deferrals_view_counts_and_wording():
 
 def test_deferrals_view_reports_notices_sent_and_seen():
     day = _day()
+    policy_order = next(d.order_id for d in day.deferrals if d.type is DeferralType.POLICY)
     sent = datetime(2026, 9, 28, 23, 41)
     day.deferrals = [
-        replace(d, notice_sent_at=sent, notice_seen_at=sent + timedelta(minutes=6) if d.order_id == "ORD1017" else None)
+        replace(d, notice_sent_at=sent, notice_seen_at=sent + timedelta(minutes=6) if d.order_id == policy_order else None)
         for d in day.deferrals
     ]
     view = views.deferrals_view(day, "peliyagoda")
     assert view.notices.sent == 2 and view.notices.seen == 1
     assert view.banner.tone == "success" and view.banner.title.startswith("2 notices sent at 23:41 · 1 seen")
     told = {c.order_id: c.store_told for c in [*view.capacity, *view.policy]}
-    assert told["ORD1017"].state == "seen" and told["ORD1020"].state == "sent"
+    assert told[policy_order].state == "seen" and told["ORD1020"].state == "sent"
 
 
 def test_a_store_request_is_not_counted_as_forced():
@@ -273,7 +276,8 @@ def test_a_deferral_that_is_new_in_this_version_says_so():
     day = _day(with_second_version=True)
     day.earlier_deferred = {"ORD1020"}
     cards = {c.order_id: c for c in views.deferrals_view(day, "peliyagoda").capacity + views.deferrals_view(day, "peliyagoda").policy}
-    assert cards["ORD1020"].new_in_version is None and cards["ORD1017"].new_in_version == 2
+    policy_order = next(d.order_id for d in day.deferrals if d.type is DeferralType.POLICY)
+    assert cards["ORD1020"].new_in_version is None and cards[policy_order].new_in_version == 2
 
 
 # --------------------------------------------------------------------------- D2 capacity

@@ -273,6 +273,8 @@ def check_plan(
             item = deferral_reasons.get(oid)
             if item is None or not isinstance(item[0], DeferralType) or not item[1].strip():
                 out.append(Violation(RuleId.WHOLE, f"{oid} needs a deferral type and reason"))
+            elif oid in orders and item[0] is DeferralType.CAPACITY:
+                out.extend(validate_policy_action(orders[oid], item[0], ref, reason=item[1]))
     return _dedupe(out)
 
 

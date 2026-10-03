@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import copy
 
-from waypoint_rules import Move, MoveResult, Order, Plan, Trip, check_trip, check_vehicle_day
+from waypoint_rules import Move, MoveResult, Order, Plan, Trip, check_plan
 
 from .dispatch_model import DispatchDay
 
@@ -40,13 +40,10 @@ def gate(day: DispatchDay) -> list[tuple[str, bool]]:
     """The release checklist (PRD §12, D5): every trip legal, every deferral explained, every vehicle manned."""
     plan = plan_of(day)
     on_trips = [t for t in plan.trips.values() if t.order_ids]
-    legal = True
-    for trip in on_trips:
-        if check_trip(trip, day.orders, day.ref, day.vehicle_days.get(trip.vehicle_id)):
-            legal = False
-    for vid in {t.vehicle_id for t in on_trips}:
-        if check_vehicle_day(day.ref.vehicles[vid], plan.trips_of(vid), day.orders, day.ref, day.vehicle_days.get(vid)):
-            legal = False
+    expected = day.plannable | {oid for t in on_trips for oid in t.order_ids} | set(plan.deferred)
+    pool = {oid: order for oid, order in day.orders.items() if oid in expected}
+    reasons = {d.order_id: (d.type, d.reason_text) for d in day.deferrals}
+    legal = not check_plan(plan, pool, day.ref, day.vehicle_days, deferral_reasons=reasons)
     placed = {o for t in on_trips for o in t.order_ids}
     explained = {d.order_id for d in day.deferrals if d.reason_text}
     unplaced = sorted(day.plannable - placed - explained)

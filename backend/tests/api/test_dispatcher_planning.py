@@ -280,3 +280,50 @@ def test_the_planning_endpoints_are_dispatcher_only(client, auth):
 def test_an_unknown_plan_version_is_a_404(client, auth):
     res = client.get(PLAN + DEPOT + "&version=99", headers=auth("dispatcher"))
     assert res.status_code == 404 and res.json()["code"] == "not_found"
+
+
+def test_invalid_planner_result_is_rejected_before_version_write(client, auth, reseed, monkeypatch):
+    from dataclasses import replace
+
+    from sqlalchemy import func
+
+    from app.db import SessionLocal
+    from app.models.plans import PlanVersion, TripOrder
+    from app.services import planning
+
+    advance(client, auth, "2026-09-28T16:06:00+05:30")
+    real = planning.draft_plan
+
+    def corrupted(*args, **kwargs):
+        result = real(*args, **kwargs)
+        trip = result.trips[0]
+        repeated = replace(trip, stops=(*trip.stops, trip.stops[0]))
+        return replace(result, trips=(repeated, *result.trips[1:]))
+
+    monkeypatch.setattr(planning, "draft_plan", corrupted)
+    with SessionLocal() as db:
+        before = (db.scalar(select(func.count()).select_from(PlanVersion)), db.scalar(select(func.count()).select_from(TripOrder)))
+    res = client.post(PLAN + "/redraft", headers=auth("dispatcher"))
+    assert res.status_code == 409 and res.json()["code"] == "invalid_plan"
+    assert any("exactly once" in item for item in res.json()["details"])
+    with SessionLocal() as db:
+        assert before == (db.scalar(select(func.count()).select_from(PlanVersion)), db.scalar(select(func.count()).select_from(TripOrder)))
+
+
+def test_real_planning_api_walkthrough(client, auth, reseed):
+    """Redraft, read/capacity/deferrals, validate/apply, release through the real repository and PostgreSQL."""
+    advance(client, auth, "2026-09-28T16:06:00+05:30")
+    redraft = client.post(PLAN + "/redraft", headers=auth("dispatcher"))
+    assert redraft.status_code == 200 and redraft.json()["version"]["number"] == 2
+    plan = get_plan(client, auth)
+    for path in ("/capacity", "/deferrals"):
+        assert client.get("/api/v1/dispatcher" + path + DEPOT, headers=auth("dispatcher")).status_code == 200
+    order_id = next(oid for lane in plan["lanes"] for trip in lane["trips"] for stop in trip["stops"]
+                    if not stop["protected"] for oid in stop["orderIds"])
+    move = {"orderId": order_id, "to": {"deferred": True}}
+    check = client.post(PLAN + "/validate-move", json=move, headers=auth("dispatcher"))
+    assert check.status_code == 200 and check.json()["ok"]
+    applied = client.post(PLAN + "/moves", json={"moves": [move]}, headers=auth("dispatcher"))
+    assert applied.status_code == 200 and applied.json()["version"]["number"] == 3
+    released = client.post(PLAN + "/release", json={"sendNotices": True}, headers=auth("dispatcher"))
+    assert released.status_code == 200 and released.json()["version"]["state"] == "released"
