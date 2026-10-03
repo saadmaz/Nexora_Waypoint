@@ -52,7 +52,7 @@ def _close_queues(db: Session, now: datetime, ops: list[date]) -> int:
             order_service.apply(db, order, OrderEvent.CUTOFF, actor=SYSTEM, commit=False)
             db.add(
                 Notice(
-                    audience=f"store:{order.outlet_id}",
+                    audience_kind="store", outlet_id=order.outlet_id,
                     tag=NoticeTag.ORDER,
                     title="Your order is confirmed",
                     body=f"{order.id} is in the closed queue for {service_date:%a} {service_date.day} {service_date:%b}.",

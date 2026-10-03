@@ -66,7 +66,7 @@ def load_live(db: Session, service_date: date, now: datetime) -> LiveDay:
 
     for a in db.scalars(
         select(comms.AuditEvent)
-        .where(comms.AuditEvent.entity_type == "order", comms.AuditEvent.type == AuditType.OUTCOME_RECORDED, comms.AuditEvent.entity_id.in_(order_ids or {""}))
+        .where(comms.AuditEvent.type == AuditType.OUTCOME_RECORDED, comms.AuditEvent.order_id.in_(order_ids or {""}))
         .order_by(comms.AuditEvent.at, comms.AuditEvent.id)
     ):
         live.outcome_at[a.entity_id] = repo.naive(a.at) or a.at
@@ -91,8 +91,8 @@ def load_live(db: Session, service_date: date, now: datetime) -> LiveDay:
         )
 
     for a in db.scalars(select(plans.Acknowledgement).where(plans.Acknowledgement.plan_version_id.in_(list(number_of) or [0]))):
-        if a.vehicle_id:
-            live.acknowledged[a.vehicle_id] = max(live.acknowledged.get(a.vehicle_id, 0), number_of[a.plan_version_id])
+        if a.driver_vehicle_id:
+            live.acknowledged[a.driver_vehicle_id] = max(live.acknowledged.get(a.driver_vehicle_id, 0), number_of[a.plan_version_id])
 
     for e in db.scalars(select(field.FieldException).order_by(field.FieldException.id)):
         live.exceptions.append(row_of(e))

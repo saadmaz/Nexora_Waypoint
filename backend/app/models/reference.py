@@ -4,13 +4,24 @@ from __future__ import annotations
 
 from datetime import date, time
 
-from sqlalchemy import Boolean, Date, Float, ForeignKey, Integer, Text, Time
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Date,
+    Float,
+    ForeignKey,
+    ForeignKeyConstraint,
+    Integer,
+    Text,
+    Time,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from waypoint_rules.vocab import Brand, DockType, VehicleTemp, VehicleType
 
 from ..db import Base
-from ._types import JSON, enum_col
+from ._types import enum_col
 
 
 class Depot(Base):
@@ -22,6 +33,7 @@ class Depot(Base):
 
 class District(Base):
     __tablename__ = "districts"
+    __table_args__ = (UniqueConstraint("name", "depot_id", name="uq_districts_name_depot_id"),)
 
     name: Mapped[str] = mapped_column(Text, primary_key=True)
     depot_id: Mapped[str] = mapped_column(ForeignKey("depots.id"))
@@ -43,6 +55,9 @@ class ServiceAllowance(Base):
 
 class Outlet(Base):
     __tablename__ = "outlets"
+    __table_args__ = (
+        ForeignKeyConstraint(["district", "depot_id"], ["districts.name", "districts.depot_id"], name="fk_outlets_district_depot_id_districts"),
+    )
 
     id: Mapped[str] = mapped_column(Text, primary_key=True)
     name: Mapped[str | None] = mapped_column(Text)
@@ -93,11 +108,22 @@ class CalendarDay(Base):
 
 
 class TrafficSpeed(Base):
-    """"As supplied" (PRD §10): the columns are not known yet, so the row keeps the raw record."""
+    """Typical traffic by district and hour, normalized from the reference CSV."""
 
     __tablename__ = "traffic_speed"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    service_date: Mapped[date | None] = mapped_column(Date)
-    raw: Mapped[dict] = mapped_column(JSON, default=dict)
+    district: Mapped[str] = mapped_column(ForeignKey("districts.name"), primary_key=True)
+    hour: Mapped[int] = mapped_column(Integer, primary_key=True)
+    speed_factor: Mapped[float] = mapped_column(Float)
 
+
+class RoadCondition(Base):
+    __tablename__ = "road_conditions"
+    __table_args__ = (CheckConstraint("kind IN ('roadworks', 'flooding', 'incident')", name="road_kind"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    service_date: Mapped[date] = mapped_column(ForeignKey("calendar_days.date"), index=True)
+    district: Mapped[str] = mapped_column(ForeignKey("districts.name"), index=True)
+    kind: Mapped[str] = mapped_column(Text)
+    delay_factor: Mapped[float] = mapped_column(Float)
+    note: Mapped[str | None] = mapped_column(Text)

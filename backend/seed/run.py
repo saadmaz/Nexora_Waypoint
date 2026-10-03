@@ -38,6 +38,7 @@ SCENARIO_EVENTS = Path(__file__).parent / "scenario_events.yaml"
 
 #: Everything the seed or a demo run writes that is not reference data or accounts.
 OPERATIONAL_TABLES = [
+    "notice_reads", "conflict_orders", "exception_orders", "device_record_orders", "demand_forecasts",
     "audit_events", "notices", "scenario_events", "clock", "receipts", "conflicts", "exceptions", "attachments",
     "device_records", "runs", "load_gates", "load_checks", "acknowledgements", "trip_orders", "trips",
     "deferrals", "plan_versions", "fuel_ledger", "vehicle_day_status", "outlet_service_history", "orders",

@@ -274,7 +274,7 @@ def deferrals_of(db: Session, version_id: int, *, include_withdrawn: bool = Fals
 
 def acks_of(db: Session, version_id: int) -> list[AckRow]:
     return [
-        AckRow(a.actor_kind, a.dock, a.vehicle_id, naive(a.acknowledged_at) or a.acknowledged_at)
+        AckRow(a.actor_kind, a.depot_id, a.driver_vehicle_id, naive(a.acknowledged_at) or a.acknowledged_at)
         for a in db.scalars(select(plans.Acknowledgement).where(plans.Acknowledgement.plan_version_id == version_id))
     ]
 
@@ -295,7 +295,7 @@ def load_day(db: Session, service_date: date, now: datetime, *, version: int | N
         vehicle_days=days,
         availability=avail,
         drivers={d.vehicle_id: d.name for d in db.scalars(select(people.Driver))},
-        loaders={p.dock: p.name for p in db.scalars(select(people.PinPerson).order_by(people.PinPerson.id))},
+        loaders={p.depot_id: p.name for p in db.scalars(select(people.PinPerson).order_by(people.PinPerson.id))},
     )
     versions = versions_of(db, service_date)
     day.versions = [_version_row(v) for v in versions]

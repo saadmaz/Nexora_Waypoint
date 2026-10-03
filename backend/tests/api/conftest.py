@@ -1,6 +1,6 @@
 """API test setup.
 
-The tests need a PostgreSQL 16 database and **wipe it** (truncate + seed), so they never use ``DATABASE_URL``.
+The tests need a PostgreSQL 18.6 database and **wipe it** (truncate + seed), so they never use ``DATABASE_URL``.
 Point ``TEST_DATABASE_URL`` at a disposable database (CI does; locally ``waypoint_test`` in the Compose db).
 They always seed from the PRD §4c fallback, never from ``data/*.csv``.
 """

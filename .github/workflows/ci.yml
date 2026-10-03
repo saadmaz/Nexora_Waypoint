@@ -2,6 +2,8 @@ name: CI
 
 # Contributing §17: the same commands you run before opening a PR. A failure blocks the merge.
 on:
+  push:
+    branches: [feature/postgres18-v3-schema-alignment]
   pull_request:
     branches: [develop, main]
 
@@ -34,7 +36,7 @@ jobs:
         working-directory: backend
     services:
       postgres:
-        image: postgres:16
+        image: postgres:18.6
         env:
           POSTGRES_USER: waypoint
           POSTGRES_PASSWORD: waypoint
@@ -58,7 +60,20 @@ jobs:
           cache-dependency-path: backend/pyproject.toml
       - run: pip install -e ".[dev]"
       - run: ruff check .
-      - run: mypy
+      - run: mypy waypoint_rules
+      - name: PostgreSQL 18.6, fresh migration chain and seed
+        env:
+          DATABASE_URL: postgresql+psycopg://waypoint:waypoint@localhost:5432/waypoint_seed
+          DEMO_PASSWORD: waypoint
+          SEED_ON_START: "true"
+          DATA_DIR: /tmp/waypoint-no-competition-data
+        run: |
+          test "$(PGPASSWORD=waypoint psql -h localhost -U waypoint -d waypoint_test -Atc 'SHOW server_version')" = "18.6"
+          PGPASSWORD=waypoint psql -h localhost -U waypoint -d waypoint_test -c "CREATE DATABASE waypoint_seed"
+          alembic upgrade 0001
+          alembic upgrade 0002
+          alembic check
+          python -m seed.run
       - run: pytest
       - name: alembic heads must print exactly one head
         run: |
@@ -72,5 +87,20 @@ jobs:
       - uses: actions/checkout@v4
       - name: docker-compose.yml is valid
         run: docker compose config --quiet
-      - name: Images build
-        run: docker compose build
+      - name: Fresh isolated Compose installation
+        env:
+          COMPOSE_PROJECT_NAME: waypoint-schema-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          docker compose up --build --wait --wait-timeout 240
+          test "$(docker compose exec -T db psql -U waypoint -d waypoint -Atc 'SHOW server_version')" = "18.6"
+          docker compose exec -T api alembic current
+          docker compose exec -T api python -m seed.run
+          curl --fail http://localhost:8000/api/v1/health
+          curl --fail http://localhost:8080/api/v1/health
+          curl --fail http://localhost:8080/ | grep '<div id="root">'
+      - name: Startup logs
+        if: always()
+        run: docker compose -p waypoint-schema-${{ github.run_id }}-${{ github.run_attempt }} logs --no-color
+      - name: Remove only this job's disposable project
+        if: always()
+        run: docker compose -p waypoint-schema-${{ github.run_id }}-${{ github.run_attempt }} down --volumes

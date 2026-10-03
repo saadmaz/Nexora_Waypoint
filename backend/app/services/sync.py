@@ -48,6 +48,7 @@ from ..models.enums import (
     PlanState,
     SyncResultKind,
 )
+from ..models.people import PinPerson
 from ..schemas.sync import SyncIn, SyncOut, SyncRecordIn, SyncResultOut
 from . import audit
 from . import orders as order_service
@@ -172,7 +173,7 @@ def _run(db: Session, service_date: date, vehicle_id: str, trip_no: int) -> f.Ru
         select(f.Run)
         .join(plans.Trip, plans.Trip.id == f.Run.trip_id)
         .join(plans.PlanVersion, plans.PlanVersion.id == plans.Trip.plan_version_id)
-        .where(f.Run.vehicle_id == vehicle_id, plans.Trip.trip_no == trip_no, plans.PlanVersion.service_date == service_date)
+        .where(plans.Trip.vehicle_id == vehicle_id, plans.Trip.trip_no == trip_no, plans.PlanVersion.service_date == service_date)
         .order_by(f.Run.id.desc())
         .limit(1)
     ).first()
@@ -187,12 +188,14 @@ def _order(db: Session, order_id: object) -> order_models.Order:
     return order
 
 
-def _pin(person_id: object) -> int | None:
-    """``load_checks.checked_by_pin`` is the PIN person's id; the tablet sends it as text."""
+def _pin(db: Session, person_id: object) -> int | None:
+    """Resolve the tablet's numeric id or seeded name to a real PIN person."""
     try:
-        return int(str(person_id))
+        key = int(str(person_id))
     except ValueError:
-        return None
+        return db.scalar(select(PinPerson.id).where(PinPerson.name == str(person_id)))
+    person = db.get(PinPerson, key)
+    return person.id if person is not None else None
 
 
 def _status(order: order_models.Order) -> OrderStatus:
@@ -225,7 +228,7 @@ def _driver_vehicle(b: Batch, payload: dict[str, Any]) -> str:
 
 def _place(row: f.DeviceRecord, *, vehicle_id: str | None, trip: plans.Trip | None, outlet_id: str | None = None, order_ids: list[str] | None = None) -> None:
     row.vehicle_id = vehicle_id
-    row.trip_no = trip.trip_no if trip is not None else None
+    row.trip_id = trip.id if trip is not None else None
     row.outlet_id = outlet_id
     row.order_ids = list(order_ids or [])
 
@@ -248,11 +251,11 @@ def _driver_ack(db: Session, b: Batch, rec: SyncRecordIn, row: f.DeviceRecord) -
     _place(row, vehicle_id=vehicle, trip=trip)
     db.add(
         plans.Acknowledgement(
-            plan_version_id=version.id, actor_kind=ActorKind.DRIVER, actor_id=vehicle, vehicle_id=vehicle, acknowledged_at=_device_time(rec)
+            plan_version_id=version.id, actor_kind=ActorKind.DRIVER, driver_vehicle_id=vehicle, acknowledged_at=_device_time(rec)
         )
     )
     audit.record(
-        db, actor=rec.actor or b.user.display_name, entity_type="plan", entity_id=str(version.id), type=AuditType.PLAN_ACKNOWLEDGED,
+        db, actor_user_id=b.user.id, actor=rec.actor or b.user.display_name, entity_type="plan", entity_id=str(version.id), type=AuditType.PLAN_ACKNOWLEDGED,
         payload={"number": version.number, "vehicleId": vehicle, "clientId": str(rec.client_id)}, at=b.now,
     )
     _heard(b, service_date, vehicle, trip, version.number)
@@ -269,7 +272,7 @@ def _start_route(db: Session, b: Batch, rec: SyncRecordIn, row: f.DeviceRecord) 
     _place(row, vehicle_id=vehicle, trip=trip)
     run = _run(db, service_date, vehicle, trip.trip_no)
     if run is None:
-        run = f.Run(vehicle_id=vehicle, trip_id=trip.id, driver_id=vehicle)
+        run = f.Run(trip_id=trip.id)
         db.add(run)
     run.departed_at = run.departed_at or _device_time(rec)
     db.flush()
@@ -279,7 +282,7 @@ def _start_route(db: Session, b: Batch, rec: SyncRecordIn, row: f.DeviceRecord) 
         if _status(order) is OrderStatus.LOADED:
             order_service.apply(db, order, OrderEvent.DEPART, actor=actor, commit=False, payload={"vehicleId": vehicle, "clientId": str(rec.client_id)})
     audit.record(
-        db, actor=actor, entity_type="run", entity_id=str(run.id), type=AuditType.RUN_STARTED,
+        db, actor_user_id=b.user.id, actor=actor, entity_type="run", entity_id=str(run.id), type=AuditType.RUN_STARTED,
         payload={"vehicleId": vehicle, "trip": trip.trip_no, "departedAt": _device_time(rec).isoformat()}, at=b.now,
     )
     _heard(b, service_date, vehicle, trip, rec.plan_version_on_device)
@@ -296,7 +299,7 @@ def _arrival(db: Session, b: Batch, rec: SyncRecordIn, row: f.DeviceRecord) -> A
     trip = _trip(db, service_date, vehicle, on_device=rec.plan_version_on_device, outlet_id=outlet)
     _place(row, vehicle_id=vehicle, trip=trip, outlet_id=outlet)
     audit.record(
-        db, actor=rec.actor or b.user.display_name, entity_type="stop", entity_id=outlet, type=AuditType.ARRIVED,
+        db, actor_user_id=b.user.id, actor=rec.actor or b.user.display_name, entity_type="stop", entity_id=outlet, type=AuditType.ARRIVED,
         payload={"vehicleId": vehicle, "arrivedAt": _device_time(rec).isoformat(), "clientId": str(rec.client_id)}, at=b.now,
     )
     _heard(b, service_date, vehicle, trip, rec.plan_version_on_device)
@@ -378,7 +381,6 @@ def _open_conflict(
         offline = _offline_since(db, b, order.service_date, vehicle, trip)
         c = f.Conflict(
             order_ids=[],
-            device_record_ids=[],
             server_snapshot={
                 "status": "deferred",
                 "planVersion": version.number,
@@ -415,7 +417,6 @@ def _open_conflict(
     dev["receivedBy"] = dev.get("receivedBy") or rec.payload.get("receiverName")
     c.device_snapshot = dev
     c.order_ids = order_ids
-    c.device_record_ids = [*c.device_record_ids, str(rec.client_id)]
     db.flush()
 
     actor = rec.actor or b.user.display_name
@@ -423,21 +424,21 @@ def _open_conflict(
     if created:
         db.add(
             Notice(
-                audience=f"store:{order.outlet_id}", tag=NoticeTag.REVIEW, title="Your delivery is under review",
+                audience_kind="store", outlet_id=order.outlet_id, tag=NoticeTag.REVIEW, title="Your delivery is under review",
                 body="The driver's delivery record reached us after the deferral. Dispatch is checking it; nothing is needed from you yet.",
                 link={"screen": "deliveries", "conflictId": c.id}, refs={"conflictId": c.id, "orderIds": list(c.order_ids)}, created_at=b.now,
             )
         )
         db.add(
             Notice(
-                audience="dispatch", tag=NoticeTag.REVIEW, title=f"{order.outlet_id}: delivery and deferral disagree",
+                audience_kind="dispatcher", tag=NoticeTag.REVIEW, title=f"{order.outlet_id}: delivery and deferral disagree",
                 body=f"{vehicle} synced a delivery made on plan v{rec.plan_version_on_device}; the stop is deferred in v{version.number}.",
                 link={"screen": "conflict", "conflictId": c.id}, refs={"conflictId": c.id}, created_at=b.now,
             )
         )
     else:
         notice = db.scalars(
-            select(Notice).where(Notice.audience == f"store:{order.outlet_id}", Notice.tag == NoticeTag.REVIEW).order_by(Notice.id.desc()).limit(1)
+            select(Notice).where(Notice.outlet_id == order.outlet_id, Notice.tag == NoticeTag.REVIEW).order_by(Notice.id.desc()).limit(1)
         ).first()
         if notice is not None and (notice.refs or {}).get("conflictId") == c.id:
             notice.refs = {**notice.refs, "orderIds": list(c.order_ids)}
@@ -499,17 +500,17 @@ def _problem(db: Session, b: Batch, rec: SyncRecordIn, row: f.DeviceRecord) -> A
     e = f.FieldException(
         kind=ExceptionKind.DRIVER_PROBLEM, type=str(rec.payload.get("type") or "Other"), vehicle_id=vehicle,
         trip_id=trip.id if trip else None, order_ids=order_ids, units_short={}, detail=rec.payload.get("note"),
-        raised_by=rec.actor or b.user.display_name, raised_at=b.now, device_time=_device_time(rec), status=ExceptionStatus.OPEN,
+        raised_by=rec.actor or b.user.display_name, raised_by_user_id=b.user.id, raised_at=b.now, device_time=_device_time(rec), status=ExceptionStatus.OPEN,
     )
     db.add(e)
     db.flush()
     audit.record(
-        db, actor=rec.actor or b.user.display_name, entity_type="exception", entity_id=str(e.id), type=AuditType.ISSUE_REPORTED,
+        db, actor_user_id=b.user.id, actor=rec.actor or b.user.display_name, entity_type="exception", entity_id=str(e.id), type=AuditType.ISSUE_REPORTED,
         payload={"vehicleId": vehicle, "type": e.type, "orderIds": order_ids, "clientId": str(rec.client_id)}, at=b.now,
     )
     db.add(
         Notice(
-            audience="dispatch", tag=NoticeTag.CHANGE, title=f"{vehicle}: {e.type}", body=e.detail or "The driver recorded a problem.",
+            audience_kind="dispatcher", tag=NoticeTag.CHANGE, title=f"{vehicle}: {e.type}", body=e.detail or "The driver recorded a problem.",
             link={"screen": "exception", "exceptionId": e.id}, refs={"exceptionId": e.id, "orderIds": order_ids}, created_at=b.now,
         )
     )
@@ -565,12 +566,12 @@ def _loader_ack(db: Session, b: Batch, rec: SyncRecordIn, row: f.DeviceRecord) -
     person = str(rec.payload.get("personId") or rec.actor or "")
     db.add(
         plans.Acknowledgement(
-            plan_version_id=version.id, actor_kind=ActorKind.PIN_PERSON, actor_id=person, dock=dock if isinstance(dock, str) else None,
+            plan_version_id=version.id, actor_kind=ActorKind.PIN_PERSON, pin_person_id=_pin(db, person), depot_id=dock if isinstance(dock, str) else None,
             acknowledged_at=_device_time(rec),
         )
     )
     audit.record(
-        db, actor=str(rec.payload.get("personName") or rec.actor or b.user.display_name), entity_type="plan", entity_id=str(version.id),
+        db, actor_user_id=b.user.id, actor=str(rec.payload.get("personName") or rec.actor or b.user.display_name), entity_type="plan", entity_id=str(version.id),
         type=AuditType.PLAN_ACKNOWLEDGED, payload={"number": version.number, "dock": dock, "clientId": str(rec.client_id)}, at=b.now,
     )
     return Answer(SyncResultKind.ACCEPTED)
@@ -587,11 +588,11 @@ def _loader_check(db: Session, b: Batch, rec: SyncRecordIn, row: f.DeviceRecord)
     db.add(
         plans.LoadCheck(
             trip_id=trip.id, order_id=order.id, units_expected=order.units, units_loaded=loaded,
-            checked_by_pin=_pin(rec.payload.get("personId")), checked_at=_device_time(rec), client_id=rec.client_id,
+            checked_by_pin=_pin(db, rec.payload.get("personId")), checked_at=_device_time(rec), client_id=rec.client_id,
         )
     )
     audit.record(
-        db, actor=rec.actor or b.user.display_name, entity_type="order", entity_id=order.id, type=AuditType.LOAD_CHECKED,
+        db, actor_user_id=b.user.id, actor=rec.actor or b.user.display_name, entity_type="order", entity_id=order.id, type=AuditType.LOAD_CHECKED,
         payload={"vehicleId": vehicle, "trip": trip.trip_no, "unitsLoaded": loaded, "unitsExpected": order.units}, at=b.now,
     )
     return Answer(SyncResultKind.ACCEPTED)
@@ -601,7 +602,7 @@ def _confirm_loaded(db: Session, b: Batch, rec: SyncRecordIn, row: f.DeviceRecor
     vehicle, trip = _loader_trip(db, rec, b)
     _place(row, vehicle_id=vehicle, trip=trip)
     if db.get(plans.LoadGate, trip.id) is None:
-        db.add(plans.LoadGate(trip_id=trip.id, confirmed_at=_device_time(rec), confirmed_by_pin=_pin(rec.payload.get("personId"))))
+        db.add(plans.LoadGate(trip_id=trip.id, confirmed_at=_device_time(rec), confirmed_by_pin=_pin(db, rec.payload.get("personId"))))
     actor = str(rec.payload.get("personName") or rec.actor or b.user.display_name)
     order_ids = [to.order_id for to in db.scalars(select(plans.TripOrder).where(plans.TripOrder.trip_id == trip.id))]
     for order in db.scalars(select(order_models.Order).where(order_models.Order.id.in_(order_ids or [""])).order_by(order_models.Order.id)):
@@ -617,20 +618,22 @@ def _loader_exception(db: Session, b: Batch, rec: SyncRecordIn, row: f.DeviceRec
     _place(row, vehicle_id=vehicle, trip=trip, order_ids=order_ids)
     short = rec.payload.get("unitsShort")
     e = f.FieldException(
-        kind=ExceptionKind.LOADER_FLAG, type=str(rec.payload.get("type") or "Other"), vehicle_id=vehicle, trip_id=trip.id,
+        kind=ExceptionKind.LOADER_SHORTFALL, type=str(rec.payload.get("type") or "Other"), vehicle_id=vehicle, trip_id=trip.id,
         order_ids=order_ids, units_short={o: short for o in order_ids} if isinstance(short, int) else {},
         detail=rec.payload.get("note") or rec.payload.get("reason"), raised_by=str(rec.payload.get("personName") or rec.actor or ""),
+        raised_by_user_id=b.user.id,
+        raised_by_pin_id=_pin(db, rec.payload.get("personId")) if rec.type is DeviceRecordType.LOADER_EXCEPTION else None,
         raised_at=b.now, device_time=_device_time(rec), status=ExceptionStatus.OPEN,
     )
     db.add(e)
     db.flush()
     audit.record(
-        db, actor=e.raised_by or b.user.display_name, entity_type="exception", entity_id=str(e.id), type=AuditType.FLAG_RAISED,
+        db, actor_user_id=b.user.id, actor=e.raised_by or b.user.display_name, entity_type="exception", entity_id=str(e.id), type=AuditType.FLAG_RAISED,
         payload={"vehicleId": vehicle, "trip": trip.trip_no, "type": e.type, "orderIds": order_ids, "clientId": str(rec.client_id)}, at=b.now,
     )
     db.add(
         Notice(
-            audience="dispatch", tag=NoticeTag.CHANGE, title=f"{vehicle}: {e.type}", body=e.detail or "The dock flagged a loading problem.",
+            audience_kind="dispatcher", tag=NoticeTag.CHANGE, title=f"{vehicle}: {e.type}", body=e.detail or "The dock flagged a loading problem.",
             link={"screen": "exception", "exceptionId": e.id}, refs={"exceptionId": e.id, "orderIds": order_ids}, created_at=b.now,
         )
     )
@@ -706,6 +709,7 @@ def _one(db: Session, b: Batch, rec: SyncRecordIn) -> SyncResultOut:
             _fill(row, b, rec)
             if stored is None:
                 db.add(row)
+            db.flush()  # persist the device record before a load check references its client_id
             answer = HANDLERS[rec.type](db, b, rec, row)
             row.result = answer.result
             row.result_reason = answer.reason
@@ -718,7 +722,7 @@ def _one(db: Session, b: Batch, rec: SyncRecordIn) -> SyncResultOut:
         with db.begin_nested():
             row = db.get(f.DeviceRecord, rec.client_id) or f.DeviceRecord(client_id=rec.client_id)
             _fill(row, b, rec)
-            row.order_ids = [o for o in [rec.payload.get("orderId")] if isinstance(o, str)]
+            row.order_ids = []
             row.result = SyncResultKind.ERROR
             row.result_reason = reason
             db.add(row)
@@ -749,7 +753,7 @@ def sync(db: Session, user: CurrentUser, body: SyncIn) -> SyncOut:
     _hear(db, b)
     counts = {k.value: sum(1 for r in results if r.result is k) for k in SyncResultKind}
     audit.record(
-        db, actor=user.display_name, entity_type="device", entity_id=body.device_id, type=AuditType.SYNCED,
+        db, actor_user_id=user.id, actor=user.display_name, entity_type="device", entity_id=body.device_id, type=AuditType.SYNCED,
         payload={"records": len(results), **counts}, at=b.now,
     )
     db.flush()
