@@ -318,7 +318,10 @@ Older entries below name the files by the paths they had when the phase landed;
 | 7 | Routes, the state gallery and the scenario clock: the full route set, `/store/_states` (48 frames, each openable full screen with `?frame=`), one clock (`?at=` infers the day, `?date=` overrides) read through one `useNow()`, `data-theme="light"` on the store root, no clipping at 320 px | Done |
 | 8 | README (walkthrough, departures, run and gallery), accessibility pass, a full browser pass of every gallery frame against Figma, the hero flow end to end, typecheck, lint and build | Done |
 
-### The store's part of the judge walkthrough (mock mode)
+### The store's part of the judge walkthrough
+
+The steps below are written for mock mode, which needs no backend. In API mode the same steps play the same
+way; what differs is under "The store against the real API" just after.
 
 PRD v3 section 16 steps 1, 2, 3, 6, 8, 13, 15, 16 and 17, the Anusha (store) side, in one browser
 tab with no backend. The scenario clock starts at Mon 28 Sep 15:40 and the **presenter control**
@@ -366,6 +369,70 @@ asks for a reason and the order reads Partial), **Report issue** (S3.3, S3.4, th
 S3.7), an order placed after 16:00 (S1.4, placed for Wed), going offline while ordering or
 confirming (S1.5 A, S3.S C; both send on reconnect), and every state in the gallery at
 `/store/_states`.
+
+### The store against the real API
+
+All twelve `StoreApi` routes are built, so the store runs on the real backend. Mock mode is still the
+default; `VITE_STORE_API=api` switches over.
+
+```bash
+CORS_ORIGINS='["http://localhost:8080","http://localhost:5173"]' docker compose up -d --build db api
+cd frontend
+VITE_AUTH_API=api VITE_STORE_API=api npm run dev -- --port 5173 --strictPort
+# then sign in as store@waypoint.demo (password waypoint-demo)
+```
+
+Two scripts prove it. Each runs against the API in Docker and the app above, and each resets the demo at the
+start and the end, so run them on a database you do not mind re-seeding:
+
+| Command | Proves |
+|---|---|
+| `npm run test:api-store` | The data. Drives the app's own `createApiStoreApi` through the hero day (S1 to S4), so a reply the mappers reject fails it. Asserts on the values the PRD fixes, not on HTTP 200 |
+| `npm run test:store-live` | The product. Plays the store's part of PRD §16 through the rendered screens: place and review (S1.1 to S1.3), Edit order and Cancel order offered, Edit withdrawn after 16:00, S1.4 rolled to Wed, S2.1 to S2.8 with Got it reaching D4 and the S2.7 question answered, the receipt with the report sheet and a short count, S3.7, S4.1 with Mark all read, S4.2. Then the browser goes offline, the `api` container is really stopped (the error state and its Try again), and the screen recovers. `--skip-offline` leaves out the part that stops the container |
+
+Pass `--base` when the app is not on `:5173`, and add that origin to `CORS_ORIGINS`.
+
+**Both scripts currently report failures against `develop`** (10 from `test:api-store`, 1 from
+`test:store-live`). They are differences between the backend and the contract the mock and the PRD set, not
+faults in the scripts, and they are listed in the pull request. The four that matter:
+
+- **Timestamps carry an offset.** `receivedAt` and `updatedAt` come back as `2026-09-28T15:40:00+05:30`; §19
+  and the mock both say naive local ISO with no offset. `clockTime()` renders with `getHours()`, so the store
+  shows the right time only in Asia/Colombo: in Europe/London the same reply reads `11:10` instead of `15:40`.
+- **A shortfall is accepted with no reason.** PRD A50 says "Confirm with a shortfall" asks for a reason before
+  it sends. The sheet does ask, but `POST /store/receipts` takes a 9 of 12 with no reason and returns Partial,
+  so the rule lives only in the screen (§19: the frontend never re-implements a rule).
+- **The review question appears before Dispatch asks.** PRD A51 says the explanation ("Why you're seeing this")
+  shows on its own, and the question ("Did you receive this delivery?" with its two buttons) only once Dispatch
+  has asked. At 06:41, before any ask, the reply carries the `review` block and S2.7 draws the question.
+- **The journey can read Departed pending while Delivered is done**, and the proof's `driver` comes back empty.
+
+**What differs from the mock.**
+
+- **Two clocks.** In API mode the store still runs its own `?at=` clock and does not read the server's
+  `/clock` (the dispatcher does). The server decides what each reply says, so its clock has to be moved with
+  the presenter control or `/demo/advance`. A screen opened at an `?at=` the server has not reached shows the
+  earlier state. Both scripts move the two together. Reading `/clock` in `StoreProvider`, as the dispatcher
+  does, would remove the problem; it was left alone because it changes the shared provider and the mock path.
+- **`?state=`, `?preset=` and `?preview=` do nothing**, as "API mode" says. Every state is reached by the day
+  actually happening on the server. The gallery stays a mock-mode tool.
+- **The outlet name.** The top bar reads "OUT084 · Waypoint Fresh Kandy" from the frontend's own `OUTLET`
+  constant. S2 and S3 print `outletName` from the reply, which is `OUT084` on the fallback seed because
+  `outlets.name` is NULL there. With the competition CSVs both show the real name.
+- **S2.4 and S2.5 on the fallback seed.** The planner puts OUT084 on VEH040 there, and the demo phone is
+  bound to VEH039, so in the scripts the truck never departs and those two states are skipped with a message.
+  On the competition data, or on the small world the backend tests use, they run.
+- **No neutral values.** Unlike the driver and loader clients, `apiStoreApi` fills nothing in.
+  `storeMappers.ts` fails a reply that lacks a field as `unexpected_reply`. Both scripts ran without hitting
+  one, so the store has no gap list.
+
+**Open points.**
+
+- `Outlet.units_to_kg` / `units_to_m3` is one pair per outlet, not one per temperature. It is unpopulated in
+  the seed, so the A14 and A42 fallbacks ship and chilled and dry differ correctly. If it were filled, both
+  temperatures would collapse to one factor. A `feature/backend-foundation` question.
+- `outlets.name` is NULL in the fallback seed, so `outletName` is the outlet id there (see above).
+- "A store account with no outlet is 403" is implemented but untested, because the seed has no such account.
 
 ### Checks run (phase 8)
 
