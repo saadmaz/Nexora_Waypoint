@@ -83,19 +83,18 @@ async function session(): Promise<string> {
   });
 }
 
+/** Measured through Playwright rather than in the page, so this stays a Node script with no DOM types. */
 async function tooSmall(page: Page): Promise<string[]> {
-  return page.evaluate((min) => {
-    const bad: string[] = [];
-    for (const el of document.querySelectorAll("button, a[href], [role='button']")) {
-      const box = el.getBoundingClientRect();
-      if (box.width === 0 && box.height === 0) continue; // not rendered
-      if (box.height < min || box.width < min) {
-        const label = (el.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 24) || el.tagName;
-        bad.push(`${label} ${Math.round(box.width)}x${Math.round(box.height)}`);
-      }
+  const bad: string[] = [];
+  for (const target of await page.locator("button, a[href], [role='button']").all()) {
+    const box = await target.boundingBox();
+    if (box === null) continue; // not rendered
+    if (box.height < MIN_TAP_PX || box.width < MIN_TAP_PX) {
+      const label = (await target.innerText().catch(() => "")).replace(/\s+/g, " ").trim().slice(0, 24);
+      bad.push(`${label || "(no label)"} ${Math.round(box.width)}x${Math.round(box.height)}`);
     }
-    return [...new Set(bad)];
-  }, MIN_TAP_PX);
+  }
+  return [...new Set(bad)];
 }
 
 async function run(browser: Browser, stored: string): Promise<string[]> {
@@ -109,7 +108,7 @@ async function run(browser: Browser, stored: string): Promise<string[]> {
       colorScheme: "dark",
     });
     await context.addInitScript(
-      ([key, value]) => window.localStorage.setItem(key as string, value as string),
+      ([key, value]) => localStorage.setItem(key as string, value as string),
       ["wp.session.loader", stored],
     );
     const page = await context.newPage();
@@ -131,10 +130,11 @@ async function run(browser: Browser, stored: string): Promise<string[]> {
       await page.waitForTimeout(400);
       await page.screenshot({ path: `${outDir}/${device.name}__${screen.name}.png` });
 
-      const box = await page.evaluate(() => ({
-        scrollWidth: document.documentElement.scrollWidth,
-        clientWidth: document.documentElement.clientWidth,
-      }));
+      // Evaluated as source text, the way scripts/api-dispatcher-check.ts reads history.length: no DOM types needed.
+      const box = {
+        scrollWidth: (await page.evaluate("document.documentElement.scrollWidth")) as number,
+        clientWidth: (await page.evaluate("document.documentElement.clientWidth")) as number,
+      };
       const bleeds = box.scrollWidth > box.clientWidth + 1;
       const small = await tooSmall(page);
       // Read the page back, so a blank screen can never pass as a pass.
