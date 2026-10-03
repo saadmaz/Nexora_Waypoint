@@ -54,7 +54,7 @@ def test_metadata_matches_every_v3_table_column_type_and_key():
 
 def test_v3_nullability_uniques_checks_and_composite_links():
     tables = Base.metadata.tables
-    required = {"trip_orders": ["plan_version_id", "outcome"], "traffic_speed": ["district", "hour", "speed_factor"],
+    required = {"trip_orders": ["plan_version_id", "outcome"], "traffic_speed": ["district", "hour", "monsoon", "speed_factor"],
                 "notices": ["audience_kind"], "pin_people": ["depot_id"]}
     optional = {"trip_orders": ["actual_arrival", "actual_handling_end", "units_delivered", "outcome_record_id", "pod_attachment_id"],
                 "exceptions": ["raised_by_user_id", "raised_by_pin_id", "decided_by_user_id"],
@@ -185,14 +185,14 @@ def test_normalized_reference_csv_seed_is_idempotent(foundation_db, tmp_path, mo
     from seed import load_reference
 
     # Synthetic schema examples only; never read the competition datasets in tests.
-    (tmp_path / "traffic_speed.csv").write_text("district,hour,speed_index\nKandy,5,80\n")
+    (tmp_path / "traffic_speed.csv").write_text("district,hour,monsoon,speed_index\nKandy,5,False,80\n")
     (tmp_path / "road_conditions.csv").write_text("date,district,kind,disruption_index\n2026-09-29,Kandy,roadworks,50\n")
     monkeypatch.setitem(load_reference.COLUMNS["road_conditions.csv"], "kind", "kind")
     with SessionLocal() as db:
         for _ in range(2):
             assert load_reference._load_traffic(db, tmp_path) == 1
             assert load_reference._load_roads(db, tmp_path) == 1
-        assert db.get(TrafficSpeed, ("Kandy", 5)).speed_factor == 0.8
+        assert db.get(TrafficSpeed, ("Kandy", 5, False)).speed_factor == 0.8
         roads = db.query(RoadCondition).all()
         assert len(roads) == 1 and roads[0].delay_factor == 2
         db.rollback()
@@ -223,3 +223,40 @@ def test_v3_forecast_and_road_check_values(foundation_db):
             conn.execute(text("INSERT INTO road_conditions (service_date, district, kind, delay_factor) VALUES ('2026-09-29', 'Kandy', 'unknown', 1)"))
         assert exc.value.orig.diag.constraint_name == "ck_road_conditions_road_kind"
         conn.rollback()
+
+
+def test_traffic_speed_has_a_row_for_monsoon_and_for_not(foundation_db, tmp_path):
+    """The reference file has two rows per district and hour, one for a monsoon day: both load, neither replaces the other."""
+    from app.models import TrafficSpeed
+    from seed import load_reference
+
+    # Invented figures in the file's shape; never read the competition datasets in tests.
+    (tmp_path / "traffic_speed.csv").write_text(
+        "district,hour,monsoon,speed_index\nKandy,5,False,90\nKandy,5,True,60\nKandy,6,False,80\nKandy,6,True,50\n"
+    )
+    with SessionLocal() as db:
+        assert load_reference._load_traffic(db, tmp_path) == 4
+        assert db.get(TrafficSpeed, ("Kandy", 5, False)).speed_factor == 0.9
+        assert db.get(TrafficSpeed, ("Kandy", 5, True)).speed_factor == 0.6
+        assert db.query(TrafficSpeed).filter_by(district="Kandy").count() == 4
+        db.rollback()
+
+
+def test_traffic_speed_names_a_repeated_key_instead_of_a_database_error(foundation_db, tmp_path):
+    from seed import load_reference
+
+    (tmp_path / "traffic_speed.csv").write_text("district,hour,monsoon,speed_index\nKandy,5,False,90\nKandy,5,False,70\n")
+    with SessionLocal() as db:
+        with pytest.raises(load_reference.SeedConfigError, match=r"more than one row for district 'Kandy', hour 5, monsoon False"):
+            load_reference._load_traffic(db, tmp_path)
+        db.rollback()
+
+
+def test_traffic_speed_without_the_monsoon_column_names_the_header(foundation_db, tmp_path):
+    from seed import load_reference
+
+    (tmp_path / "traffic_speed.csv").write_text("district,hour,speed_index\nKandy,5,90\n")
+    with SessionLocal() as db:
+        with pytest.raises(load_reference.SeedConfigError, match="monsoon"):
+            load_reference._load_traffic(db, tmp_path)
+        db.rollback()
