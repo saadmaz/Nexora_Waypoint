@@ -15,7 +15,6 @@ type Schemas = components["schemas"];
  * CONTRACT GAPS. The loader's replies do not carry everything the screens show. `LOADER_GAPS` lists what is missing and each
  * is filled with a visibly neutral value, never a plausible-looking one:
  *   - a vehicle's kind, temperature class, capacities and kmPerL (so the capacity bar reads 0 of 0)
- *   - when the plan was released, who acknowledged it and when (the tablet's own record of the acknowledgement is used when it has one)
  *   - how far each vehicle's loading has got, and why a vehicle is held
  *   - each load line's brand, temperature, dock type, weight and volume, and its stop number (derived: the reverse of the load order)
  *   - who confirmed a load
@@ -23,7 +22,6 @@ type Schemas = components["schemas"];
  */
 export const LOADER_GAPS = [
   "vehicle: kind, temperature, capacities, kmPerL",
-  "dock: planReleasedAt, who acknowledged and when",
   "vehicle card: loading progress, held reason",
   "load line: brand (read from the outlet name), temperature, dock, weightKg, volumeM3",
   "load: confirmedBy",
@@ -99,11 +97,18 @@ export function mapDock(out: Schemas["DockOut"], dockId: DepotId, local: LocalLo
       status,
     };
   });
-  const acknowledgement = out.acknowledged ? (local.acknowledgement.get(dockId) ?? { version: out.planVersion, personId: "", personName: "", at: "" }) : undefined;
+  // The server knows the newest version this dock acknowledged, which may be older than the current plan: that is
+  // L1.5, "Plan changed, review". The tablet's own record wins only while it is ahead of the server, before it syncs.
+  const fromServer: DockAcknowledgement | undefined =
+    out.acknowledgedVersion != null
+      ? { version: out.acknowledgedVersion, personId: "", personName: out.acknowledgedBy ?? "", at: hhmm(out.acknowledgedAt) }
+      : undefined;
+  const fromTablet = local.acknowledgement.get(dockId);
+  const acknowledgement = fromTablet && (!fromServer || fromTablet.version >= fromServer.version) ? fromTablet : fromServer;
   return {
     dockId,
     planVersion: out.planVersion,
-    planReleasedAt: "",
+    planReleasedAt: hhmm(out.planReleasedAt),
     vehicleCount: ids.length,
     orderCount: out.vehicles.reduce((sum, v) => sum + v.orders, 0),
     firstDeparture: out.vehicles.map((v) => hhmm(v.departAt)).sort()[0] ?? "",
