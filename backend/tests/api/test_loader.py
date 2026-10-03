@@ -341,6 +341,26 @@ def test_the_decision_carries_the_keys_the_sheet_reads(client, auth, reseed):
     assert decision["replacement"] == replacement_of("VEH003")
 
 
+def test_a_swap_says_which_vehicle_stands_in_for_which(client, auth, reseed):
+    """The dock and the load list name both ends of a swap, so the screen needs no vehicle id of its own."""
+    release(client, auth)
+    flag_id = flag_veh003(client, auth)
+    advance(client, auth, "2026-09-29T03:00:00+05:30")
+    assert client.post(
+        f"/api/v1/dispatcher/exceptions/{flag_id}/decide", json={"decision": "swap_vehicle", "deferOrderIds": []}, headers=auth("dispatcher")
+    ).status_code == 200
+    replacement = replacement_of("VEH003")
+    assert replacement is not None
+
+    dock = client.get("/api/v1/loader/docks/peliyagoda", headers=auth("loader")).json()
+    by_vehicle = {v["vehicleId"]: v for v in dock["vehicles"]}
+    assert by_vehicle[replacement]["replaces"] == "VEH003"
+    assert all(v["replaces"] is None for k, v in by_vehicle.items() if k != replacement)
+
+    plan = client.get(f"/api/v1/loader/vehicles/{replacement}/trips/{by_vehicle[replacement]['tripNo']}", headers=auth("loader")).json()
+    assert plan["replaces"] == "VEH003"
+
+
 # ---- L4: what changed between two released versions -------------------------
 
 
