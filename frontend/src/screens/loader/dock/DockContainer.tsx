@@ -13,6 +13,7 @@ import type { DepotId } from "../../../domain/field";
 import type { DockView as DockViewModel, DockVehicleSummary } from "../types";
 import { Dock, type DockAlertModel } from "./Dock";
 import type { VehicleCardProps } from "./VehicleCard";
+import { LOADER_POLL_MS } from "../poll";
 
 function chipStatus(status: ConnectivityStatus): ChipStatus {
   return status === "online" ? "synced" : status;
@@ -48,7 +49,7 @@ export function DockContainer({
 
   useEffect(() => {
     if (clock.fixed) return;
-    const id = window.setInterval(() => query.refresh(), 15_000);
+    const id = window.setInterval(() => query.refresh(), LOADER_POLL_MS);
     return () => window.clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clock.fixed, query.refresh]);

@@ -10,6 +10,9 @@ import type { StoreOutlet } from "../domain/outlet";
 import { devMocks } from "../devMocks/registry";
 import { StoreContext } from "./StoreContext";
 
+/** How often the store's screens read the server again (PRD v3 section 9). */
+const STORE_POLL_MS = 10_000;
+
 const OUTLET_KEY = "waypoint.store.outlet";
 
 function savedOutlet(): StoreOutlet | null {
@@ -69,6 +72,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => server?.start(), [server]);
   const clockReady = useServerClockReady(server);
   const [clockVersion, setClockVersion] = useState(0);
+  // On the real API the screens look again every 10 s, and at once after a write (PRD section 9): the server's clock tells us.
+  useEffect(() => {
+    if (!server) return;
+    const id = window.setInterval(() => setClockVersion((v) => v + 1), STORE_POLL_MS);
+    const off = server.subscribe(() => setClockVersion((v) => v + 1));
+    return () => {
+      window.clearInterval(id);
+      off();
+    };
+  }, [server]);
   const jump = useMemo(
     () =>
       advanceTo

@@ -56,7 +56,7 @@ type Queued = { at: string; lines: { orderId: string; received: number }[]; reas
  */
 export function ReceiptPage({ outletId: outletIdProp, date, preview, openReport }: ReceiptPageProps) {
   const navigate = useNavigate();
-  const { api, now, unread, outlet } = useStore();
+  const { api, now, unread, outlet, clockVersion } = useStore();
   const outletId = outletIdProp ?? outlet.id;
   const desktop = useMediaQuery("(min-width: 1024px)");
   const currentTime = useNow();
@@ -112,7 +112,7 @@ export function ReceiptPage({ outletId: outletIdProp, date, preview, openReport 
     return () => {
       alive = false;
     };
-  }, [api, outletId, date, minute, online, attempt, preview, now, setQueued]);
+  }, [api, outletId, date, minute, online, attempt, preview, now, setQueued, clockVersion]);
 
   const reload = useCallback(() => setAttempt((n) => n + 1), []);
 

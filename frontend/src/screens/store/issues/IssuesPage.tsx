@@ -32,7 +32,7 @@ export type IssuesPageProps = {
 /** The Issues tab (S3.7): the problems the store has reported, or "No open issues". */
 export function IssuesPage({ outletId: outletIdProp, preview }: IssuesPageProps) {
   const navigate = useNavigate();
-  const { api, now, unread, outlet } = useStore();
+  const { api, now, unread, outlet, clockVersion } = useStore();
   const outletId = outletIdProp ?? outlet.id;
   const desktop = useMediaQuery("(min-width: 1024px)");
   const currentTime = useNow();
@@ -63,7 +63,7 @@ export function IssuesPage({ outletId: outletIdProp, preview }: IssuesPageProps)
     return () => {
       alive = false;
     };
-  }, [api, outletId, minute, online, attempt, preview, now]);
+  }, [api, outletId, minute, online, attempt, preview, now, clockVersion]);
 
   const reload = useCallback(() => setAttempt((n) => n + 1), []);
   const syncState: SyncState = !online ? "offline" : "synced";

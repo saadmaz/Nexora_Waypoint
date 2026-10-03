@@ -44,7 +44,7 @@ type Loaded = { deliveries: Delivery[]; recent: RecentOrderDay[]; at: string };
  */
 export function DeliveriesPage({ outletId: outletIdProp, date, preview }: DeliveriesPageProps) {
   const navigate = useNavigate();
-  const { api, now, unread, refreshUnread, outlet: storeOutlet } = useStore();
+  const { api, now, unread, refreshUnread, outlet: storeOutlet, clockVersion } = useStore();
   const outletId = outletIdProp ?? storeOutlet.id;
   const desktop = useMediaQuery("(min-width: 1024px)");
   const currentTime = useNow();
@@ -81,7 +81,7 @@ export function DeliveriesPage({ outletId: outletIdProp, date, preview }: Delive
     return () => {
       alive = false;
     };
-  }, [api, outletId, date, minute, online, attempt, preview, now]);
+  }, [api, outletId, date, minute, online, attempt, preview, now, clockVersion]);
 
   const reload = useCallback(() => setAttempt((n) => n + 1), []);
 

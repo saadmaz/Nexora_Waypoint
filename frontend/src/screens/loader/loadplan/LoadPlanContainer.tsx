@@ -10,6 +10,7 @@ import type { LoadPlanOrderRow } from "../types";
 import { FlagContainer } from "../flag/FlagContainer";
 import { LoadPlan, type CapacityStat, type LoadPlanRow, type SwapBanner } from "./LoadPlan";
 import type { ChipStatus } from "../../../field/components";
+import { LOADER_POLL_MS } from "../poll";
 
 const DOCK_LABEL: Record<string, string> = { peliyagoda: "Peliyagoda dock", kandy: "Kandy dock" };
 const DOCK_TYPE_LABEL: Record<string, string> = { rear_dock: "Rear dock", street: "Street", mall_bay: "Mall bay" };
@@ -63,7 +64,7 @@ export function LoadPlanContainer({ flagOpen = false, embedded = false, vehicleI
 
   useEffect(() => {
     if (clock.fixed) return;
-    const id = window.setInterval(() => query.refresh(), 15_000);
+    const id = window.setInterval(() => query.refresh(), LOADER_POLL_MS);
     return () => window.clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clock.fixed, query.refresh]);

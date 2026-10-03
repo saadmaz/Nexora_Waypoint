@@ -47,7 +47,7 @@ const FILTERS: Filter[] = ["All", "Deferred", "Partial"];
 export function UpdatesPage({ outletId: outletIdProp, view, preview }: UpdatesPageProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { api, now, refreshUnread, outlet } = useStore();
+  const { api, now, refreshUnread, outlet, clockVersion } = useStore();
   const outletId = outletIdProp ?? outlet.id;
   const desktop = useMediaQuery("(min-width: 1024px)");
   const currentTime = useNow();
@@ -81,7 +81,7 @@ export function UpdatesPage({ outletId: outletIdProp, view, preview }: UpdatesPa
     return () => {
       alive = false;
     };
-  }, [api, outletId, minute, online, attempt, preview, now]);
+  }, [api, outletId, minute, online, attempt, preview, now, clockVersion]);
 
   const reload = useCallback(() => setAttempt((n) => n + 1), []);
 
