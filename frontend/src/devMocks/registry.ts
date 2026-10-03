@@ -6,7 +6,7 @@
 export type DevMocks = {
   store: typeof import("../api/mockStoreApi");
   storePresets: typeof import("../app/presets");
-  scenarioClock: typeof import("../app/scenarioClock");
+  scenarioClock: typeof import("../app/mockScenarioClock");
   auth: typeof import("../screens/auth/mockAuthApi");
   dispatcher: typeof import("../screens/dispatcher/mock/mockDispatcherApi");
   loader: typeof import("../screens/loader/mockLoaderApi");

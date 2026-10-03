@@ -107,6 +107,8 @@ export function TripsRoute() {
 
   const seeded = useRef(false);
   useEffect(() => {
+    // `?ui=` opens a frame the design shows mid-gesture, with seed orders. It is a development aid, not a feature.
+    if (!import.meta.env.DEV) return;
     const ui = params.get("ui");
     if (!view || (!ui && !params.get("moveTo")) || seeded.current) return;
     seeded.current = true;
