@@ -6,6 +6,7 @@ The planner draws its own plan, so these tests start from the hand-made v3 in ``
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime
 
 import pytest
@@ -162,9 +163,40 @@ def test_the_recommendation_names_the_order_and_what_it_frees():
     rec = ex.exception_view(_day(), _row(), next_run=NEXT_RUN).recommendation
     assert rec is not None
     assert (rec.order_id, rec.outlet_id, rec.title, rec.kind) == ("ORD1002", "OUT009", "OUT009: chilled order", DeferralType.POLICY)
+    assert rec.order_ids == ["ORD1002"]
     assert rec.frees == "210 kg / 1.4 m³" and rec.next_run == "Wed 30 Sep" and rec.decided_by == "Recommended · 03:00"
     assert rec.reason == "Vehicle unavailable · Least surplus of the 4 equal-impact orders"
     assert [(p.outlet_id, p.order_id) for p in rec.protected] == [("OUT012", "ORD1001")]
+
+
+def _short_replacement_day() -> DispatchDay:
+    """A replacement 510 kg short, which no single order closes: on the generated day VEH003 carries ten orders."""
+    day = _day()
+    small = replace(REF.vehicles["VEH036"], weight_cap_kg=650.0)
+    day.ref = replace(REF, vehicles={**REF.vehicles, "VEH036": small})
+    return day
+
+
+def test_a_gap_that_needs_several_orders_recommends_the_whole_set():
+    view = ex.exception_view(_short_replacement_day(), _row(), next_run=NEXT_RUN)
+    rec = view.recommendation
+    assert rec is not None and view.replacement is not None and view.replacement.vehicle_id == "VEH036"
+    assert len(rec.order_ids) == 3 and rec.order_id == rec.order_ids[0]
+    assert "ORD1001" not in rec.order_ids  # the protected order is never part of the set
+    assert rec.title.endswith("3 orders") and rec.frees.startswith(f"{sum(ORDERS[o].weight_kg for o in rec.order_ids):,.0f} kg")
+
+
+def test_deferring_only_the_first_of_the_set_is_refused_but_the_set_is_accepted():
+    day = _short_replacement_day()
+    rec = ex.exception_view(day, _row(), next_run=NEXT_RUN).recommendation
+    assert rec is not None
+    replacement = day.ref.vehicles["VEH036"]
+
+    one = ex.build_swap(day, "VEH003", replacement, [rec.order_id])
+    assert RuleId.KG in {v.rule for v in one.violations}  # what the server answered with illegal_swap
+
+    whole = ex.build_swap(day, "VEH003", replacement, rec.order_ids)
+    assert whole.violations == [] and set(rec.order_ids) <= set(whole.plan.deferred)
 
 
 def test_the_candidates_include_the_protected_order_but_not_as_a_choice():

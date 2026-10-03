@@ -902,6 +902,8 @@ class ExceptionBefore(ApiModel):
 
 class ExceptionRecommendation(ApiModel):
     order_id: str
+    #: Every order to defer so the replacement fits. ``order_id`` is the first.
+    order_ids: list[str]
     outlet_id: str
     title: str
     kind: DeferralType
@@ -986,7 +988,7 @@ class ForecastWeek(ApiModel):
     #: "Mon 5 Oct": the ISO week's Monday.
     monday: str
     percent: float
-    status: Literal["Short", "Tight"]
+    status: Literal["Short", "Tight", "OK"]
     flags: list[str]
     lever: str
     gap: ForecastGap | None = None
