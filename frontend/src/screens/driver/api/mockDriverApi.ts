@@ -23,11 +23,33 @@ import {
   PLAN_VERSIONS,
   V5_DEFERRAL,
   V5_DEFERRED_ORDERS,
+  EARLIER_RUNS,
+  RUN_DATE,
+  HERO_GPS_LEGS_KM,
+  HERO_PLANNED_KM,
   VEHICLE,
   baseStops,
 } from "../fixtures";
+import { runDistance } from "../finish/runDistance";
+import { todayRow } from "../history/historyView";
+import { problemThreads } from "../issues/problemThreads";
 import { outboxRows } from "../outbox/outboxModel";
-import type { ConflictDetail, DriverNotice, DriverRun, DriverStop, LoaderConfirmation, OutcomeInput, RecordedOutcome, Resolution } from "../types";
+import type {
+  ConflictDetail,
+  DriverNotice,
+  DriverRun,
+  DriverStop,
+  FinishedRun,
+  HistoryDay,
+  LoaderConfirmation,
+  OutcomeInput,
+  ProblemInput,
+  ProblemRecord,
+  ProblemThread,
+  RecordedOutcome,
+  Resolution,
+  RunDistance,
+} from "../types";
 import type { DriverApi } from "./DriverApi";
 
 export type LocalStopState = { arrivalAt?: string; outcomes: Record<string, RecordedOutcome> };
@@ -47,6 +69,10 @@ export type LocalRunState = {
   /** Set once a sync has reached the server after v5's release, so `getRun` can show it (field
    * conventions handoff 7: the phone never shows a plan change it did not receive). */
   knownServerVersion: number | null;
+  /** R6: problems recorded on the road, oldest first. Optional, so a run saved before R6 existed still reads. */
+  problems?: ProblemRecord[];
+  /** R9: the run once it is closed. */
+  finished?: FinishedRun | null;
 };
 
 export function defaultLocalState(): LocalRunState {
@@ -229,6 +255,20 @@ export function registerDriverHandlers(now: () => number): void {
     }
     return { result: "accepted", groupKey: record.groupKey };
   });
+
+  registerMockHandler("driver.problem", () => ({ ok: true }));
+  registerMockHandler("driver.finishRun", () => ({ ok: true }));
+  // A problem is a fact (reconciliation rule 1): always accepted. Dispatch decides what happens next (G-14).
+  for (const type of ["driver.problem", "driver.finishRun"] as const) {
+    registerSyncHandler(type, async (record) => {
+      if (processedClientIds.has(record.clientId)) return { result: "duplicate", groupKey: record.groupKey };
+      await request(type, record.payload);
+      processedClientIds.add(record.clientId);
+      const payload = record.payload as { date: string };
+      await noteServerContact(payload.date, now());
+      return { result: "accepted", groupKey: record.groupKey };
+    });
+  }
 
   registerBlobUploader(async (blob) => {
     if (consumeFailNextUpload()) throw new Error("WP-SYNC-409");
@@ -557,7 +597,104 @@ export function createMockDriverApi(now: () => number, options: MockDriverApiOpt
     await writeState(date, local);
   }
 
-  return { getRun, downloadRun, acknowledgePlan, startRoute, recordArrival, recordOutcome, getNotices, markNoticesRead, noteWentOffline };
+  async function recordProblem(date: string, input: ProblemInput): Promise<ProblemRecord> {
+    const local = await readState(date);
+    const record: ProblemRecord = { ...input, clientId: crypto.randomUUID(), savedAt: formatTime(now()) };
+    local.problems = [...(local.problems ?? []), record];
+    await writeState(date, local);
+    if (!isolated) {
+      const blobIds = input.photoBlobId ? [input.photoBlobId] : [];
+      // The photo is tied to its record before the record is queued, so it never uploads ahead of it.
+      await Promise.all(blobIds.map((id) => attachBlob(id, record.clientId)));
+      await enqueue({
+        clientId: record.clientId,
+        type: "driver.problem",
+        payload: {
+          date,
+          type: input.type,
+          ...(input.stopId ? { stopId: input.stopId, outletId: input.stopId } : {}),
+          orderIds: input.orderIds,
+          note: input.note,
+          blobIds,
+          ...(input.updatesClientId ? { updatesClientId: input.updatesClientId } : {}),
+        },
+        actor: DRIVER_ACTOR_ID,
+        planVersionOnDevice: local.acknowledgedVersion,
+        blobIds: blobIds.length > 0 ? blobIds : undefined,
+        groupKey: input.stopId,
+      });
+    }
+    return record;
+  }
+
+  async function listProblems(date: string): Promise<ProblemThread[]> {
+    const records = (await readState(date)).problems ?? [];
+    const statuses = new Map<string, Awaited<ReturnType<typeof getRecord>>>();
+    if (!isolated) for (const r of records) statuses.set(r.clientId, await getRecord(r.clientId));
+    return problemThreads(records, (clientId) => statuses.get(clientId)?.status);
+  }
+
+  async function getHistory(date: string): Promise<HistoryDay[]> {
+    const [run, local] = await Promise.all([getRun(date), readState(date)]);
+    const today = todayRow(run, local.finished ?? null, connectivity.getSnapshot().waitingCount === 0);
+    // The earlier runs are the hero week's (A34); a phone on another date has only its own run.
+    const earlier = date === RUN_DATE ? EARLIER_RUNS : [];
+    return [...(today ? [today] : []), ...earlier];
+  }
+
+  function plannedDistance(date: string): RunDistance {
+    // The scenario's tracked legs (A24) on the hero run; elsewhere the planned distance (DP-14).
+    return runDistance({ trackedLegsKm: date === RUN_DATE ? HERO_GPS_LEGS_KM : null, plannedKm: HERO_PLANNED_KM, kmPerL: VEHICLE.kmPerL });
+  }
+
+  async function getRunDistance(date: string): Promise<RunDistance> {
+    return (await readState(date)).finished?.distance ?? plannedDistance(date);
+  }
+
+  async function getFinishedRun(date: string): Promise<FinishedRun | null> {
+    return (await readState(date)).finished ?? null;
+  }
+
+  async function finishRun(date: string): Promise<FinishedRun> {
+    const local = await readState(date);
+    if (local.finished) return local.finished;
+    const finished: FinishedRun = { at: formatTime(now()), distance: plannedDistance(date) };
+    local.finished = finished;
+    await writeState(date, local);
+    if (!isolated) {
+      await enqueue({
+        type: "driver.finishRun",
+        payload: {
+          date,
+          at: finished.at,
+          gpsKm: finished.distance.totalKm,
+          gpsGapFilledKm: finished.distance.gapFilledKm,
+          fuelLEst: finished.distance.fuelL,
+        },
+        actor: DRIVER_ACTOR_ID,
+        planVersionOnDevice: local.acknowledgedVersion,
+      });
+    }
+    return finished;
+  }
+
+  return {
+    getRun,
+    downloadRun,
+    acknowledgePlan,
+    startRoute,
+    recordArrival,
+    recordOutcome,
+    getNotices,
+    markNoticesRead,
+    noteWentOffline,
+    recordProblem,
+    listProblems,
+    getHistory,
+    getRunDistance,
+    getFinishedRun,
+    finishRun,
+  };
 }
 
 /** The loader confirms at a fixed scenario time ("04:50"); the device date is only used for the "today" guard. */

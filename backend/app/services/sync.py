@@ -34,7 +34,7 @@ from ..deps import CurrentUser, require_vehicle
 from ..errors import ApiError, forbidden
 from ..models import field as f
 from ..models import orders as order_models
-from ..models import plans
+from ..models import plans, reference
 from ..models.comms import Notice
 from ..models.enums import (
     ActorKind,
@@ -50,7 +50,7 @@ from ..models.enums import (
 )
 from ..models.people import PinPerson
 from ..schemas.sync import SyncIn, SyncOut, SyncRecordIn, SyncResultOut
-from . import audit
+from . import audit, store_notices
 from . import orders as order_service
 from . import planning_repo as repo
 
@@ -278,9 +278,12 @@ def _start_route(db: Session, b: Batch, rec: SyncRecordIn, row: f.DeviceRecord) 
     db.flush()
     actor = rec.actor or b.user.display_name
     order_ids = [to.order_id for to in db.scalars(select(plans.TripOrder).where(plans.TripOrder.trip_id == trip.id))]
+    left: list[order_models.Order] = []
     for order in db.scalars(select(order_models.Order).where(order_models.Order.id.in_(order_ids or [""])).order_by(order_models.Order.id)):
         if _status(order) is OrderStatus.LOADED:
             order_service.apply(db, order, OrderEvent.DEPART, actor=actor, commit=False, payload={"vehicleId": vehicle, "clientId": str(rec.client_id)})
+            left.append(order)
+    store_notices.departed(db, left, vehicle, run.departed_at or _device_time(rec), b.now)
     audit.record(
         db, actor_user_id=b.user.id, actor=actor, entity_type="run", entity_id=str(run.id), type=AuditType.RUN_STARTED,
         payload={"vehicleId": vehicle, "trip": trip.trip_no, "departedAt": _device_time(rec).isoformat()}, at=b.now,
@@ -483,6 +486,7 @@ def _outcome(db: Session, b: Batch, rec: SyncRecordIn, row: f.DeviceRecord) -> A
         order_service.apply(db, order, OrderEvent.DEPART, actor=actor, commit=False, payload={"clientId": str(rec.client_id)})
     if ruling.new_status is OrderStatus.DELIVERED:
         order_service.apply(db, order, OrderEvent.DELIVER, actor=actor, commit=False, payload=payload)
+        store_notices.delivered(db, order, b.now, _device_time(rec))
     else:
         order_service.apply(db, order, OrderEvent.FAIL, actor=actor, commit=False, payload=payload)
         if ruling.tag and ruling.tag not in (order.tags or []):
@@ -605,9 +609,13 @@ def _confirm_loaded(db: Session, b: Batch, rec: SyncRecordIn, row: f.DeviceRecor
         db.add(plans.LoadGate(trip_id=trip.id, confirmed_at=_device_time(rec), confirmed_by_pin=_pin(db, rec.payload.get("personId"))))
     actor = str(rec.payload.get("personName") or rec.actor or b.user.display_name)
     order_ids = [to.order_id for to in db.scalars(select(plans.TripOrder).where(plans.TripOrder.trip_id == trip.id))]
+    loaded: list[order_models.Order] = []
     for order in db.scalars(select(order_models.Order).where(order_models.Order.id.in_(order_ids or [""])).order_by(order_models.Order.id)):
         if _status(order) is OrderStatus.PLANNED:
             order_service.apply(db, order, OrderEvent.LOAD, actor=actor, commit=False, payload={"vehicleId": vehicle, "trip": trip.trip_no})
+            loaded.append(order)
+    depot = db.get(reference.Depot, db.get(reference.Vehicle, vehicle).depot_id) if db.get(reference.Vehicle, vehicle) else None
+    store_notices.loaded(db, loaded, vehicle, f"{depot.name} dock" if depot else "the dock", b.now)
     return Answer(SyncResultKind.ACCEPTED)
 
 

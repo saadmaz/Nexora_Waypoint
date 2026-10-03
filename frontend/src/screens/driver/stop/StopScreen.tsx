@@ -108,8 +108,10 @@ export function StopScreen({ connectivityOverride, forceSaveError, forceJustSave
       {t("action.navigate")}
     </Button>
   );
+  // The dataset has no store phone number and none is invented (Contributing section 29), so the button says so instead of
+  // doing nothing when tapped.
   const callStoreAction = (
-    <Button variant="secondary" size="medium" icon="phone">
+    <Button variant="secondary" size="medium" icon="phone" disabled title={t("action.callStoreNone")} aria-label={`${t("action.callStore")}. ${t("action.callStoreNone")}`}>
       {t("action.callStore")}
     </Button>
   );
