@@ -9,7 +9,9 @@ from pathlib import Path
 
 import pytest
 from alembic.autogenerate import compare_metadata
+from alembic.config import Config
 from alembic.migration import MigrationContext
+from alembic.script import ScriptDirectory
 from sqlalchemy import CheckConstraint, ForeignKeyConstraint, UniqueConstraint, inspect, text
 from sqlalchemy.exc import IntegrityError
 
@@ -76,10 +78,18 @@ def test_v3_nullability_uniques_checks_and_composite_links():
     assert tables["exceptions"].c.kind.type.enums == ["loader_shortfall", "driver_problem", "store_issue"]
 
 
+def _head_revision() -> str | None:
+    """The newest migration in alembic/versions, so this test does not need editing for each one."""
+    backend = Path(__file__).resolve().parents[2]
+    cfg = Config(str(backend / "alembic.ini"))
+    cfg.set_main_option("script_location", str(backend / "alembic"))
+    return ScriptDirectory.from_config(cfg).get_current_head()
+
+
 def test_migrated_database_matches_metadata(client):
     with engine.connect() as conn:
         assert conn.scalar(text("SHOW server_version_num")) == "180006"
-        assert conn.scalar(text("SELECT version_num FROM alembic_version")) == "0002"
+        assert conn.scalar(text("SELECT version_num FROM alembic_version")) == _head_revision()
         assert set(inspect(conn).get_table_names()) - {"alembic_version"} == set(Base.metadata.tables)
         assert compare_metadata(MigrationContext.configure(conn, opts={"compare_type": True, "compare_server_default": True}), Base.metadata) == []
         # Alembic autogenerate omits CHECK diffs; compare those explicitly.
