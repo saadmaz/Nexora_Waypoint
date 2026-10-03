@@ -29,7 +29,7 @@ from app.models.enums import Availability, HistoryOutcome, ServerStatus
 from app.models.orders import Order, OutletServiceHistory
 from app.models.people import User
 from app.models.plans import FuelLedger, VehicleDayStatus
-from app.models.reference import Outlet, Vehicle
+from app.models.reference import CalendarDay, Outlet, Vehicle
 from waypoint_rules.vocab import Temp
 
 from . import accounts, checks, fallback, generated, load_reference
@@ -65,9 +65,21 @@ def is_seeded(db: Session) -> bool:
     return (db.scalar(select(func.count()).select_from(User)) or 0) > 0
 
 
-def _pinned_service_date() -> date:
-    value: date = _yaml(FIXTURES / "pinned_orders.yaml")["service_date"]
-    return value
+def scenario_days(db: Session) -> tuple[date, date]:
+    """(planning day, service date). The service date comes from SCENARIO_SERVICE_DATE and must be an operating day;
+    the planning day is the operating day before it, when the clock starts (15:30) and the stores place their orders."""
+    service = get_settings().scenario_service_date
+    operating = sorted(db.scalars(select(CalendarDay.date).where(CalendarDay.is_operating)))
+    if service not in operating:
+        raise load_reference.SeedConfigError(
+            f"SCENARIO_SERVICE_DATE {service.isoformat()} is not an operating day in the calendar "
+            f"({operating[0].isoformat() if operating else 'empty'} to {operating[-1].isoformat() if operating else 'empty'}; "
+            "Sundays and holidays do not operate). Pick another date."
+        )
+    earlier = [d for d in operating if d < service]
+    if not earlier:
+        raise load_reference.SeedConfigError(f"SCENARIO_SERVICE_DATE {service.isoformat()} has no operating day before it")
+    return earlier[-1], service
 
 
 def _orders_by_depot(db: Session, service_date: date) -> dict[str, int]:
@@ -77,9 +89,9 @@ def _orders_by_depot(db: Session, service_date: date) -> dict[str, int]:
     return {depot: n for depot, n in rows}
 
 
-def seed_clock(db: Session) -> None:
+def seed_clock(db: Session, planning_day: date) -> None:
     settings = get_settings()
-    start = settings.scenario_start
+    start = _at(planning_day, "15:30")
     wall = clock.wall_now()
     row = db.get(Clock, 1)
     if row is None:
@@ -91,10 +103,8 @@ def seed_clock(db: Session) -> None:
     db.flush()
 
 
-def seed_pinned_orders(db: Session) -> dict[str, int]:
+def seed_pinned_orders(db: Session, service_date: date, received_date: date) -> dict[str, int]:
     data = _yaml(FIXTURES / "pinned_orders.yaml")
-    service_date: date = data["service_date"]
-    received_date: date = data["received_date"]
     default_received: str = data["default_received"]
 
     missing = sorted({o["outlet"] for o in data["orders"]} - set(db.scalars(select(Outlet.id))))
@@ -139,9 +149,8 @@ def seed_pinned_orders(db: Session) -> dict[str, int]:
     return {"orders": len(data["orders"]), "unspecified": len(data.get("unspecified", []))}
 
 
-def seed_vehicle_day(db: Session) -> dict[str, int]:
+def seed_vehicle_day(db: Session, service_date: date) -> dict[str, int]:
     data = _yaml(FIXTURES / "vehicle_day.yaml")
-    service_date: date = data["service_date"]
     iso = service_date.isocalendar()
     known = set(db.scalars(select(Vehicle.id)))
 
@@ -166,11 +175,16 @@ def seed_vehicle_day(db: Session) -> dict[str, int]:
     return {"fuel_ledger": ledger, "vehicle_day_status": status}
 
 
-def seed_scenario_events(db: Session) -> int:
+def seed_scenario_events(db: Session, planning_day: date, service_date: date) -> int:
+    """Events are written as an offset from the scenario: ``{day: -1, time: "21:15"}`` is the planning day, ``day: 0`` the service date."""
     events = _yaml(SCENARIO_EVENTS).get("events") or []
+    days = {-1: planning_day, 0: service_date}
     db.query(ScenarioEvent).filter(ScenarioEvent.applied_at.is_(None)).delete()
     for e in events:
-        at = e["at"] if isinstance(e["at"], datetime) else datetime.fromisoformat(str(e["at"]))
+        when = e["at"]
+        if when["day"] not in days:
+            raise load_reference.SeedConfigError(f"scenario_events.yaml: day must be -1 or 0, got {when['day']!r}")
+        at = _at(days[when["day"]], when["time"])
         db.add(ScenarioEvent(at=at, kind=e["kind"], payload=e.get("payload") or {}))
     db.flush()
     return len(events)
@@ -190,30 +204,35 @@ def seed(
 
     if load_reference.csvs_present(data_dir):
         report["reference"] = {"source": "csv", **load_reference.load(db, data_dir)}
-        report["reference"]["calendar_generated"] = fallback.extend_calendar(db)
+        report["reference"]["calendar_generated"] = fallback.extend_calendar(
+            db, through=get_settings().scenario_service_date + timedelta(days=14)
+        )
         checks.run(db)
         report["checks"] = "passed"
     elif strict:
         raise load_reference.SeedConfigError(f"--strict: no CSVs in {data_dir.resolve()}")
     else:
         report["reference"] = {"source": "fallback (PRD §4c), data/*.csv not found", **fallback.load(db)}
+        fallback.extend_calendar(db, through=get_settings().scenario_service_date + timedelta(days=14))
         fallback_day = get_settings().seed_generated_orders
         if fallback_day:
-            report["reference"]["generated"] = generated.extend_reference(db, service_date=_pinned_service_date())
+            report["reference"]["generated"] = generated.extend_reference(db, service_date=get_settings().scenario_service_date)
         report["checks"] = "skipped (fallback data)"
 
     report["accounts"] = {"reused": True} if reuse_accounts and is_seeded(db) else accounts.seed(db)
-    seed_clock(db)
-    report["pinned"] = seed_pinned_orders(db)
+    planning_day, service_date = scenario_days(db)
+    seed_clock(db, planning_day)
+    report["scenario"] = {"service_date": service_date.isoformat(), "planning_day": planning_day.isoformat()}
+    report["pinned"] = seed_pinned_orders(db, service_date, planning_day)
     if fallback_day:
         # No CSVs: generate the rest of the day (A41) so the queue and the plan have a believable size.
-        by_depot = _orders_by_depot(db, _pinned_service_date())
+        by_depot = _orders_by_depot(db, service_date)
         report["generated_orders"] = generated.seed_orders(
-            db, service_date=_pinned_service_date(), received_date=_yaml(FIXTURES / "pinned_orders.yaml")["received_date"],
+            db, service_date=service_date, received_date=planning_day,
             pinned_peliyagoda=by_depot.get("peliyagoda", 0), pinned_kandy=by_depot.get("kandy", 0),
         )
-    report["vehicle_day"] = seed_vehicle_day(db)
-    report["scenario_events"] = seed_scenario_events(db)
+    report["vehicle_day"] = seed_vehicle_day(db, service_date)
+    report["scenario_events"] = seed_scenario_events(db, planning_day, service_date)
     return report
 
 

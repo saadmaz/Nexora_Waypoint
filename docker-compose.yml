@@ -39,6 +39,7 @@ services:
       SEED_ON_START: ${SEED_ON_START:-true}
       DEMO_PASSWORD: ${DEMO_PASSWORD:-waypoint-demo}
       CLOCK_RATE: ${CLOCK_RATE:-1}
+      SCENARIO_SERVICE_DATE: ${SCENARIO_SERVICE_DATE:-2026-09-29}
       JOB_LOOP: ${JOB_LOOP:-true}
       DATA_DIR: /data
       UPLOADS_DIR: /app/uploads

@@ -1,11 +1,10 @@
-# Pinned orders for Tue 29 Sep 2026 (PRD v3 §4c and A18 to A20).
+# Pinned orders for the scenario service date (SCENARIO_SERVICE_DATE; PRD v3 §4c and A18 to A20).
 #
 # Sizes, windows and history are from §4c. ORD2001 and ORD2002 are NOT here: the judge places them as Anusha at
 # scenario 15:40 (walkthrough step 1); the seed only reserves those IDs for OUT084's next two orders.
-# `received` is the time on Mon 28 Sep; null means §4c gives none and run.py uses `default_received`.
+# `received` is the time on the planning day; null means §4c gives none and run.py uses `default_received`.
 # All pinned rows are Confirmed (§14 step 6), except rows received after the clock (15:30): those are Ordered.
-service_date: 2026-09-29
-received_date: 2026-09-28
+# They were received on the planning day, the operating day before the service date.
 default_received: "12:00"
 reserved_ids: [ORD2001, ORD2002]
 

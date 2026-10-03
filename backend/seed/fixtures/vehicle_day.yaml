@@ -1,5 +1,4 @@
-# Vehicle state for Tue 29 Sep 2026 (PRD v3 §4c, A7, A12).
-service_date: 2026-09-29
+# Vehicle state for the scenario service date (SCENARIO_SERVICE_DATE; PRD v3 §4c, A7, A12).
 
 # Week-to-date fuel used before tonight, litres (A7). ISO week of the service date.
 fuel_used_before_l:
