@@ -44,6 +44,7 @@ from ..schemas.dispatcher import (
     SaveMovesIn,
 )
 from ..services import dispatcher_views as views
+from ..services import exceptions as exception_service
 from ..services import planning, queue_repo, queue_views
 from ..services import planning_repo as repo
 from ..services.dispatch_model import DispatchDay
@@ -267,10 +268,12 @@ def resolve_conflict(conflict_id: int, body: ResolveConflictIn, db: Db, user: Di
 @router.get("/exceptions/{exception_id}", operation_id="getExceptionForReview", response_model=ExceptionView)
 def get_exception_for_review(exception_id: int, db: Db, user: Dispatcher) -> ExceptionView:
     """D8: a loader flag or driver problem, with the recommended swap."""
-    raise not_implemented("getExceptionForReview")
+    return exception_service.review(db, exception_id)
 
 
 @router.post("/exceptions/{exception_id}/decide", operation_id="decideException", response_model=ExceptionView)
 def decide_exception(exception_id: int, body: DecideExceptionIn, db: Db, user: Dispatcher) -> ExceptionView:
     """D8: swap the vehicle and defer orders. Creates and releases the next plan version."""
-    raise not_implemented("decideException")
+    view = exception_service.decide(db, exception_id, body.defer_order_ids, actor=user.email, actor_name=user.display_name)
+    db.commit()
+    return view

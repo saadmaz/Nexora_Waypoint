@@ -393,21 +393,66 @@ def save_moves(
 # ---- release ----------------------------------------------------------------
 
 
-def _store_notice(db: Session, d: DeferralRow, day: DispatchDay, version: int, now: datetime) -> None:
-    order = day.orders[d.order_id]
-    outlet = day.outlets[order.outlet_id]
-    label = f"{d.next_run_date:%a %d %b}" if d.next_run_date else "the next run"
+def store_deferral_notice(
+    db: Session, *, order_id: str, outlet_id: str, reason: str, next_run: date | None, version: int, now: datetime
+) -> None:
+    """Tell a store its order is deferred: the reason and the next run (S4 "Deferral")."""
+    label = f"{next_run:%a} {next_run.day} {next_run:%b}" if next_run else "the next run"
     db.add(
         Notice(
-            audience=f"store:{outlet.id}",
+            audience=f"store:{outlet_id}",
             tag=NoticeTag.DEFERRAL,
-            title=f"Order {d.order_id} is deferred",
-            body=f"{d.reason_text} Next run {label}.",
-            link={"screen": "deliveries", "orderId": d.order_id},
-            refs={"orderIds": [d.order_id], "planVersion": version},
+            title=f"Order {order_id} is deferred",
+            body=f"{reason} Next run {label}.",
+            link={"screen": "deliveries", "orderId": order_id},
+            refs={"orderIds": [order_id], "planVersion": version},
             created_at=repo.aware(now),
         )
     )
+
+
+def _store_notice(db: Session, d: DeferralRow, day: DispatchDay, version: int, now: datetime) -> None:
+    store_deferral_notice(
+        db, order_id=d.order_id, outlet_id=day.orders[d.order_id].outlet_id, reason=d.reason_text,
+        next_run=d.next_run_date, version=version, now=now,
+    )
+
+
+def release_change(
+    db: Session,
+    day: DispatchDay,
+    plan: Plan,
+    specs: list[DeferralSpec],
+    *,
+    note: str,
+    actor: str,
+    actor_name: str,
+    now: datetime,
+) -> plans.PlanVersion:
+    """Save ``plan`` as the next version and release it at once (a swap at the dock, a store request on the road).
+
+    Unlike ``release``, which snapshots a draft the dispatcher has reviewed, this writes the change and locks it in one
+    step: the dispatcher's decision is the review. Order statuses, next-run copies, the continuity history and the audit
+    row follow, exactly as they do for a release. Notices are the caller's, because each change tells different people.
+    """
+    version = _write_version(db, day.service_date, state=PlanState.RELEASED, note=note, actor=actor_name, now=now)
+    trips = [t for t in plan.trips.values() if t.order_ids]
+    _write_trips(db, version, trips, day.orders, day.ref)
+    _write_deferrals(db, version, specs, now)
+    placed = {o for t in trips for o in t.order_ids}
+    deferred = {s.order_id for s in specs}
+    _set_statuses(db, placed, deferred, actor=actor_name, version=version.number)
+    sync_rerun_copies(db, day.service_date, {s.order_id: s.next_run_date for s in specs}, now=now)
+    for spec in specs:
+        outlet_id = day.orders[spec.order_id].outlet_id
+        db.merge(order_models.OutletServiceHistory(outlet_id=outlet_id, service_date=day.service_date, outcome=HistoryOutcome.DEFERRED))
+    audit.record(
+        db, actor=actor, entity_type="plan", entity_id=str(version.id), type=AuditType.PLAN_RELEASED,
+        payload={"number": version.number, "serviceDate": day.service_date.isoformat(), "trips": len(trips), "deferred": len(deferred), "note": note},
+        at=repo.aware(now),
+    )
+    db.flush()
+    return version
 
 
 def release(db: Session, service_date: date, *, send_notices: bool, actor: str, actor_name: str) -> plans.PlanVersion:
