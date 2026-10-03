@@ -32,7 +32,8 @@ def test_apply_changes_status_and_writes_the_audit_row_together(reseed, db):
     from app.services import orders as order_service
 
     order = db.get(Order, "ORD1014")
-    assert OrderStatus(order.status.value) is OrderStatus.CONFIRMED
+    assert OrderStatus(order.status.value) is OrderStatus.ORDERED  # the seed is 15:30: nothing is confirmed until the 16:00 cutoff
+    order_service.apply(db, order, OrderEvent.CUTOFF, actor="system")
     before = _audit_count(db, "ORD1014")
 
     order_service.apply(db, order, OrderEvent.PLAN, actor="planner", payload={"trip": "VEH003-1"})
@@ -56,10 +57,10 @@ def test_illegal_transition_changes_nothing(db):
     order = db.get(Order, "ORD1016")
     before = _audit_count(db, "ORD1016")
     with pytest.raises(IllegalTransition):
-        order_service.apply(db, order, OrderEvent.DELIVER, actor="driver")  # a Confirmed order can't deliver
+        order_service.apply(db, order, OrderEvent.DELIVER, actor="driver")  # an Ordered order can't deliver
     db.rollback()
     db.expire_all()
-    assert db.get(Order, "ORD1016").status.value == "confirmed"
+    assert db.get(Order, "ORD1016").status.value == "ordered"
     assert _audit_count(db, "ORD1016") == before
 
 

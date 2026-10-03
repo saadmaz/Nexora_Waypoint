@@ -135,8 +135,9 @@ def test_filters_combine_and_search_matches_orders_and_outlets(client, auth):
 
 
 def test_status_and_window_filters_take_the_systems_own_values(client, auth):
-    confirmed = queue(client, auth, extra="&status=confirmed")
-    assert confirmed["shown"] == confirmed["total"]
+    ordered = queue(client, auth, extra="&status=ordered")
+    assert ordered["shown"] == ordered["total"]  # before the 16:00 cutoff every order is Ordered
+    assert queue(client, auth, extra="&status=confirmed")["shown"] == 0
     assert queue(client, auth, extra="&status=delivered")["shown"] == 0
     late = [o["id"] for o in _all_orders(queue(client, auth)) if o["window"]["start"] >= "06:00"]
     assert "ORD1007" in late  # the 09:00 mall slot
