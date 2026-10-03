@@ -12,7 +12,7 @@ import {
   useOutbox,
 } from "../../../field/offline";
 import { Mono } from "../../../shared/ui/Mono";
-import { peopleFor } from "../fixtures";
+import { usePeople } from "../usePeople";
 import { useLoader } from "../LoaderContext";
 import type { ExceptionView, LoadPlanView } from "../types";
 import { FlagSheet, type FlagOrder, type FlagPrefill, type FlagSentModel, type FlagSubmit } from "./FlagSheet";
@@ -43,6 +43,7 @@ const REVIEWER = "Kumari";
  */
 export function FlagContainer({ vehicleId, trip, view, dockName, chip, onClose }: Props) {
   const { api, dockId, currentPerson, setCurrentPerson } = useLoader();
+  const people = usePeople();
   const navigate = useNavigate();
   const now = useNow();
   const connectivity = useConnectivity();
@@ -191,7 +192,7 @@ export function FlagContainer({ vehicleId, trip, view, dockName, chip, onClose }
         onOpenChange={setPinOpen}
         title={`Send flag for ${vehicleId}`}
         whoLabel="Who's flagging?"
-        people={peopleFor(dockId)}
+        people={people}
         verify={(personId, pin, otherName) => api.verifyPin(personId, pin, otherName)}
         onConfirmed={(personId, name) => {
           setCurrentPerson({ id: personId, name });

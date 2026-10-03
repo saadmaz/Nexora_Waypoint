@@ -136,3 +136,60 @@ export type DriverSettings = {
   textSize: TextSize;
   language: Language;
 };
+
+/** R6.1 choices, exactly as drawn (PRD v3 section 3 R6, V30). */
+export const PROBLEM_TYPES = ["Can't reach the store", "Vehicle problem", "Goods damaged on the truck", "Running late", "Something else"] as const;
+export type ProblemType = (typeof PROBLEM_TYPES)[number];
+
+/** What R6.2 records: what happened, the stop and orders it affects, a note and an optional photo. */
+export type ProblemInput = {
+  type: ProblemType;
+  /** The affected stop (outlet id), or none for a problem with the vehicle as a whole. */
+  stopId?: string;
+  orderIds: string[];
+  note: string;
+  photoBlobId?: string;
+  /** Set when this record updates an earlier problem (V40): the thread's first record. */
+  updatesClientId?: string;
+};
+
+/** A problem saved on the phone. `clientId` is its outbox record. */
+export type ProblemRecord = ProblemInput & {
+  clientId: string;
+  /** "HH:MM", device time it was saved. */
+  savedAt: string;
+};
+
+/** R6.4: one thread per first problem record, with the updates that followed it (V40). */
+export type ProblemThread = {
+  parent: ProblemRecord;
+  updates: ProblemRecord[];
+  /** "saved": still on the phone; "sent": reached the server, waiting for Dispatch; "seen": Dispatch has opened it (G-14). */
+  state: "saved" | "sent" | "seen";
+};
+
+/** R7.1: one row of trip history (A34). A day with no run says why. */
+export type HistoryDay = {
+  date: string;
+  /** "Today", or the day as "Mon 28 Sep". */
+  label: string;
+  run:
+    | { kind: "run"; start: string; end: string | null; km: number | null; duration: string | null; stopsDone: number; stopsTotal: number; synced: boolean }
+    | { kind: "no_run"; reason: string };
+};
+
+/** R9: the distance the run is closed with (A24), and what it implies for fuel. */
+export type RunDistance = {
+  /** "gps": tracked on the phone (the hero fixture legs in the scenario); "planned": permission refused or no fixes (DP-14). */
+  source: "gps" | "planned";
+  legsKm: number[];
+  totalKm: number;
+  /** Planned leg distance used for stretches with no fix. */
+  gapFilledKm: number;
+  plannedKm: number;
+  kmPerL: number;
+  fuelL: number;
+};
+
+/** R9: the run once it is closed. */
+export type FinishedRun = { at: string; distance: RunDistance };

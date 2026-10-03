@@ -9,7 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from ..db import Base
 from ._types import JSON, TZ, enum_col
-from .enums import AuditType, NoticeTag
+from .enums import AudienceKind, AuditType, NoticeTag
 
 
 class Notice(Base):
@@ -18,8 +18,10 @@ class Notice(Base):
     __tablename__ = "notices"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    #: ``store:OUT084``, ``driver:VEH039``, ``dock:kandy`` or ``dispatch``.
-    audience: Mapped[str] = mapped_column(Text, index=True)
+    audience_kind: Mapped[AudienceKind] = mapped_column(enum_col(AudienceKind, "audience_kind"), index=True)
+    outlet_id: Mapped[str | None] = mapped_column(ForeignKey("outlets.id"), index=True)
+    vehicle_id: Mapped[str | None] = mapped_column(ForeignKey("vehicles.id"), index=True)
+    depot_id: Mapped[str | None] = mapped_column(ForeignKey("depots.id"), index=True)
     tag: Mapped[NoticeTag] = mapped_column(enum_col(NoticeTag, "notice_tag"))
     title: Mapped[str] = mapped_column(Text)
     body: Mapped[str] = mapped_column(Text)
@@ -28,7 +30,6 @@ class Notice(Base):
     #: Entity references (order ids, plan version, conflict id...).
     refs: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(TZ)
-    read_at: Mapped[datetime | None] = mapped_column(TZ)
 
 
 class AuditEvent(Base):
@@ -39,6 +40,9 @@ class AuditEvent(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     at: Mapped[datetime] = mapped_column(TZ)
     actor: Mapped[str] = mapped_column(Text)
+    actor_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    actor_pin_id: Mapped[int | None] = mapped_column(ForeignKey("pin_people.id"))
+    order_id: Mapped[str | None] = mapped_column(ForeignKey("orders.id"), index=True)
     entity_type: Mapped[str] = mapped_column(Text)
     entity_id: Mapped[str] = mapped_column(Text, index=True)
     type: Mapped[AuditType] = mapped_column(enum_col(AuditType, "audit_type"))
@@ -67,4 +71,9 @@ class ScenarioEvent(Base):
     applied_at: Mapped[datetime | None] = mapped_column(TZ)
 
 
-_ = ForeignKey  # kept for future FKs on notices/audit
+class NoticeRead(Base):
+    __tablename__ = "notice_reads"
+
+    notice_id: Mapped[int] = mapped_column(ForeignKey("notices.id"), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    read_at: Mapped[datetime] = mapped_column(TZ)

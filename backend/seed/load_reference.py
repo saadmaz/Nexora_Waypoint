@@ -16,7 +16,16 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.models.reference import CalendarDay, Depot, District, Outlet, ServiceAllowance, TrafficSpeed, Vehicle
+from app.models.reference import (
+    CalendarDay,
+    Depot,
+    District,
+    Outlet,
+    RoadCondition,
+    ServiceAllowance,
+    TrafficSpeed,
+    Vehicle,
+)
 from waypoint_rules.vocab import Brand, DockType, VehicleTemp, VehicleType
 
 TODO = "TODO"
@@ -77,7 +86,18 @@ COLUMNS: dict[str, dict[str, str]] = {
         "minutes": "service_allowance_min",
     },
     "traffic_speed.csv": {
-        "date": TODO,  # optional: every row is kept whole in ``raw``; this only fills ``service_date``
+        "district": "district",
+        "hour": "hour",
+        "speed_index": "speed_index",  # booklet: 100 is free flow; stored as index / 100
+    },
+    "road_conditions.csv": {
+        "service_date": "date",
+        "district": "district",
+        # The booklet documents disruption_index, but no disruption-kind header.
+        # Configure the actual header before loading this optional file; never invent a kind.
+        "kind": TODO,
+        "disruption_index": "disruption_index",  # stored as 100 / index (travel-time multiplier)
+        "note": TODO,
     },
 }
 
@@ -87,7 +107,7 @@ OPTIONAL: dict[str, set[str]] = {
     "vehicles.csv": {"fuel_type"},
     "calendar.csv": {"festival", "festival_ramp"},
     "district_travel.csv": {"road_class", "free_flow_kmh"},
-    "traffic_speed.csv": {"date"},
+    "road_conditions.csv": {"note"},
 }
 
 CORE_FILES = ["outlets.csv", "vehicles.csv", "calendar.csv", "district_travel.csv", "service_allowance.csv"]
@@ -223,6 +243,8 @@ def load(db: Session, data_dir: Path) -> dict[str, int]:
     counts["calendar.csv"] = _load(db, "calendar.csv", data_dir, _calendar)
     if (data_dir / "traffic_speed.csv").is_file():
         counts["traffic_speed.csv"] = _load_traffic(db, data_dir)
+    if (data_dir / "road_conditions.csv").is_file():
+        counts["road_conditions.csv"] = _load_roads(db, data_dir)
     return counts
 
 
@@ -311,10 +333,31 @@ def _calendar(row: dict[str, str], name: str) -> CalendarDay:
 
 def _load_traffic(db: Session, data_dir: Path) -> int:
     name = "traffic_speed.csv"
-    db.query(TrafficSpeed).delete()  # no natural key: replace the whole table
     n = 0
     for row in _rows(data_dir, name):
-        db.add(TrafficSpeed(service_date=to_date(_get(row, name, "date")), raw=dict(row)))
+        district = to_str(_get(row, name, "district"))
+        hour = to_int(_get(row, name, "hour"))
+        index = to_float(_get(row, name, "speed_index"))
+        if district is None or hour is None or not 0 <= hour <= 23 or index is None or index <= 0:
+            raise SeedConfigError("traffic_speed.csv requires a district, hour 0..23 and positive speed_index")
+        db.merge(TrafficSpeed(district=district, hour=hour, speed_factor=index / 100))
+        n += 1
+    db.flush()
+    return n
+
+
+def _load_roads(db: Session, data_dir: Path) -> int:
+    name = "road_conditions.csv"
+    # No natural key in v3: replace this reference table when seeding again.
+    db.query(RoadCondition).delete()
+    n = 0
+    for row in _rows(data_dir, name):
+        g = _g(row, name)
+        day, district, kind = to_date(g("service_date")), to_str(g("district")), to_str(g("kind"))
+        index = to_float(g("disruption_index"))
+        if day is None or district is None or kind is None or index is None or index <= 0:
+            raise SeedConfigError("road_conditions.csv requires date, district, kind and positive disruption_index")
+        db.add(RoadCondition(service_date=day, district=district, kind=kind, delay_factor=100 / index, note=to_str(g("note"))))
         n += 1
     db.flush()
     return n

@@ -43,7 +43,7 @@ from ..models import orders as order_models
 from ..models import plans
 from ..models.comms import Notice
 from ..models.enums import AuditType, HistoryOutcome, NoticeTag, PlanState, ServerStatus
-from . import audit
+from . import audit, store_notices
 from . import orders as order_service
 from . import planning_repo as repo
 from .dispatch_model import DeferralRow, DispatchDay
@@ -145,7 +145,6 @@ def _write_trips(db: Session, version: plans.PlanVersion, trips: list[Trip], ord
         db.add(row)
         db.flush()
         timing = planned_clock(trip, orders, ref)
-        n = len(trip.order_ids)
         for i, oid in enumerate(trip.order_ids):
             stop = timing.stop_for_order(oid)
             db.add(
@@ -153,10 +152,10 @@ def _write_trips(db: Session, version: plans.PlanVersion, trips: list[Trip], ord
                     trip_id=row.id,
                     order_id=oid,
                     seq=i + 1,
-                    load_no=n - i,
+                    plan_version_id=version.id,
                     planned_arrival=repo.aware(stop.arrival) if stop else None,
-                    handling_start=repo.aware(stop.handling_start) if stop else None,
-                    handling_end=repo.aware(stop.handling_end) if stop else None,
+                    planned_handling_start=repo.aware(stop.handling_start) if stop else None,
+                    planned_handling_end=repo.aware(stop.handling_end) if stop else None,
                 )
             )
     db.flush()
@@ -175,6 +174,7 @@ def _write_deferrals(db: Session, version: plans.PlanVersion, specs: list[Deferr
                 frees=s.frees,
                 next_run_date=s.next_run_date,
                 decided_by=s.decided_by,
+                decided_by_user_id=audit.user_id_for(db, (s.decided_by or "").split(" · ")[0]),
                 decided_at=repo.aware(s.decided_at) if s.decided_at else repo.aware(now),
                 notice_sent_at=repo.aware(s.notice_sent_at) if s.notice_sent_at else None,
                 notice_seen_at=repo.aware(s.notice_seen_at) if s.notice_seen_at else None,
@@ -401,7 +401,7 @@ def store_deferral_notice(
     label = f"{next_run:%a} {next_run.day} {next_run:%b}" if next_run else "the next run"
     db.add(
         Notice(
-            audience=f"store:{outlet_id}",
+            audience_kind="store", outlet_id=outlet_id,
             tag=NoticeTag.DEFERRAL,
             title=f"Order {order_id} is deferred",
             body=f"{reason} Next run {label}.",
@@ -492,7 +492,7 @@ def release(db: Session, service_date: date, *, send_notices: bool, actor: str, 
     for depot in sorted({day.ref.vehicles[t.vehicle_id].depot for t in trips}):
         db.add(
             Notice(
-                audience=f"dock:{depot}", tag=NoticeTag.PLAN, title=f"Plan v{version.number} released",
+                audience_kind="dock", depot_id=depot, tag=NoticeTag.PLAN, title=f"Plan v{version.number} released",
                 body=f"{sum(1 for t in trips if day.ref.vehicles[t.vehicle_id].depot == depot)} trips for {service_date:%a %d %b}.",
                 link={"screen": "plan"}, refs={"planVersion": version.number}, created_at=repo.aware(now),
             )
@@ -500,11 +500,15 @@ def release(db: Session, service_date: date, *, send_notices: bool, actor: str, 
     for trip in sorted(trips, key=lambda t: (t.vehicle_id, t.trip_no)):
         db.add(
             Notice(
-                audience=f"driver:{trip.vehicle_id}", tag=NoticeTag.PLAN, title=f"Plan v{version.number} released",
+                audience_kind="driver", vehicle_id=trip.vehicle_id, tag=NoticeTag.PLAN, title=f"Plan v{version.number} released",
                 body=f"Trip {trip.trip_no} departs {trip.depart_at:%H:%M} with {len(trip.order_ids)} orders.",
                 link={"screen": "run"}, refs={"planVersion": version.number, "trip": trip.trip_no}, created_at=repo.aware(now),
             )
         )
+
+    # Each store with an order on a trip is told its arrival time.
+    db.flush()
+    store_notices.arrival_set(db, version, repo.aware(now))
 
     # An outlet whose order is deferred was skipped today: the continuity guard protects it next run.
     for outlet_id in sorted({day.orders[d.order_id].outlet_id for d in day.deferrals}):

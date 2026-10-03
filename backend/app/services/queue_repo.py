@@ -78,7 +78,7 @@ def load_history(db: Session, order_id: str) -> HistoryInput:
         AuditRow(repo.naive(a.at) or a.at, a.actor, _event_of(a))
         for a in db.scalars(
             select(comms.AuditEvent)
-            .where(comms.AuditEvent.entity_type == "order", comms.AuditEvent.entity_id == order_id)
+            .where(comms.AuditEvent.order_id == order_id)
             .order_by(comms.AuditEvent.at, comms.AuditEvent.id)
         )
     ]

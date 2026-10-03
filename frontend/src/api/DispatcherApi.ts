@@ -527,7 +527,10 @@ export type ExceptionView = {
     trip2: string;
   };
   recommendation?: {
+    /** The first order to defer. */
     orderId: string;
+    /** Every order to defer so the replacement fits. The confirm sends all of them. */
+    orderIds: string[];
     outletId: string;
     title: string;
     kind: DeferralKind;
@@ -562,7 +565,7 @@ export type ForecastWeek = {
   /** "Mon 5 Oct": the ISO week's Monday. */
   monday: string;
   percent: number;
-  status: "Short" | "Tight";
+  status: "Short" | "Tight" | "OK";
   flags: string[];
   lever: string;
   gap?: { minutes: number };

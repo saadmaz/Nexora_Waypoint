@@ -1,6 +1,6 @@
 import { HERO_DATE } from "../../field/clock/clock";
 import type { Person, Vehicle } from "../../domain/field";
-import type { DriverStop, LoaderConfirmation } from "./types";
+import type { DriverStop, HistoryDay, LoaderConfirmation } from "./types";
 
 /**
  * The driver's seed data (field conventions section 9, PRD v3 section 4c and H1 to H16). Every
@@ -55,6 +55,23 @@ export const GALLERY_SHORTFALL: LoaderConfirmation = {
   at: "04:50",
   shortfalls: [{ orderId: "ORD2003", shortBy: 1 }],
 };
+
+/**
+ * R7.1 earlier runs (PRD v3 assumption A34). Today's row is built from the phone's own run; these are the days before it.
+ * Sun 27 Sep is not an operating day.
+ */
+export const EARLIER_RUNS: HistoryDay[] = [
+  { date: "2026-09-28", label: "Mon 28 Sep", run: { kind: "run", start: "05:09", end: "06:31", km: 19.5, duration: "1 h 22 min", stopsDone: 2, stopsTotal: 2, synced: true } },
+  { date: "2026-09-27", label: "Sun 27 Sep", run: { kind: "no_run", reason: "Depot closed" } },
+  { date: "2026-09-26", label: "Sat 26 Sep", run: { kind: "run", start: "05:12", end: "06:30", km: 19.6, duration: "1 h 18 min", stopsDone: 2, stopsTotal: 2, synced: true } },
+  { date: "2026-09-25", label: "Fri 25 Sep", run: { kind: "run", start: "05:05", end: "06:52", km: 22.3, duration: "1 h 47 min", stopsDone: 3, stopsTotal: 3, synced: true } },
+  { date: "2026-09-24", label: "Thu 24 Sep", run: { kind: "run", start: "05:08", end: "06:28", km: 19.2, duration: "1 h 20 min", stopsDone: 2, stopsTotal: 2, synced: true } },
+];
+
+/** R9 on the hero run (PRD v3 assumption A24): the GPS legs depot to OUT084, OUT084 to OUT087, OUT087 to depot. */
+export const HERO_GPS_LEGS_KM = [8.3, 3.1, 8.0];
+/** R9.2: "Planned 19 km · VEH039 at 5.0 km/l". */
+export const HERO_PLANNED_KM = 19;
 
 /** Recent receiver names offered on the receiver-name screen (R3.3), per outlet. */
 export const RECENT_RECEIVERS: Record<string, string[]> = {

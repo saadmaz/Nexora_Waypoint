@@ -1,8 +1,8 @@
 /**
  * Plays sign-in against the REAL backend (API wiring W2). It is the acceptance test for `VITE_AUTH_API=api`:
  * the four demo accounts sign in with the real password, land on their role home, hold four real JWTs at once, the
- * wrong-password and server-down cases behave, a rejected token signs out only its own role, and a route the backend
- * has not built yet comes back as a typed 501.
+ * wrong-password and server-down cases behave, a rejected token signs out only its own role, and a store route answers
+ * with the store's own data from the database.
  *
  *   docker compose up -d --build db api                           (the API on http://localhost:8000)
  *   VITE_AUTH_API=api npm run dev -- --port 5191 --strictPort      (the app, in api mode)
@@ -152,22 +152,22 @@ async function main() {
   check((await store.evaluate(() => localStorage.getItem("wp.session.store"))) !== null, "a tampered token: the store session is untouched");
   check(new URL(store.url()).pathname === "/store/orders", "a tampered token: the store tab is not moved");
 
-  // 8. A route the backend has not built is a typed 501 that does not end the session.
+  // 8. A store route answers from the database with the store's own token, and the session is kept.
   await store.bringToFront();
-  const notBuilt = await store.evaluate(async (module) => {
+  const feed = await store.evaluate(async (module) => {
     const { apiClient } = await import(/* @vite-ignore */ module);
     try {
-      await apiClient("store").get("/api/v1/store/updates");
-      return "no error";
+      const out = await apiClient("store").get("/api/v1/store/updates");
+      return `feed unread=${typeof out.unread} updates=${Array.isArray(out.updates)}`;
     } catch (error) {
-      const e = error as { name?: string; status?: number; operation?: string };
-      return `${e.name} ${e.status} ${e.operation}`;
+      const e = error as { name?: string; status?: number; code?: string };
+      return `${e.name} ${e.status} ${e.code}`;
     }
   }, CLIENT_MODULE);
-  check(notBuilt === "NotImplementedApiError 501 getUpdates", `an unbuilt route: a typed 501 naming the operation (${notBuilt})`);
-  check((await store.evaluate(() => localStorage.getItem("wp.session.store"))) !== null, "an unbuilt route: the session is kept");
+  check(feed === "feed unread=number updates=true", `a built route: the store's updates feed comes back (${feed})`);
+  check((await store.evaluate(() => localStorage.getItem("wp.session.store"))) !== null, "a built route: the session is kept");
 
-  // 9. The one other working route, the scenario clock, round-trips through the typed client.
+  // 9. The scenario clock, round-trips through the typed client.
   const clock = await store.evaluate(async (module) => {
     const { apiClient } = await import(/* @vite-ignore */ module);
     const out = await apiClient("store").get("/api/v1/clock");

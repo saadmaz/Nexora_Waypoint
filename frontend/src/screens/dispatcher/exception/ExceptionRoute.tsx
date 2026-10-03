@@ -185,6 +185,11 @@ function Body({ view, manual, picked, setPicked, onManual, onBackToRecommendatio
   const working = view.state === "working";
   const confirmed = view.state === "confirmed";
   const rec = view.recommendation;
+  const toDefer = rec?.orderIds ?? [];
+  const replacementId = view.replacement?.vehicleId ?? "";
+  // Several orders can have to wait. The label names one, or counts them.
+  const deferLabel = toDefer.length > 1 ? `${toDefer.length} orders` : (toDefer[0] ?? "");
+  const [reasonHead, ...reasonRest] = (rec?.reason ?? "").split(" · ");
 
   const chosen = view.candidates.filter((c) => picked.has(c.orderId));
   const freedKg = chosen.reduce((a, c) => a + c.kg, 0);
@@ -201,7 +206,7 @@ function Body({ view, manual, picked, setPicked, onManual, onBackToRecommendatio
           {view.ordersText}
         </Banner>
       ) : confirmed && view.confirmed ? (
-        <Banner tone="success" icon={<Check size={20} />} title={`Plan v${view.confirmed.plan} created · VEH003 → VEH036 · ORD1002 deferred (policy)`}>
+        <Banner tone="success" icon={<Check size={20} />} title={`Plan v${view.confirmed.plan} created · ${view.failed.vehicleId} → ${replacementId} · ${deferLabel} deferred (${rec?.kind ?? "policy"})`}>
           {view.confirmed.text}
         </Banner>
       ) : (
@@ -254,7 +259,7 @@ function Body({ view, manual, picked, setPicked, onManual, onBackToRecommendatio
         </section>
         {!confirmed && (
           <section className={cx(styles.card, styles.before)} aria-label="Replacement before the change">
-            <span className={styles.overline}>VEH036 Trip 1 · before the change</span>
+            <span className={styles.overline}>{replacementId} Trip 1 · before the change</span>
             {view.before ? (
               <>
                 <Resource label="Weight" used={view.before.weight.used} limit={view.before.weight.limit} unit="kg" note={view.before.weight.over} fmt={kg} />
@@ -306,7 +311,7 @@ function Body({ view, manual, picked, setPicked, onManual, onBackToRecommendatio
           <div className={styles.recommendHead}>
             <span className={styles.recommendTitle}>
               <Info size={20} />
-              Recommended: defer {rec.orderId} ({rec.outletId})
+              Recommended: defer {toDefer.length > 1 ? deferLabel : `${rec.orderId} (${rec.outletId})`}
             </span>
             <span className={styles.typeNote}>{rec.typeNote}</span>
           </div>
@@ -325,8 +330,18 @@ function Body({ view, manual, picked, setPicked, onManual, onBackToRecommendatio
                 </span>
               </div>
               <div className={styles.deferTitle}>{rec.title}</div>
+              {toDefer.length > 1 &&
+                toDefer.map((id) => {
+                  const c = view.candidates.find((x) => x.orderId === id);
+                  return (
+                    <div key={id} className={styles.cellSmall}>
+                      <Mono>{c ? `${c.outletId} · ${id}` : id}</Mono>
+                      {c && ` · ${c.kg} kg / ${c.m3.toFixed(1)} m³`}
+                    </div>
+                  );
+                })}
               <div className={styles.deferGrid}>
-                <Cell label="Reason" value="Vehicle unavailable" small="Least surplus of the four equal-impact orders" />
+                <Cell label="Reason" value={reasonHead ?? ""} small={reasonRest.join(" · ") || undefined} />
                 <Cell label="Decided by" value={rec.decidedBy} />
                 <Cell label="Store told" value="Sent when you confirm" />
                 <Cell label="Impact on store" value={rec.impact} />
@@ -357,7 +372,7 @@ function Body({ view, manual, picked, setPicked, onManual, onBackToRecommendatio
       {!working && view.after && !manual && (
         <section className={cx(styles.card, styles.after)} aria-label="Replacement after the change">
           <div className={styles.afterMain}>
-            <span className={styles.overline}>VEH036 after the change</span>
+            <span className={styles.overline}>{replacementId} after the change</span>
             <div className={styles.afterBars}>
               <Resource label="Weight" used={view.after.weight.used} limit={view.after.weight.limit} unit="kg" note={view.after.weight.warn} fmt={kg} warn />
               <Resource label="Volume" used={view.after.volume.used} limit={view.after.volume.limit} unit="m³" note={view.after.volume.warn} fmt={(n) => n.toFixed(1)} warn />
@@ -474,8 +489,8 @@ function Body({ view, manual, picked, setPicked, onManual, onBackToRecommendatio
               <Btn variant="secondary" disabled={busy || !rec} onClick={onManual}>
                 Adjust manually
               </Btn>
-              <Btn icon={<Check size={16} />} disabled={busy || !rec} onClick={() => rec && onDecide([rec.orderId])}>
-                Confirm: defer {rec?.orderId ?? ""}, load {view.replacement?.vehicleId ?? ""}
+              <Btn icon={<Check size={16} />} disabled={busy || !rec} onClick={() => rec && onDecide(rec.orderIds)}>
+                Confirm: defer {deferLabel}, load {replacementId}
               </Btn>
             </>
           )}

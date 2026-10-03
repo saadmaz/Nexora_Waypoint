@@ -63,7 +63,7 @@ def ask_store(db: Session, conflict_id: int, *, actor: str) -> s.ConflictView:
     if first is not None:
         db.add(
             Notice(
-                audience=f"store:{first.outlet_id}", tag=NoticeTag.REVIEW, title="Did you receive this delivery?",
+                audience_kind="store", outlet_id=first.outlet_id, tag=NoticeTag.REVIEW, title="Did you receive this delivery?",
                 body=f"Dispatch is checking {' + '.join(c.order_ids)}. Did {first.outlet_id} receive it?",
                 link={"screen": "review", "conflictId": c.id}, refs={"orderIds": list(c.order_ids), "conflictId": c.id}, created_at=repo.aware(now),
             )
@@ -142,6 +142,7 @@ def resolve(db: Session, conflict_id: int, resolution: ConflictRecommendation, *
     c.status = ConflictStatus.RESOLVED
     c.resolution = resolution.value
     c.resolved_by = actor_name
+    c.resolved_by_user_id = audit.user_id_for(db, actor)
     c.resolved_at = repo.aware(now)
 
     stamp = repo.aware(now)
@@ -150,7 +151,7 @@ def resolve(db: Session, conflict_id: int, resolution: ConflictRecommendation, *
     if vehicle:
         db.add(
             Notice(
-                audience=f"driver:{vehicle}", tag=NoticeTag.REVIEW, title=f"{first.outlet_id}: resolved: {word}",
+                audience_kind="driver", vehicle_id=vehicle, tag=NoticeTag.REVIEW, title=f"{first.outlet_id}: resolved: {word}",
                 body=f"{' + '.join(c.order_ids)}: {actor_name} settled it. Both records are kept.", link={"screen": "run"},
                 refs={"conflictId": c.id}, created_at=stamp,
             )
@@ -158,7 +159,7 @@ def resolve(db: Session, conflict_id: int, resolution: ConflictRecommendation, *
     label = f"{next_run:%a} {next_run.day} {next_run:%b}" if next_run else "the next run"
     db.add(
         Notice(
-            audience=f"store:{first.outlet_id}", tag=NoticeTag.DELIVERY, title="Deliveries updated",
+            audience_kind="store", outlet_id=first.outlet_id, tag=NoticeTag.DELIVERY, title="Deliveries updated",
             body=(
                 f"{' + '.join(c.order_ids)}: Partial ({received} / {ordered}). A follow-up is created for {ordered - received} units."
                 if resolution is ConflictRecommendation.KEEP_PARTIAL
@@ -171,7 +172,7 @@ def resolve(db: Session, conflict_id: int, resolution: ConflictRecommendation, *
     if resolution is not ConflictRecommendation.KEEP_DEFERRAL:
         db.add(
             Notice(
-                audience=f"dock:{repo.load_ref(db).outlets[first.outlet_id].depot}", tag=NoticeTag.PLAN,
+                audience_kind="dock", depot_id=repo.load_ref(db).outlets[first.outlet_id].depot, tag=NoticeTag.PLAN,
                 title="Re-run removed", body=f"{' + '.join(c.order_ids)}: the {label} re-run is removed from tomorrow's queue.",
                 link={"screen": "plan"}, refs={"conflictId": c.id}, created_at=stamp,
             )

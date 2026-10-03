@@ -95,6 +95,62 @@ def test_the_same_day_is_generated_every_time(client):
     assert runs[0] == runs[1] and len(runs[0]) == 189 + 61
 
 
+def test_the_walkthrough_has_a_refused_move_of_each_kind_on_the_generated_day(client, capsys):
+    """PRD §16 step 4 needs three refusals the judge can reproduce: a window, a reefer plus a second rule, and the continuity guard.
+
+    The search is in a fixed order (order id, then target vehicle and trip), so it finds the same three moves every time. The moves are
+    printed so the README can name them.
+    """
+    import re
+
+    from app.db import SessionLocal
+    from app.services import planning_repo as repo
+    from waypoint_rules import Move, RuleId, draft_plan, validate_move
+
+    with SessionLocal() as db:
+        try:
+            _generate(db)
+            ops = repo.operating_days(db)
+            pool = repo.day_orders(db, SERVICE, ops)
+            ref = repo.load_ref(db)
+            vdays, _ = repo.vehicle_days(db, SERVICE)
+            plan = draft_plan(pool, ref, vdays, service_date=SERVICE, operating_days=ops).as_plan()
+
+            found: dict[str, tuple[Move, list]] = {}
+            placed = sorted(o for t in plan.trips.values() for o in t.order_ids)
+            for oid in placed:
+                source = plan.trip_of_order(oid)
+                for key in sorted(plan.trips):
+                    if source is None or key == source.key or ref.outlets[pool[oid].outlet_id].depot != ref.vehicles[key[0]].depot:
+                        continue
+                    result = validate_move(plan, Move(oid, key), pool, ref, vdays)
+                    rules = {v.rule for v in result.violations}
+                    if RuleId.WINDOW in rules and "window" not in found:
+                        found["window"] = (Move(oid, key), result.violations)
+                    if RuleId.TEMP in rules and len(rules) >= 2 and "reefer" not in found:
+                        found["reefer"] = (Move(oid, key), result.violations)
+                    if len(found) >= 2:
+                        break
+                if len(found) >= 2:
+                    break
+            protected = next(o for o in sorted(pool) if pool[o].deferred_yesterday and plan.trip_of_order(o) is not None)
+            guard = validate_move(plan, Move(protected, None), pool, ref, vdays)
+            found["continuity"] = (Move(protected, None), guard.violations)
+
+            window = next(v.message for v in found["window"][1] if v.rule is RuleId.WINDOW)
+            assert re.fullmatch(r"Arrives \d\d:\d\d, after OUT\d+ closes at \d\d:\d\d", window), window
+            reefer = found["reefer"][1]
+            assert any(re.fullmatch(r"Needs a reefer: VEH\d+ is ambient", v.message) for v in reefer) and len({v.rule for v in reefer}) >= 2
+            outlet = pool[protected].outlet_id
+            assert [v.message for v in found["continuity"][1]] == [f"{outlet} was deferred yesterday; the continuity guard protects it"]
+
+            with capsys.disabled():
+                for kind, (move, violations) in found.items():
+                    print(f"\nWALKTHROUGH REFUSAL {kind}: {move.order_id} -> {move.to}: {[v.message for v in violations]}")
+        finally:
+            db.rollback()
+
+
 def test_the_planner_plans_the_whole_day_legally_and_defers_about_as_many_as_the_prd(client):
     from app.db import SessionLocal
     from app.services import planning_repo as repo

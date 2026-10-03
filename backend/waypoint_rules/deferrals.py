@@ -12,7 +12,7 @@ from itertools import combinations
 from .calc import trip_load
 from .constraints import legal_vehicles
 from .model import Order, RefData, Trip, Vehicle, VehicleDay
-from .vocab import Binding, Brand, DeferralType
+from .vocab import FRESH_BUDGET_MIN, STYLE_TECH_BUDGET_MIN, Binding, Brand, DeferralType
 
 
 def classify_deferral(order: Order, ref: RefData, vehicle_days: dict[str, VehicleDay] | None = None) -> DeferralType:
@@ -82,6 +82,80 @@ def binding_resource(resources: dict[Binding, tuple[float, float]]) -> BindingRe
     2,160 = 120 %, over by 430."""
     res, (d, s) = max(resources.items(), key=lambda kv: (kv[1][0] / kv[1][1]) if kv[1][1] else float("inf"))
     return BindingResult(res, d, s)
+
+
+@dataclass(frozen=True, slots=True)
+class TripMinutes:
+    """One planned trip, as the minute budgets see it."""
+
+    brand: Brand
+    on_reefer: bool
+    minutes: float
+
+
+@dataclass(frozen=True, slots=True)
+class DeferredMinutes:
+    """A forced deferral: the minutes it would need if it were served."""
+
+    brand: Brand
+    chilled: bool
+    minutes: float
+
+
+@dataclass(frozen=True, slots=True)
+class MinutesPool:
+    """Budgeted minutes of one fleet: what is asked of it against what it can give."""
+
+    label: str
+    demand: float
+    supply: float
+    available: int
+    per_vehicle: int
+
+    @property
+    def percent(self) -> int:
+        return round(100 * self.demand / self.supply) if self.supply else 0
+
+    @property
+    def over_by(self) -> float:
+        return max(0.0, self.demand - self.supply)
+
+
+def minutes_pools(
+    trips: list[TripMinutes], deferred: list[DeferredMinutes], usable: int, usable_reefers: int
+) -> list[MinutesPool]:
+    """The minute budgets, each measuring demand and supply on the same fleet (D2).
+
+    Chilled orders can only ride reefers, so the reefer pool counts the Fresh trips that run on reefers and the chilled
+    Fresh orders left out. Ambient Fresh on a dry truck is the all-vehicle pool's business, never the reefers'.
+    """
+    fresh = [t for t in trips if t.brand is Brand.FRESH]
+    other = [t for t in trips if t.brand is not Brand.FRESH]
+    fresh_left = [d for d in deferred if d.brand is Brand.FRESH]
+    other_left = [d for d in deferred if d.brand is not Brand.FRESH]
+    pools = [
+        MinutesPool(
+            "Reefer Fresh minutes",
+            sum(t.minutes for t in fresh if t.on_reefer) + sum(d.minutes for d in fresh_left if d.chilled),
+            usable_reefers * FRESH_BUDGET_MIN, usable_reefers, FRESH_BUDGET_MIN,
+        ),
+        MinutesPool(
+            "Fresh minutes (all vehicles)",
+            sum(t.minutes for t in fresh) + sum(d.minutes for d in fresh_left),
+            usable * FRESH_BUDGET_MIN, usable, FRESH_BUDGET_MIN,
+        ),
+        MinutesPool(
+            "Style + Tech minutes",
+            sum(t.minutes for t in other) + sum(d.minutes for d in other_left),
+            usable * STYLE_TECH_BUDGET_MIN, usable, STYLE_TECH_BUDGET_MIN,
+        ),
+    ]
+    return [p for p in pools if p.supply]
+
+
+def scarcest_pool(pools: list[MinutesPool]) -> MinutesPool | None:
+    """The pool with the highest demand ÷ supply, or ``None`` when there is no pool. Ties keep the first."""
+    return max(pools, key=lambda p: p.demand / p.supply, default=None)
 
 
 @dataclass(frozen=True, slots=True)

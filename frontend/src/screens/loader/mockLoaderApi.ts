@@ -2,7 +2,7 @@ import type { DepotId, Trip, Vehicle, VehicleTag } from "../../domain/field";
 import { colomboMs, formatTime, HERO_DATE } from "../../field/clock/clock";
 import { OTHER_PERSON_ID } from "../../field/components";
 import { connectivity, enqueue, NetworkError, registerSyncHandler } from "../../field/offline";
-import { DECISION_AT, GUEST_PIN, pinFor, tripsV3, tripsV4, VEH036_AVAILABLE_AT, VEHICLES } from "./fixtures";
+import { DECISION_AT, GUEST_PIN, peopleFor, pinFor, tripsV3, tripsV4, VEH036_AVAILABLE_AT, VEHICLES } from "./fixtures";
 import type {
   AcknowledgePlanInput,
   ConfirmLoadedInput,
@@ -232,6 +232,10 @@ export function createMockLoaderApi(nowMs: () => number): LoaderApi {
         newerVersionExists: ack !== undefined && ack.version < version,
         vehicles: ids.map(buildSummary),
       } satisfies DockView;
+    },
+
+    async getPeople(dockId) {
+      return peopleFor(dockId);
     },
 
     async verifyPin(personId, pin, otherName) {
