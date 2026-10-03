@@ -14,7 +14,7 @@ the scripted events carry an ``applied_at`` marker. Nothing here waits for a per
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -29,15 +29,11 @@ from .services import audit, planning
 from .services import orders as order_service
 from .services import planning_repo as repo
 
-CUTOFF = time(16, 0)
 DRAFT_DELAY = timedelta(minutes=5)
 SYSTEM = "system"
 
 
-def cutoff_at(service_date: date, ops: list[date]) -> datetime:
-    """16:00 on the last operating day before ``service_date`` (R-CUTOFF)."""
-    before = repo.previous_operating_day(service_date, ops) or service_date - timedelta(days=1)
-    return datetime.combine(before, CUTOFF)
+cutoff_at = repo.cutoff_at
 
 
 def _close_queues(db: Session, now: datetime, ops: list[date]) -> int:

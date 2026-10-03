@@ -8,7 +8,7 @@ the rules want naive Asia/Colombo times, so they are converted at this boundary 
 from __future__ import annotations
 
 from collections.abc import Iterable
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -114,6 +114,25 @@ def active_service_date(now: datetime, ops: list[date]) -> date:
 def previous_operating_day(service_date: date, ops: Iterable[date]) -> date | None:
     earlier = [d for d in ops if d < service_date]
     return max(earlier) if earlier else None
+
+
+CUTOFF = time(16, 0)
+
+
+def cutoff_at(service_date: date, ops: list[date]) -> datetime:
+    """16:00 on the last operating day before ``service_date`` (R-CUTOFF). Naive Asia/Colombo."""
+    before = previous_operating_day(service_date, ops) or service_date - timedelta(days=1)
+    return datetime.combine(before, CUTOFF)
+
+
+def outlet_rows(db: Session) -> dict[str, OutletRow]:
+    return {
+        o.id: OutletRow(
+            o.id, o.name or o.id, o.brand, o.district, o.depot_id, o.dock_type,
+            o.parking_constraint == "van_only", o.parking_constraint == "mall_dock",
+        )
+        for o in db.scalars(select(reference.Outlet))
+    }
 
 
 # ---- orders -----------------------------------------------------------------
@@ -265,10 +284,7 @@ def load_day(db: Session, service_date: date, now: datetime, *, version: int | N
     ops = operating_days(db)
     ref = load_ref(db)
     days, avail = vehicle_days(db, service_date)
-    outlets = {
-        o.id: OutletRow(o.id, o.name or o.id, o.brand, o.district, o.depot_id, o.dock_type, o.parking_constraint == "van_only", o.parking_constraint == "mall_dock")
-        for o in db.scalars(select(reference.Outlet))
-    }
+    outlets = outlet_rows(db)
     day = DispatchDay(
         service_date=service_date,
         now=now,

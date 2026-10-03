@@ -18,6 +18,7 @@ from waypoint_rules.vocab import Brand, OrderStatus, Temp
 from .. import clock
 from ..deps import Db, Dispatcher
 from ..errors import ApiError, not_found, not_implemented
+from ..models.orders import Order as OrderRow
 from ..schemas.dispatcher import (
     AcknowledgementsView,
     CapacityView,
@@ -43,10 +44,11 @@ from ..schemas.dispatcher import (
     SaveMovesIn,
 )
 from ..services import dispatcher_views as views
-from ..services import planning
+from ..services import planning, queue_repo, queue_views
 from ..services import planning_repo as repo
 from ..services.dispatch_model import DispatchDay
 from ..services.plan_logic import after_move, plan_of
+from ..services.queue_model import QueueFilter
 
 router = APIRouter(prefix="/dispatcher", tags=["dispatcher"])
 
@@ -106,13 +108,29 @@ def get_queue(
     search: str | None = None,
 ) -> QueueView:
     """D1: the order queue for a depot and service date, grouped, with the filters and search applied."""
-    raise not_implemented("getQueue")
+    now = clock.now(db).replace(tzinfo=None)
+    run = date or repo.active_service_date(now, repo.operating_days(db))
+    filters = QueueFilter(
+        brand=tuple(brand or ()),
+        temp=tuple(temp or ()),
+        status=tuple(status or ()),
+        window=tuple(window or ()),
+        tags=tuple(tags or ()),
+        district=tuple(district or ()),
+        search=search or "",
+    )
+    return queue_views.queue_view(queue_repo.load_queue(db, run, now), depot, filters)
 
 
 @router.get("/orders/{order_id}/history", operation_id="getOrderHistory", response_model=OrderHistory)
 def get_order_history(order_id: str, db: Db, user: Dispatcher) -> OrderHistory:
     """D1.5: the order's history drawer, built from its audit events (oldest first)."""
-    raise not_implemented("getOrderHistory")
+    order = db.get(OrderRow, order_id)
+    if order is None:
+        raise not_found(f"Order {order_id}")
+    now = clock.now(db).replace(tzinfo=None)
+    day = queue_repo.load_queue(db, order.service_date, now, only=order_id)
+    return queue_views.order_history_view(day, day.rows[0], queue_repo.load_history(db, order_id))
 
 
 # ---- planning (feature/allocation-engine) -----------------------------------
