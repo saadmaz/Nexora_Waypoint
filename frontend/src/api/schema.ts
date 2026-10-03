@@ -2400,6 +2400,8 @@ export interface components {
             depot?: string | null;
             /** Outletid */
             outletId?: string | null;
+            /** @description The store account's outlet; absent for every other role */
+            outlet?: components["schemas"]["app__schemas__common__OutletInfo"] | null;
             /** Vehicleid */
             vehicleId?: string | null;
         };
@@ -2654,17 +2656,6 @@ export interface components {
          * @enum {string}
          */
         OrderStatus: "ordered" | "confirmed" | "planned" | "deferred" | "loaded" | "departed" | "delivered" | "partial" | "issue" | "conflict" | "pending_sync";
-        /** OutletInfo */
-        OutletInfo: {
-            /** Id */
-            id: string;
-            brand?: components["schemas"]["Brand"] | null;
-            /** Dock */
-            dock?: string | null;
-            window?: components["schemas"]["TimeRange"] | null;
-            /** Note */
-            note?: string | null;
-        };
         /** OverMeter */
         OverMeter: {
             /** Used */
@@ -2942,7 +2933,7 @@ export interface components {
              * @enum {string}
              */
             kind: "carry" | "other" | "outlet";
-            outlet?: components["schemas"]["OutletInfo"] | null;
+            outlet?: components["schemas"]["app__schemas__dispatcher__OutletInfo"] | null;
             /** Orders */
             orders: components["schemas"]["QueueOrder"][];
         };
@@ -3539,6 +3530,34 @@ export interface components {
              * @example 08:00
              */
             end: string;
+        };
+        /**
+         * OutletInfo
+         * @description The outlet a store account manages, as the store's own screens name it.
+         */
+        app__schemas__common__OutletInfo: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Brand */
+            brand: string;
+            /** District */
+            district: string;
+            /** Dock */
+            dock: string;
+            window: components["schemas"]["Window"];
+        };
+        /** OutletInfo */
+        app__schemas__dispatcher__OutletInfo: {
+            /** Id */
+            id: string;
+            brand?: components["schemas"]["Brand"] | null;
+            /** Dock */
+            dock?: string | null;
+            window?: components["schemas"]["TimeRange"] | null;
+            /** Note */
+            note?: string | null;
         };
     };
     responses: never;
