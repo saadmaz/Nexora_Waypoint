@@ -79,10 +79,9 @@ def test_wrong_role_is_403(client, auth, role, method, path, body):
 
 
 # (role that is allowed, method, path): built later, so the body is a 501 with the error shape.
-# Every dispatcher route is built now, so the dispatcher has none here.
+# Every dispatcher and loader route is built now, so neither has one here.
 RIGHT_ROLE_501 = [
     ("store", "GET", "/api/v1/store/updates"),
-    ("loader", "GET", "/api/v1/loader/docks/kandy"),
     ("driver", "GET", "/api/v1/driver/history"),
 ]
 
