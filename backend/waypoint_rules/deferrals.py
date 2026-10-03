@@ -10,14 +10,14 @@ from dataclasses import dataclass, field
 from itertools import combinations
 
 from .calc import trip_load
-from .constraints import legal_vehicles
+from .constraints import capable_vehicles
 from .model import Order, RefData, Trip, Vehicle, VehicleDay
 from .vocab import FRESH_BUDGET_MIN, STYLE_TECH_BUDGET_MIN, Binding, Brand, DeferralType
 
 
 def classify_deferral(order: Order, ref: RefData, vehicle_days: dict[str, VehicleDay] | None = None) -> DeferralType:
     """``capacity`` when no legal vehicle exists for the whole order, else ``policy``."""
-    return DeferralType.POLICY if legal_vehicles(order, ref, vehicle_days) else DeferralType.CAPACITY
+    return DeferralType.POLICY if capable_vehicles(order, ref) else DeferralType.CAPACITY
 
 
 @dataclass(frozen=True, slots=True)

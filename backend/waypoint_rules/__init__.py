@@ -19,10 +19,14 @@ from .calc import (
 )
 from .constraints import (
     Violation,
+    capable_vehicles,
+    check_plan,
     check_trip,
     check_vehicle_day,
     legal_vehicles,
     order_vehicle_violations,
+    usable_vehicles,
+    validate_policy_action,
     vehicle_day_totals,
 )
 from .deferrals import (
@@ -82,6 +86,10 @@ from .vocab import (
 )
 
 __all__ = [
+    "capable_vehicles",
+    "check_plan",
+    "usable_vehicles",
+    "validate_policy_action",
     "RunLeg",
     "planned_run_legs",
     "Binding",

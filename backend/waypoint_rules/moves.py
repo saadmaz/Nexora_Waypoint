@@ -5,11 +5,10 @@ from __future__ import annotations
 import copy
 from dataclasses import dataclass, field
 
-from . import messages as msg
 from .calc import hhmm, planned_clock, planned_fuel, trip_load, trip_minutes
-from .constraints import Violation, check_trip, check_vehicle_day, legal_vehicles, vehicle_day_totals
+from .constraints import Violation, check_plan, validate_policy_action, vehicle_day_totals
 from .model import Order, Plan, RefData, Trip, VehicleDay
-from .vocab import RuleId, Temp
+from .vocab import DeferralType, RuleId, Temp
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,8 +104,7 @@ def validate_move(
     if move.to is None:
         after.deferred.append(move.order_id)
         result.deferral_changes.append(f"{move.order_id} is deferred")
-        if order.deferred_yesterday and legal_vehicles(order, ref, vehicle_days):
-            violations.append(Violation(RuleId.CONT, msg.continuity(order.outlet_id)))
+        violations.extend(validate_policy_action(order, DeferralType.POLICY, ref, reason="Dispatcher deferral"))
     else:
         target_before = plan.trips.get(move.to)
         if target_before is None:
@@ -116,15 +114,12 @@ def validate_move(
         idx = _insert_index(target, order, orders)
         target.order_ids.insert(idx, move.order_id)
         result.inserted_at = idx
-        vday = vehicle_days.get(target.vehicle_id)
-        violations.extend(check_trip(target, orders, ref, vday))
-        vehicle = ref.vehicles[target.vehicle_id]
-        violations.extend(check_vehicle_day(vehicle, after.trips_of(target.vehicle_id), orders, ref, vday))
         result.target_after = summarize(after, target, orders, ref, vehicle_days)
 
     if source is not None:
         result.source_after = summarize(after, after.trips[source.key], orders, ref, vehicle_days)
 
+    violations.extend(check_plan(after, orders, ref, vehicle_days))
     result.violations = _unique(violations)
     result.ok = not result.violations
     return result

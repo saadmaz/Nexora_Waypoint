@@ -49,6 +49,18 @@ def too_many_trips(vehicle_id: str, n: int) -> str:
     return f"{vehicle_id} would run {n} trips; the limit is 2"
 
 
+def invalid_trip(vehicle_id: str, trip_no: int) -> str:
+    return f"{vehicle_id} trip {trip_no} is invalid; trip numbers must be 1 or 2"
+
+
+def trip_overlap(vehicle_id: str, trip_no: int, departure: str, earliest: str) -> str:
+    return f"{vehicle_id} trip {trip_no} departs {departure}, before the previous trip returns at {earliest}"
+
+
+def order_partition(order_id: str, count: int) -> str:
+    return f"{order_id} must be served or deferred exactly once; found {count} assignments"
+
+
 def over_budget(vehicle_id: str, group: str, minutes: int, budget: int) -> str:
     return f"{group} minutes over budget: {minutes} of {budget} on {vehicle_id}"
 

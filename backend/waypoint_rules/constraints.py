@@ -4,15 +4,16 @@ an empty list means the trip or vehicle day is legal.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections import Counter
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
 from . import messages as msg
 from .calc import hhmm, planned_clock, planned_fuel, trip_load, trip_minutes
-from .model import Order, RefData, Trip, Vehicle, VehicleDay
-from .vocab import FRESH_BUDGET_MIN, MAX_TRIPS_PER_VEHICLE, STYLE_TECH_BUDGET_MIN, Brand, RuleId, Temp
+from .model import Order, Plan, RefData, Trip, Vehicle, VehicleDay
+from .vocab import FRESH_BUDGET_MIN, MAX_TRIPS_PER_VEHICLE, STYLE_TECH_BUDGET_MIN, Brand, DeferralType, RuleId, Temp
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,6 +94,8 @@ def check_trip(
     """
     vehicle = ref.vehicles[trip.vehicle_id]
     out: list[Violation] = []
+    if trip.trip_no not in (1, 2):
+        out.append(Violation(RuleId.TRIPS, msg.invalid_trip(trip.vehicle_id, trip.trip_no)))
     for oid in trip.order_ids:
         out.extend(order_vehicle_violations(orders[oid], vehicle, ref))
     out.extend(availability_violations(vehicle, vday, trip.depart_at))
@@ -170,6 +173,19 @@ def check_vehicle_day(
     out: list[Violation] = []
     if len(trips) > MAX_TRIPS_PER_VEHICLE:
         out.append(Violation(RuleId.TRIPS, msg.too_many_trips(vehicle.id, len(trips))))
+    seen: set[int] = set()
+    for trip in sorted(trips, key=lambda t: (t.trip_no, t.depart_at)):
+        if trip.trip_no not in (1, 2):
+            out.append(Violation(RuleId.TRIPS, msg.invalid_trip(vehicle.id, trip.trip_no)))
+        if trip.trip_no in seen:
+            out.append(Violation(RuleId.TRIPS, f"{vehicle.id} has duplicate trip {trip.trip_no}"))
+        seen.add(trip.trip_no)
+        out.extend(availability_violations(vehicle, vday, trip.depart_at))
+    ordered = sorted(trips, key=lambda t: t.trip_no)
+    for previous, current in zip(ordered, ordered[1:], strict=False):
+        back = planned_clock(previous, orders, ref).back_at_depot
+        if back is not None and current.depart_at < back:
+            out.append(Violation(RuleId.TRIPS, msg.trip_overlap(vehicle.id, current.trip_no, hhmm(current.depart_at), hhmm(back))))
     tot = vehicle_day_totals(vehicle, trips, orders, ref, vday)
     if tot.fresh_min > FRESH_BUDGET_MIN:
         out.append(Violation(RuleId.BUDGET_FRESH, msg.over_budget(vehicle.id, "Fresh", tot.fresh_min, FRESH_BUDGET_MIN),
@@ -181,7 +197,83 @@ def check_vehicle_day(
     if tot.fuel_week_l > vehicle.weekly_fuel_quota_l + 1e-9:
         out.append(Violation(RuleId.FUEL, msg.over_fuel(vehicle.id, tot.fuel_week_l, vehicle.weekly_fuel_quota_l),
                              {"litres": round(tot.fuel_week_l, 1), "quota": vehicle.weekly_fuel_quota_l}))
+    return _dedupe(out)
+
+
+def capable_vehicles(order: Order, ref: RefData) -> list[str]:
+    """Physical whole-order capability, independent of availability, fuel and competing demand."""
+    return [
+        vehicle.id for vehicle in sorted(ref.vehicles.values(), key=lambda v: v.id)
+        if not order_vehicle_violations(order, vehicle, ref, check_capacity_alone=True)
+    ]
+
+
+def usable_vehicles(
+    order: Order, ref: RefData, vehicle_days: Mapping[str, VehicleDay], depart_at: datetime | None = None,
+) -> list[str]:
+    """Initial draft requires all-morning availability; an explicit departure supports later replacement scenarios."""
+    return [
+        vid for vid in capable_vehicles(order, ref)
+        if not availability_violations(ref.vehicles[vid], vehicle_days.get(vid), depart_at)
+    ]
+
+
+def validate_policy_action(
+    order: Order, kind: DeferralType, ref: RefData, *, reason: str,
+) -> list[Violation]:
+    """Continuity is policy, never a physical-capability test. A store request may defer a protected outlet."""
+    out: list[Violation] = []
+    capable = capable_vehicles(order, ref)
+    if not reason.strip():
+        out.append(Violation(RuleId.WHOLE, f"{order.id} needs a deferral reason"))
+    if kind is DeferralType.CAPACITY and capable:
+        out.append(Violation(RuleId.WHOLE, f"{order.id} has a capable vehicle; its deferral cannot be capacity"))
+    if kind is DeferralType.POLICY and order.deferred_yesterday and capable:
+        out.append(Violation(RuleId.CONT, msg.continuity(order.outlet_id)))
     return out
+
+
+def check_plan(
+    plan: Plan, orders: dict[str, Order], ref: RefData,
+    vehicle_days: Mapping[str, VehicleDay] | None = None,
+    *, deferral_reasons: Mapping[str, tuple[DeferralType, str]] | None = None,
+) -> list[Violation]:
+    """Complete physical/assignment invariants. Unrepairable continuity is a separate explicit policy warning.
+
+    ``orders`` is the exact input pool, not every order in the database. Supply the persisted/draft deferral
+    metadata at the write boundary so every deferred order has a type and nonempty reason.
+    """
+    days = vehicle_days or {}
+    out: list[Violation] = []
+    counts = Counter([oid for trip in plan.trips.values() for oid in trip.order_ids] + plan.deferred)
+    for oid in sorted(set(orders) | set(counts)):
+        if oid not in orders:
+            out.append(Violation(RuleId.WHOLE, f"Unknown order {oid} in the plan"))
+        elif counts[oid] != 1:
+            out.append(Violation(RuleId.WHOLE, msg.order_partition(oid, counts[oid])))
+    valid_trips: dict[str, list[Trip]] = {}
+    keys: set[tuple[str, int]] = set()
+    for key, trip in sorted(plan.trips.items()):
+        if key != trip.key or trip.key in keys:
+            out.append(Violation(RuleId.TRIPS, f"Duplicate or mismatched trip key {trip.key}"))
+        keys.add(trip.key)
+        if trip.vehicle_id not in ref.vehicles:
+            out.append(Violation(RuleId.DEPOT, f"Unknown vehicle {trip.vehicle_id}"))
+            continue
+        if any(oid not in orders for oid in trip.order_ids):
+            continue
+        out.extend(check_trip(trip, orders, ref, days.get(trip.vehicle_id)))
+        valid_trips.setdefault(trip.vehicle_id, []).append(trip)
+    for vid in sorted(valid_trips):
+        out.extend(check_vehicle_day(ref.vehicles[vid], valid_trips[vid], orders, ref, days.get(vid)))
+    if deferral_reasons is not None:
+        if set(deferral_reasons) != set(plan.deferred):
+            out.append(Violation(RuleId.WHOLE, "Deferral records must match the deferred pool"))
+        for oid in sorted(plan.deferred):
+            item = deferral_reasons.get(oid)
+            if item is None or not isinstance(item[0], DeferralType) or not item[1].strip():
+                out.append(Violation(RuleId.WHOLE, f"{oid} needs a deferral type and reason"))
+    return _dedupe(out)
 
 
 def legal_vehicles(
