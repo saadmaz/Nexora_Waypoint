@@ -4,7 +4,7 @@ import { formatTime } from "../../../field/clock/clock";
 import { useFieldClock, useNow } from "../../../field/clock/useClock";
 import { PinSheet, type ChipStatus } from "../../../field/components";
 import { useConnectivity, useFieldQuery, type ConnectivityStatus } from "../../../field/offline";
-import { peopleFor } from "../fixtures";
+import { usePeople } from "../usePeople";
 import { useLoader } from "../LoaderContext";
 import { PlanChanged, type PlanChangedPhase } from "./PlanChanged";
 
@@ -22,6 +22,7 @@ function chipStatus(status: ConnectivityStatus): ChipStatus {
  */
 export function ChangesContainer() {
   const { api, dockId, setCurrentPerson } = useLoader();
+  const people = usePeople();
   const navigate = useNavigate();
   const clock = useFieldClock();
   const now = useNow(1000);
@@ -112,7 +113,7 @@ export function ChangesContainer() {
         onOpenChange={setPinOpen}
         title={`Acknowledge plan v${toVersion} at ${dockName} dock`}
         whoLabel="Who's acknowledging?"
-        people={peopleFor(dockId)}
+        people={people}
         verify={(personId, pin, otherName) => api.verifyPin(personId, pin, otherName)}
         onConfirmed={acknowledge}
         confirmedText={(name) => `Acknowledged by ${name}`}

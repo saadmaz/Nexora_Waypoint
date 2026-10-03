@@ -75,6 +75,10 @@ export function createApiLoaderApi(): LoaderApi {
       return mapDock(out, dockId, readLocalState(await listRecords()));
     },
 
+    async getPeople(dockId) {
+      return (await readDock(dockId)).people.map((person) => ({ id: String(person.id), name: person.name }));
+    },
+
     async verifyPin(personId, pin) {
       if (!isNumeric(personId)) return false;
       const out = await request<Schemas["VerifyPinOut"]>("loader.verifyPin", { personId: Number(personId), pin });

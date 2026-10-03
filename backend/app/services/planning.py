@@ -43,7 +43,7 @@ from ..models import orders as order_models
 from ..models import plans
 from ..models.comms import Notice
 from ..models.enums import AuditType, HistoryOutcome, NoticeTag, PlanState, ServerStatus
-from . import audit
+from . import audit, store_notices
 from . import orders as order_service
 from . import planning_repo as repo
 from .dispatch_model import DeferralRow, DispatchDay
@@ -505,6 +505,10 @@ def release(db: Session, service_date: date, *, send_notices: bool, actor: str, 
                 link={"screen": "run"}, refs={"planVersion": version.number, "trip": trip.trip_no}, created_at=repo.aware(now),
             )
         )
+
+    # Each store with an order on a trip is told its arrival time.
+    db.flush()
+    store_notices.arrival_set(db, version, repo.aware(now))
 
     # An outlet whose order is deferred was skipped today: the continuity guard protects it next run.
     for outlet_id in sorted({day.orders[d.order_id].outlet_id for d in day.deferrals}):

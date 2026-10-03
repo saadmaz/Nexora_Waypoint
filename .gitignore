@@ -5,6 +5,8 @@ node_modules/
 .env
 .env.*
 !.env.example
+# Non-secret production build flags: every role reads the database, not its mock (README, "API mode").
+!frontend/.env.production
 *.local
 
 # Build output

@@ -1,14 +1,14 @@
 /**
  * Plays the role clients against the REAL backend (API wiring W3 to W5). It is the acceptance test for
- * `VITE_STORE_API=api`, `VITE_DRIVER_API=api` and `VITE_LOADER_API=api`, as far as the backend can answer today.
+ * `VITE_STORE_API=api`, `VITE_DRIVER_API=api` and `VITE_LOADER_API=api`, against a freshly seeded database (scenario clock at
+ * Mon 28 Sep 15:30, no plan released yet).
  *
- * Only auth, `/me` and the clock are built on the backend; every other route answers 501. So this proves what can be proven:
+ * Every route is built, so this proves:
  *   - each role's provider really switches to the real client, and the screen's first read goes to the real route with that
  *     role's own bearer token (a role that is not signed in makes no request at all);
- *   - the fetch transport reaches the real API: `driver.getMe` is a live 200, `driver.getRun` and `driver.sync` come back as the
- *     typed 501, and a device that is offline fails with the NetworkError the outbox already handles, with no request made;
- *   - a driver record sent to `/sync` stays in the outbox as an error (to retry), never lost and never accepted by accident.
- * Whatever a route returns beyond that needs the backend branches to land first.
+ *   - the fetch transport reaches the real API: `driver.getMe` is a live 200, `driver.getRun` is the server's own 404 (no plan
+ *     is released yet), and a device that is offline fails with the NetworkError the outbox already handles, with no request made;
+ *   - a driver record sent to `/sync` is taken by the server and leaves the outbox's waiting state, never lost, keeping its clientId.
  *
  *   docker compose up -d --build db api                                   (the API on http://localhost:8000)
  *   VITE_AUTH_API=api VITE_STORE_API=api VITE_DRIVER_API=api VITE_LOADER_API=api npm run dev -- --port 5192 --strictPort
@@ -89,8 +89,8 @@ async function main() {
     const hit = seen.find((s) => account.route.test(s.url));
     check(hit !== undefined, `${account.role}: the first screen read goes to the real API (${hit ? new URL(hit.url).pathname : "no request seen"})`);
     check(hit?.auth === `Bearer ${token}`, `${account.role}: that request carries this role's own token`);
-    const stuck = seen.filter((s) => s.status === 501 || s.status === 403).map((s) => `${s.method} ${new URL(s.url).pathname} ${s.status}`);
-    console.log(`     ${account.role}: unbuilt routes answered ${stuck.length > 0 ? stuck.join("; ") : "none"}`);
+    const refused = seen.filter((s) => s.status === 501 || s.status === 403).map((s) => `${s.method} ${new URL(s.url).pathname} ${s.status}`);
+    check(refused.length === 0, `${account.role}: no read is refused or unbuilt (${refused.length > 0 ? refused.join("; ") : "none"})`);
     await page.close();
   }
 
@@ -121,7 +121,7 @@ async function main() {
         out.getRun = describe(error);
       }
 
-      // A real outbox record through the real sync handler: the server answers 501, so the record must stay, as an error.
+      // A real outbox record through the real sync handler: the server takes it.
       offline.registerApiSyncHandlers("driver", ["driver.arrival"]);
       const record = await offline.enqueue({ type: "driver.arrival", payload: { date: "2026-09-29", outletId: "OUT084", at: "05:40" }, actor: "nimal", planVersionOnDevice: 4 });
       await offline.runSync({ force: true });
@@ -152,9 +152,9 @@ async function main() {
   );
   check(results.installed === "true", "the routing transport installs when a field role is on the API");
   check(results.getMe === "driver kandy", `driver.getMe is a live 200 through the transport (${results.getMe})`);
-  check(results.getRun === "NotImplementedApiError 501 getRun", `driver.getRun comes back as the typed 501 (${results.getRun})`);
-  // The running engine may already have tried once when the record was saved, so only "error, tried, with the server's reason" is asserted.
-  check(/^error [1-9]\d* sync is not built yet$/.test(results.record ?? ""), `a record the server cannot take yet stays in the outbox as an error (${results.record})`);
+  check(results.getRun === "ApiError 404 not_found", `driver.getRun is the server's own 404 while no plan is released (${results.getRun})`);
+  // The running engine may already have tried once when the record was saved, so only "no longer waiting, tried at least once" is asserted.
+  check(/^(accepted|conflict|error) [1-9]\d*/.test(results.record ?? ""), `a record sent to /sync is taken or answered by the server (${results.record})`);
   check(results.clientIdKept === "true", "the record keeps its clientId");
   check(results.offline?.startsWith("NetworkError") === true && results.offline.endsWith("requests=0"), `offline: a NetworkError and no request (${results.offline})`);
   check(results.clock === "driver token accepted", "GET /clock round-trips through the driver client");

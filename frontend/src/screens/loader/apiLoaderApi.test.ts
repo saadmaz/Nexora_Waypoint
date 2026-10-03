@@ -169,6 +169,15 @@ describe("reads", () => {
 });
 
 describe("PINs", () => {
+  it("offers the people the server lists for the dock, with the server's ids as strings", async () => {
+    const { calls } = server({ "/api/v1/loader/docks/peliyagoda": json(dock({ people: [{ id: 1, name: "Priya", dock: "peliyagoda" }, { id: 2, name: "Ruwan", dock: "peliyagoda" }] })) });
+    expect(await createApiLoaderApi().getPeople("peliyagoda")).toEqual([
+      { id: "1", name: "Priya" },
+      { id: "2", name: "Ruwan" },
+    ]);
+    expect(calls.map((c) => c.path)).toEqual(["/api/v1/loader/docks/peliyagoda"]);
+  });
+
   it("checks a numeric person against the server", async () => {
     const { calls } = server({ "/api/v1/loader/pins/verify": json({ ok: true, person: { id: 1, name: "Ruwan", dock: "peliyagoda" } }) });
     expect(await createApiLoaderApi().verifyPin("1", "4821")).toBe(true);
