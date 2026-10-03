@@ -22,9 +22,12 @@ export type ClockReading = {
   fetchedAt: number;
   /** The delivery run the apps are working on (today's until midday, then the next operating day), when the server said. */
   runDate?: string;
+  /** The planning day (the clock's checkpoint) and the service date the scenario runs to, when the server said. */
+  planningDay?: string;
+  serviceDate?: string;
 };
 
-export type ClockAnswer = { now: string; rate: number; runDate?: string };
+export type ClockAnswer = { now: string; rate: number; runDate?: string; checkpoint?: string; serviceDate?: string };
 
 export type ServerClock = {
   /** The scenario "now", epoch ms. Before the first answer it is the wall clock, so gate on `ready()`. */
@@ -33,6 +36,8 @@ export type ServerClock = {
   paused(): boolean;
   /** The delivery run the apps are working on, as the server says. Before the first answer it is today in Colombo. */
   runDate(): string;
+  /** The two days the scenario runs between (ISO dates), once the server has said. */
+  scenarioDays(): { planningDay: string; serviceDate: string } | null;
   /** True once an answer (or a saved one) is in hand, or the first request has failed (then the wall clock stands in). */
   ready(): boolean;
   /** Asks the server again. Never rejects: offline keeps the last reading. */
@@ -75,6 +80,8 @@ function loadReading(storage: ServerClockOptions["storage"], key: string): Clock
       rate: value.rate,
       fetchedAt: value.fetchedAt,
       ...(typeof value.runDate === "string" ? { runDate: value.runDate } : {}),
+      ...(typeof value.planningDay === "string" ? { planningDay: value.planningDay } : {}),
+      ...(typeof value.serviceDate === "string" ? { serviceDate: value.serviceDate } : {}),
     };
   } catch {
     return null;
@@ -90,6 +97,9 @@ export function createServerClock(role: Role, options: ServerClockOptions = {}):
   let reading = loadReading(storage, key);
   // True after the first attempt, answered or not: a device that starts offline with nothing saved must not stay blank.
   let attempted = false;
+  // One object per reading, so a component that subscribes to it only re-renders when the server says something new.
+  const daysOf = (r: ClockReading | null) => (r?.planningDay && r.serviceDate ? { planningDay: r.planningDay, serviceDate: r.serviceDate } : null);
+  let days = daysOf(reading);
 
   const nowMs = () => (reading ? extrapolate(reading, wall()) : wall());
 
@@ -103,7 +113,10 @@ export function createServerClock(role: Role, options: ServerClockOptions = {}):
         rate: answer.rate,
         fetchedAt: (sent + received) / 2,
         ...(answer.runDate ? { runDate: answer.runDate } : {}),
+        ...(answer.checkpoint ? { planningDay: isoDate(Date.parse(answer.checkpoint)) } : {}),
+        ...(answer.serviceDate ? { serviceDate: answer.serviceDate } : {}),
       };
+      days = daysOf(reading);
       try {
         storage?.setItem(key, JSON.stringify(reading));
       } catch {
@@ -147,6 +160,7 @@ export function createServerClock(role: Role, options: ServerClockOptions = {}):
     rate: () => reading?.rate ?? 1,
     paused: () => reading?.rate === 0,
     runDate: () => reading?.runDate ?? isoDate(nowMs()),
+    scenarioDays: () => days,
     ready: () => reading !== null || attempted,
     sync,
     start,
