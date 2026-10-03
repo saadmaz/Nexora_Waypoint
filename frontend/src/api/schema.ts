@@ -1252,6 +1252,12 @@ export interface components {
              */
             serviceDate: string;
             /**
+             * Rundate
+             * Format: date
+             * @description The delivery run the apps are working on: today's until midday, then the next operating day
+             */
+            runDate: string;
+            /**
              * Rate
              * @description Scenario seconds per wall second: 1 is real time, 0 is paused
              */
