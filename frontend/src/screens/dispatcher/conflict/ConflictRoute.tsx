@@ -104,7 +104,7 @@ export function ConflictRoute() {
       />
     );
   } else if (view) {
-    body = <Body view={view} busy={busy || offline} failed={failed} onAsk={ask} onResolve={resolve} onBack={back} onCall={() => toast.show("Calling OUT084...")} />;
+    body = <Body view={view} busy={busy || offline} failed={failed} onAsk={ask} onResolve={resolve} onBack={back} onCall={() => toast.show(`Calling ${view.outletId}...`)} />;
   }
 
   const resolved = view?.state === "resolved";
@@ -186,7 +186,7 @@ function Body({ view, busy, failed, onAsk, onResolve, onBack, onCall }: BodyProp
             </span>
           }
         >
-          Waiting for Anusha. Her answer resolves the conflict or escalates it here.
+          Waiting for the store. Its answer resolves the conflict or escalates it here.
         </Banner>
       ) : null}
 

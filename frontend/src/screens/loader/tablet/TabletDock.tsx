@@ -6,7 +6,7 @@ import type { ChipStatus } from "../../../field/components";
 import { useConnectivity, useFieldQuery, type ConnectivityStatus } from "../../../field/offline";
 import { Icon } from "../../../shared/ui/Icon";
 import { DockContainer } from "../dock/DockContainer";
-import { DOCKS } from "../fixtures";
+import { DOCKS } from "../../../domain/field";
 import { LoadPlanContainer } from "../loadplan/LoadPlanContainer";
 import { useLoader } from "../LoaderContext";
 import { TabletShell } from "./TabletShell";

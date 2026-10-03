@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 import bcrypt
 import jwt
 
+from .clock import wall_now
 from .config import get_settings
 from .errors import unauthenticated
 from .models.people import User
@@ -30,7 +31,7 @@ def verify_secret(secret: str, hashed: str) -> bool:
 def create_token(user: User) -> tuple[str, datetime]:
     """A bearer token for ``user``. Returns the token and when it expires."""
     settings = get_settings()
-    now = datetime.now(UTC)  # real time: token lifetime is not scenario time
+    now = wall_now()  # real time: token lifetime is not scenario time
     expires = now + timedelta(hours=settings.jwt_ttl_hours)
     claims: dict[str, Any] = {
         "sub": str(user.id),

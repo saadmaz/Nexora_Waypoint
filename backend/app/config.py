@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime, time, timedelta
 from functools import lru_cache
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -43,11 +43,26 @@ class Settings(BaseSettings):
     data_dir: Path = Path("../data")
     uploads_dir: Path = Path("./uploads")
 
-    #: Scenario start (A38): Mon 28 Sep 2026 15:30, Asia/Colombo.
-    scenario_start: datetime = datetime(2026, 9, 28, 15, 30, tzinfo=COLOMBO)
+    #: The delivery day the scenario plans for (A38). The seed and the clock derive everything else from it: the planning
+    #: day is the operating day before it, and the clock starts there at 15:30 Asia/Colombo. Must be an operating day.
+    scenario_service_date: date = date(2026, 9, 29)
+
+    #: Scenario seconds per wall second: 1 is real time, 0 is paused, 60 is a minute a second (DP-26).
+    clock_rate: float = 1.0
+    #: Run the due jobs on a timer inside the API process. Off in tests, which drive the clock themselves.
+    job_loop: bool = True
+    job_loop_seconds: float = 5.0
 
     #: Demo passwords (O-4). Overridden in .env; listed in the README.
     demo_password: str = "waypoint-demo"
+
+    @property
+    def scenario_start(self) -> datetime:
+        """Where the clock starts before the calendar is loaded: 15:30 the calendar day before the service date.
+
+        The seed replaces it with 15:30 on the previous *operating* day once the calendar is in the database.
+        """
+        return datetime.combine(self.scenario_service_date - timedelta(days=1), time(15, 30), tzinfo=COLOMBO)
 
     @property
     def is_dev(self) -> bool:

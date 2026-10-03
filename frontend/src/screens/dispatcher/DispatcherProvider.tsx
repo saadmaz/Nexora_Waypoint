@@ -1,21 +1,20 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { NetworkError, type DispatcherApi } from "../../api/DispatcherApi";
 import { createDispatcherDemo, createHttpDispatcherApi, type DispatcherDemo } from "../../api/httpDispatcherApi";
+import { createServerClock, type ServerClock } from "../../api/serverClock";
 import { roleApiMode } from "../../api/http/config";
-import { createScenarioClock } from "../../app/scenarioClock";
+import { devMocks } from "../../devMocks/registry";
 import { clockTime } from "../../domain/format";
 import { useOnline } from "../../hooks/useOnline";
+import { useServerClockReady } from "../../hooks/useServerClockReady";
 import { DispatcherContext, type PreviewState } from "./context";
-import { createMockDispatcherApi, isPreset, type MockMode } from "./mock/mockDispatcherApi";
+import type { MockMode } from "./mock/mockDispatcherApi";
 
 const PREVIEW_STATES: readonly string[] = ["loading", "empty", "offline", "error"];
 
 /** The scenario starts Mon 28 Sep 15:30 (A38); a dispatcher opened with no `?at=` begins there and the clock keeps ticking. */
 const DEFAULT_START = "15:30";
-
-/** Where the clock stands until the server has answered `GET /clock`: the scenario's start, Mon 28 Sep 2026 15:30. */
-const API_FALLBACK_NOW = () => new Date(2026, 8, 28, 15, 30);
 
 /** How often the screens ask the server again, while a request has failed with no answer, whether it is back. */
 const RECONNECT_MS = 8_000;
@@ -35,8 +34,10 @@ type Base = {
   lastOnline: string;
   /** Api mode only: the server's clock and the presenter control's routes. */
   demo: DispatcherDemo | null;
-  /** Api mode only: moves the clock `now` reads. */
+  /** Api mode only: asks the server for the clock again (after the presenter moved it). */
   setNow: ((to: Date) => void) | null;
+  /** Api mode only: the server's ticking clock. */
+  server: ServerClock | null;
 };
 
 /**
@@ -60,35 +61,38 @@ export function DispatcherProvider({ children }: { children: ReactNode }) {
   const onApi = roleApiMode("dispatcher") === "api";
   const [networkDown, setNetworkDown] = useState(false);
   // Api mode: the scenario time of the last answer from the server, for the offline bar.
-  const [apiLastOnline, setApiLastOnline] = useState(() => clockTime(API_FALLBACK_NOW()));
+  const [apiLastOnline, setApiLastOnline] = useState("");
   const [base] = useState<Base>(() => {
     const params = new URLSearchParams(location.search);
     if (onApi) {
-      let current = API_FALLBACK_NOW();
+      // The server's clock ticks; the page extrapolates between answers and asks again every 15 s (DP-26).
+      const server = createServerClock("dispatcher");
       return {
         api: createHttpDispatcherApi(undefined, {
           onConnection: (online) => {
             setNetworkDown(!online);
-            if (online) setApiLastOnline(clockTime(current));
+            if (online) setApiLastOnline(clockTime(new Date(server.nowMs())));
           },
         }),
-        now: () => new Date(current.getTime()),
+        now: () => new Date(server.nowMs()),
         advanceTo: undefined,
         preview: null,
         presenter: params.get("presenter") === "1",
-        lastOnline: clockTime(current),
+        lastOnline: "",
         demo: createDispatcherDemo(),
-        setNow: (to) => {
-          current = to;
+        setNow: () => {
+          void server.sync();
         },
+        server,
       };
     }
+    const mocks = devMocks();
     const state = params.get("state");
     const preview = isPreview(state) ? state : null;
-    const clock = createScenarioClock(params.get("at") ?? DEFAULT_START, params.get("date"));
+    const clock = mocks.scenarioClock.createScenarioClock(params.get("at") ?? DEFAULT_START, params.get("date"));
     const mode: MockMode = preview === "loading" || preview === "error" || preview === "empty" ? preview : "normal";
-    const api = createMockDispatcherApi(clock.now, { mode, calm: state === "calm" });
-    for (const name of (params.get("preset") ?? "").split(",").filter(isPreset)) api.applyPreset(name);
+    const api = mocks.dispatcher.createMockDispatcherApi(clock.now, { mode, calm: state === "calm" });
+    for (const name of (params.get("preset") ?? "").split(",").filter(mocks.dispatcher.isPreset)) api.applyPreset(name);
     const opened = clock.now();
     return {
       api,
@@ -100,10 +104,19 @@ export function DispatcherProvider({ children }: { children: ReactNode }) {
       lastOnline: clockTime(new Date(opened.getTime() - 4 * 60_000)),
       demo: null,
       setNow: null,
+      server: null,
     };
   });
+  const serverReady = useServerClockReady(base.server);
+  const paused = useSyncExternalStore(
+    (listener) => (base.server ? base.server.subscribe(listener) : () => undefined),
+    () => base.server?.paused() ?? false,
+  );
+  useEffect(() => base.server?.start(), [base]);
 
   const [clockVersion, setClockVersion] = useState(0);
+  // Each new answer from the server moves the clock the screens read.
+  useEffect(() => base.server?.subscribe(() => setClockVersion((v) => v + 1)), [base]);
   const [dataVersion, setDataVersion] = useState(0);
   const [presenter, setPresenter] = useState(base.presenter);
   const browserOnline = useOnline();
@@ -131,7 +144,6 @@ export function DispatcherProvider({ children }: { children: ReactNode }) {
       .readClock()
       .then((to) => {
         if (!alive) return;
-        base.setNow?.(to);
         setApiLastOnline(clockTime(to));
         setNetworkDown(false);
       })
@@ -183,6 +195,22 @@ export function DispatcherProvider({ children }: { children: ReactNode }) {
     const demo = base.demo;
     return demo ? () => demo.reset().then(syncClock) : undefined;
   }, [base, syncClock]);
+  const pauseClock = useMemo(() => {
+    const demo = base.demo;
+    return demo ? () => demo.pause().then(syncClock) : undefined;
+  }, [base, syncClock]);
+  const resumeClock = useMemo(() => {
+    const demo = base.demo;
+    return demo ? () => demo.resume().then(syncClock) : undefined;
+  }, [base, syncClock]);
+  const serverDays = useSyncExternalStore(
+    (listener) => (base.server ? base.server.subscribe(listener) : () => undefined),
+    () => base.server?.scenarioDays() ?? null,
+  );
+  const scenarioDays = useMemo(
+    () => serverDays ?? (onApi ? { planningDay: "", serviceDate: "" } : devMocks().dispatcher.MOCK_SCENARIO_DAYS),
+    [serverDays, onApi],
+  );
 
   // A clock that only moves by the passing minute still changes what the screens show: refresh them each minute.
   useEffect(() => {
@@ -202,10 +230,14 @@ export function DispatcherProvider({ children }: { children: ReactNode }) {
       offline,
       lastOnline: onApi ? apiLastOnline : base.lastOnline,
       preview: base.preview,
+      scenarioDays,
+      ...(onApi ? { paused } : {}),
       ...(advanceTo ? { advanceTo } : {}),
       ...(resetDemo ? { resetDemo } : {}),
+      ...(pauseClock ? { pauseClock } : {}),
+      ...(resumeClock ? { resumeClock } : {}),
     }),
-    [base, clockVersion, dataVersion, invalidate, presenter, offline, onApi, apiLastOnline, advanceTo, resetDemo],
+    [base, clockVersion, dataVersion, invalidate, presenter, offline, onApi, apiLastOnline, advanceTo, resetDemo, pauseClock, resumeClock, paused, scenarioDays],
   );
-  return <DispatcherContext.Provider value={value}>{clockReady ? children : null}</DispatcherContext.Provider>;
+  return <DispatcherContext.Provider value={value}>{clockReady && serverReady ? children : null}</DispatcherContext.Provider>;
 }

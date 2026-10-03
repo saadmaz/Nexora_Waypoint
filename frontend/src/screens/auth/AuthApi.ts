@@ -30,18 +30,18 @@ export const ROLE_HOME: Record<Role, string> = {
 };
 
 /**
- * The four demo accounts (PRD v3 section 4c). The loader account is the shared dock
- * tablet rather than a person, which is why it has no first name: the loader still
- * enters a PIN per action, which the field foundation's PinSheet handles.
+ * The four demo accounts (PRD v3 section 4c): the sign-in shortcuts. A person's name is not written here. It
+ * comes from the database with the sign-in (`displayName` on the session); until then a row names its role. The
+ * loader account is the shared dock tablet rather than a person: the loader still enters a PIN per action, which
+ * the field foundation's PinSheet handles.
  *
- * Each role shows its own app name after sign-in. Sign-in itself prints a neutral
- * "Waypoint" (PRD v3 section 6).
+ * Each role shows its own app name after sign-in. Sign-in itself prints a neutral "Waypoint" (PRD v3 section 6).
  */
 export const ACCOUNTS: Account[] = [
-  { email: "dispatcher@waypoint.demo", role: "dispatcher", displayName: "Kumari", appName: "Waypoint Dispatch" },
+  { email: "dispatcher@waypoint.demo", role: "dispatcher", displayName: "Dispatcher", appName: "Waypoint Dispatch" },
   { email: "loader@waypoint.demo", role: "loader", displayName: "Dock tablet", appName: "Waypoint Load" },
-  { email: "driver@waypoint.demo", role: "driver", displayName: "Nimal", appName: "Waypoint Driver" },
-  { email: "store@waypoint.demo", role: "store", displayName: "Anusha", appName: "Waypoint Store" },
+  { email: "driver@waypoint.demo", role: "driver", displayName: "Driver", appName: "Waypoint Driver" },
+  { email: "store@waypoint.demo", role: "store", displayName: "Store manager", appName: "Waypoint Store" },
 ];
 
 /**
@@ -64,5 +64,7 @@ export function accountFor(email: string): Account | undefined {
  * than something the PRD already spells out. Recorded in the README.
  */
 export function authApiMode(): "mock" | "api" {
+  // A production build is always on the API: no flag can switch it to the mock (DP-26).
+  if (!import.meta.env.DEV) return "api";
   return import.meta.env.VITE_AUTH_API === "api" ? "api" : "mock";
 }

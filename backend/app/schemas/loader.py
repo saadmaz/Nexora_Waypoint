@@ -34,6 +34,8 @@ class DockVehicleOut(ApiModel):
     tags: list[str] = Field(default_factory=list, description="Held, Replaced, Acknowledged...")
     orders: int
     kg: float
+    replaces: str | None = Field(default=None, description="The vehicle this one stands in for, once Dispatch has swapped them")
+    replaced_by: str | None = Field(default=None, description="The vehicle that took this one's trips")
 
 
 class DockOut(ApiModel):
@@ -68,6 +70,8 @@ class LoadPlanOut(ApiModel):
     depart_at: datetime
     lines: list[LoadLineOut]
     confirmed_at: datetime | None = None
+    replaces: str | None = Field(default=None, description="The vehicle this one stands in for, once Dispatch has swapped them")
+    replaced_by: str | None = Field(default=None, description="The vehicle that took this one's trips")
 
 
 class LoaderExceptionOut(ApiModel):

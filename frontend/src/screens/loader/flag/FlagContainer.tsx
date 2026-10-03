@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { colomboMs, formatTime, HERO_DATE } from "../../../field/clock/clock";
+import { colomboMs, formatTime } from "../../../field/clock/clock";
+import { runDate } from "../../../field/clock/runDate";
 import { useNow } from "../../../field/clock/useClock";
 import { PinSheet, type ChipStatus } from "../../../field/components";
 import {
@@ -32,8 +33,8 @@ type Props = {
 
 type Delivery = "none" | "sending" | "queued" | "failed" | "sent";
 
-/** The dispatcher the demo reaches (PRD v3.1: Kumari plans and decides for both depots). */
-const REVIEWER = "Kumari";
+/** Who reviews a flag. Dispatch decides, so the sheet names the desk, not a person. */
+const REVIEWER = "Dispatch";
 
 /**
  * Wires L3 to the loader API and the outbox. The flag is saved on the tablet first (`flagException`
@@ -131,7 +132,7 @@ export function FlagContainer({ vehicleId, trip, view, dockName, chip, onClose }
       }
     : undefined;
 
-  const minutes = Math.max(0, Math.round((colomboMs(HERO_DATE, view.departsAt) - now) / 60_000));
+  const minutes = Math.max(0, Math.round((colomboMs(runDate(), view.departsAt) - now) / 60_000));
   const overlay = delivery === "queued" || delivery === "failed";
 
   const send = async (submit: FlagSubmit, personId: string, personName: string) => {

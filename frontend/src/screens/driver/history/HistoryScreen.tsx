@@ -9,7 +9,7 @@ import { Mono } from "../../../shared/ui/Mono";
 import { Tag } from "../../../shared/ui/Tag";
 import { useDriverApi, useT } from "../context/DriverContext";
 import { useDriverRun } from "../context/useDriverRun";
-import { RUN_DATE } from "../fixtures";
+import { runDate } from "../../../field/clock/runDate";
 import { DriverShell } from "../shell/DriverShell";
 import type { FinishedRun, HistoryDay } from "../types";
 import styles from "./History.module.css";
@@ -20,7 +20,7 @@ function useHistory(): HistoryDay[] | null {
   const [days, setDays] = useState<HistoryDay[] | null>(null);
   useEffect(() => {
     let active = true;
-    void api.getHistory(RUN_DATE).then((next) => {
+    void api.getHistory(runDate()).then((next) => {
       if (active) setDays(next);
     });
     return () => {
@@ -102,16 +102,16 @@ export function HistoryDayScreen() {
   const t = useT();
   const api = useDriverApi();
   const navigate = useNavigate();
-  const { date = RUN_DATE } = useParams();
+  const { date = runDate() } = useParams();
   const days = useHistory();
-  const { run } = useDriverRun(RUN_DATE);
+  const { run } = useDriverRun(runDate());
   const [finished, setFinished] = useState<FinishedRun | null>(null);
-  const isToday = date === RUN_DATE;
+  const isToday = date === runDate();
 
   useEffect(() => {
     if (!isToday) return;
     let active = true;
-    void api.getFinishedRun(RUN_DATE).then((next) => {
+    void api.getFinishedRun(runDate()).then((next) => {
       if (active) setFinished(next);
     });
     return () => {

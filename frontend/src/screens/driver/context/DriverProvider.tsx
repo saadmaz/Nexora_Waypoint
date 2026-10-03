@@ -3,9 +3,11 @@ import { roleApiMode } from "../../../api/http/config";
 import { useFieldClock } from "../../../field/clock/useClock";
 import { connectivity, getSetting, setSetting } from "../../../field/offline";
 import type { Theme } from "../../../shared/theme";
-import { createApiDriverApi, registerApiDriverHandlers } from "../api/apiDriverApi";
-import { createMockDriverApi, registerDeviceNoticeSync, registerDriverHandlers, type MockDriverApiOptions } from "../api/mockDriverApi";
-import { RUN_DATE } from "../fixtures";
+import { createApiDriverApi, registerApiDeviceNotices, registerApiDriverHandlers } from "../api/apiDriverApi";
+import { devMocks } from "../../../devMocks/registry";
+import type { MockDriverApiOptions } from "../api/mockDriverApi";
+import { colomboMs } from "../../../field/clock/clock";
+import { runDate } from "../../../field/clock/runDate";
 import { startSyncViewTracking } from "../sync/syncView";
 import type { DriverSettings, Language, TextSize } from "../types";
 import { DriverContext, type DriverContextValue } from "./DriverContext";
@@ -18,8 +20,9 @@ import { DriverContext, type DriverContextValue } from "./DriverContext";
  * still apply on top: `connectivity.isConnected()` requires every gate open and the browser online.
  */
 const CORRIDOR_GATE = "kandy-corridor";
-const CORRIDOR_DROPS_AT = new Date(`${RUN_DATE}T05:17:00+05:30`).getTime();
-const CORRIDOR_RETURNS_AT = new Date(`${RUN_DATE}T06:40:00+05:30`).getTime();
+/** The scripted coverage profile (PRD v3 section 13): the corridor drops at 05:17 and returns at 06:40 on the run's day. */
+const CORRIDOR_DROPS = "05:17";
+const CORRIDOR_RETURNS = "06:40";
 
 const SETTINGS_KEYS = {
   sunlight: "driver.sunlight",
@@ -59,7 +62,7 @@ export function DriverProvider({ children, apiOptions, initialSettings }: Driver
   const clock = useFieldClock();
   // The state gallery passes `apiOptions` to draw a frame of its own; only the real app can run on the API.
   const onApi = apiOptions === undefined && roleApiMode("driver") === "api";
-  const api = useMemo(() => (onApi ? createApiDriverApi(clock.nowMs) : createMockDriverApi(clock.nowMs, apiOptions)), [clock, apiOptions, onApi]);
+  const api = useMemo(() => (onApi ? createApiDriverApi(clock.nowMs) : devMocks().driver.createMockDriverApi(clock.nowMs, apiOptions)), [clock, apiOptions, onApi]);
   const preferredScheme = usePreferredScheme();
 
   const [settings, setSettings] = useState<DriverSettings>({ ...DEFAULT_SETTINGS, ...initialSettings });
@@ -67,9 +70,14 @@ export function DriverProvider({ children, apiOptions, initialSettings }: Driver
   const [outboxOpen, setOutboxOpen] = useState(false);
 
   useEffect(() => {
-    if (onApi) registerApiDriverHandlers(clock.nowMs);
-    else registerDriverHandlers(clock.nowMs);
-    registerDeviceNoticeSync(RUN_DATE, clock.nowMs);
+    // Device-made notices ("N records synced", a photo that failed to send) are kept on the phone, on either API.
+    if (onApi) {
+      registerApiDriverHandlers(clock.nowMs);
+      registerApiDeviceNotices(runDate(), clock.nowMs);
+    } else {
+      devMocks().driver.registerDriverHandlers(clock.nowMs);
+      devMocks().driver.registerDeviceNoticeSync(runDate(), clock.nowMs);
+    }
   }, [clock, onApi]);
 
   useEffect(() => {
@@ -88,7 +96,8 @@ export function DriverProvider({ children, apiOptions, initialSettings }: Driver
     if (clock.fixed) return;
     const update = () => {
       const nowMs = clock.nowMs();
-      const inGap = coverageGapEnabled && nowMs >= CORRIDOR_DROPS_AT && nowMs < CORRIDOR_RETURNS_AT;
+      const day = runDate();
+      const inGap = coverageGapEnabled && nowMs >= colomboMs(day, CORRIDOR_DROPS) && nowMs < colomboMs(day, CORRIDOR_RETURNS);
       connectivity.setGate(CORRIDOR_GATE, !inGap);
     };
     update();

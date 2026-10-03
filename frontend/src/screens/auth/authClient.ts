@@ -1,6 +1,6 @@
 import { authApiMode, type AuthApi } from "./AuthApi";
 import { apiAuthApi } from "./apiAuthApi";
-import { mockAuthApi } from "./mockAuthApi";
+import { devMocks } from "../../devMocks/registry";
 
 /**
  * The AuthApi the screens use, chosen by `VITE_AUTH_API` (PRD v3 section 9 principle 7).
@@ -8,5 +8,5 @@ import { mockAuthApi } from "./mockAuthApi";
  * (`apiAuthApi`); `mock` stays the default.
  */
 export function getAuthApi(): AuthApi {
-  return authApiMode() === "api" ? apiAuthApi : mockAuthApi;
+  return authApiMode() === "api" ? apiAuthApi : devMocks().auth.mockAuthApi;
 }

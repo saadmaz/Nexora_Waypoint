@@ -9,7 +9,7 @@ import { Mono } from "../../../shared/ui/Mono";
 import { MonoText } from "../../../shared/ui/MonoText";
 import { useOutboxOpen, useT } from "../context/DriverContext";
 import { useDriverRun } from "../context/useDriverRun";
-import { RUN_DATE } from "../fixtures";
+import { runDate } from "../../../field/clock/runDate";
 import { DriverShell } from "../shell/DriverShell";
 import type { DriverNotice } from "../types";
 import { matchesFilter, noticeLook, noticeTarget, type NoticeFilter } from "./noticeView";
@@ -33,11 +33,11 @@ export function NotificationsScreen({ connectivityOverride }: NotificationsScree
   const liveConnectivity = useConnectivity();
   const connectivity = connectivityOverride ?? liveConnectivity;
   const now = useNow();
-  const { run } = useDriverRun(RUN_DATE);
+  const { run } = useDriverRun(runDate());
   const { notices, unread, loaded, markRead, markAllRead } = useNotices();
   const [filter, setFilter] = useState<NoticeFilter>("all");
 
-  const subtitle = <MonoText>{t("sync.subtitle", { runNo: run?.runNo ?? 1, vehicleId: run?.vehicle.id ?? "VEH039" })}</MonoText>;
+  const subtitle = <MonoText>{t("sync.subtitle", { runNo: run?.runNo ?? 1, vehicleId: run?.vehicle.id ?? "" })}</MonoText>;
   const shown = notices.filter((notice) => matchesFilter(notice, filter));
   const synced = notices.length > 0 && connectivity.status === "online" && connectivity.lastSyncAt !== null;
 

@@ -138,7 +138,8 @@ def test_a_released_plan_reaches_the_store_the_dock_and_the_driver(client, auth,
     advance(client, auth, "2026-09-28T16:06:00+05:30")
     empty = get(client, auth, "loader", f"{LOADER}/docks/kandy")  # nothing is released yet: an empty board, not an error
     assert empty["planVersion"] == 0 and empty["vehicles"] == []
-    assert client.get(f"{DRIVER}/runs/{DAY}", headers=auth("driver")).status_code == 404
+    before = client.get(f"{DRIVER}/runs/{DAY}", headers=auth("driver"))  # no plan yet: a state of the screen, not an error
+    assert before.status_code == 200 and before.json()["state"] == "no_run" and before.json()["noRun"]["reason"] == "not_released"
     version = released(client, auth)
 
     d = day(client, auth)
@@ -311,7 +312,8 @@ def test_the_hero_degradation_as_the_store_sees_it(client, auth, reseed):
 
     # Nothing delivered yet means nothing to confirm.
     assert client.post(f"{STORE}/receipts", headers=auth("dispatcher"), json={"date": DAY, "lines": [{"orderId": "ORD2001", "received": 1}]}).status_code == 403
-    assert get(client, auth, "driver", f"{DRIVER}/history")  # the run is in the driver's history now
+    # History lists finished runs; this one is still on the road, and the phone shows today's row from its own cache.
+    assert get(client, auth, "driver", f"{DRIVER}/history") == []
 
 
 def test_mark_all_read_clears_the_bell(client, auth, reseed):

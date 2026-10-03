@@ -1,7 +1,7 @@
 import type { StoreApi } from "../api/StoreApi";
 import { HERO_DATE } from "../api/mockDeliveries";
 import { estimateFor } from "../domain/estimate";
-import { OUTLET } from "../domain/outlet";
+import { MOCK_OUTLET } from "../api/mockOutlet";
 import { operatingDayFor } from "../domain/schedule";
 
 /**
@@ -30,7 +30,7 @@ export function isPreset(value: string): value is Preset {
 const RECEIPT_TIME = "07:30";
 
 export async function applyPreset(api: StoreApi, now: () => Date, preset: Preset): Promise<void> {
-  const outletId = OUTLET.id;
+  const outletId = MOCK_OUTLET.id;
   switch (preset) {
     case "order-edited": {
       // A25: ORD2001 12 to 10 units at 15:42, about 58 kg and 0.6 m3.

@@ -1,5 +1,6 @@
 import type { DepotId, Trip, Vehicle, VehicleTag } from "../../domain/field";
-import { colomboMs, formatTime, HERO_DATE } from "../../field/clock/clock";
+import { colomboMs, formatTime } from "../../field/clock/clock";
+import { HERO_DATE } from "../../field/clock/mockClock";
 import { OTHER_PERSON_ID } from "../../field/components";
 import { connectivity, enqueue, NetworkError, registerSyncHandler } from "../../field/offline";
 import { DECISION_AT, GUEST_PIN, peopleFor, pinFor, tripsV3, tripsV4, VEH036_AVAILABLE_AT, VEHICLES } from "./fixtures";
@@ -154,6 +155,14 @@ export function createMockLoaderApi(nowMs: () => number): LoaderApi {
     return done > 0 ? "loading" : "to_load";
   }
 
+  /** Once VEH003 is decided, VEH036 stands in for it: the same two ends the real API names. */
+  function swapLinks(vehicleId: string): { replaces?: string; replacedBy?: string } {
+    if (veh003Exception()?.status !== "decided") return {};
+    if (vehicleId === "VEH036") return { replaces: "VEH003" };
+    if (vehicleId === "VEH003") return { replacedBy: "VEH036" };
+    return {};
+  }
+
   function buildSummary(vehicleId: string): DockVehicleSummary {
     const vehicle: Vehicle = { ...VEHICLES[vehicleId], tags: vehicleTags(vehicleId) };
     const ts = vehicleTrips(vehicleId);
@@ -171,6 +180,7 @@ export function createMockLoaderApi(nowMs: () => number): LoaderApi {
       status,
       checked: status === "to_load" || status === "held" ? undefined : tripChecked(vehicleId, active),
       heldReason: status === "held" ? HELD_REASON : undefined,
+      ...swapLinks(vehicleId),
     };
   }
 
@@ -267,6 +277,7 @@ export function createMockLoaderApi(nowMs: () => number): LoaderApi {
         status: vehicleStatus(vehicleId),
         heldReason: vehicleStatus(vehicleId) === "held" ? HELD_REASON : undefined,
         orders: buildLoadPlanOrders(vehicleId, t),
+        ...swapLinks(vehicleId),
         confirmedAt: confirmedInfo?.at,
         confirmedBy: confirmedInfo?.by,
       } satisfies LoadPlanView;

@@ -22,7 +22,7 @@ from waypoint_rules import (
     Vehicle,
     VehicleDay,
 )
-from waypoint_rules.schedule import next_operating_day
+from waypoint_rules.schedule import CUTOFF, next_operating_day
 from waypoint_rules.vocab import Brand, DockType
 
 from ..config import COLOMBO
@@ -114,9 +114,6 @@ def active_service_date(now: datetime, ops: list[date]) -> date:
 def previous_operating_day(service_date: date, ops: Iterable[date]) -> date | None:
     earlier = [d for d in ops if d < service_date]
     return max(earlier) if earlier else None
-
-
-CUTOFF = time(16, 0)
 
 
 def cutoff_at(service_date: date, ops: list[date]) -> datetime:

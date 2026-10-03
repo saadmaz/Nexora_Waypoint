@@ -1,4 +1,4 @@
-import { HERO_DATE, HERO_EVENING_DATE } from "../../../field/clock/clock";
+import { HERO_DATE, HERO_EVENING_DATE } from "../../../field/clock/mockClock";
 import type { GalleryFrame } from "../../../field/gallery/StateGallery";
 import { GALLERY_SHORTFALL } from "../fixtures";
 import type { OutboxRow, OutboxRowState } from "../outbox/outboxModel";

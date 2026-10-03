@@ -9,8 +9,10 @@ from sqlalchemy import select
 from ..auth import create_token, hash_secret, verify_secret
 from ..deps import AnyUser, Db
 from ..errors import ApiError
+from ..models import reference
 from ..models.people import User
-from ..schemas.common import LoginIn, LoginOut, MeOut
+from ..schemas.common import LoginIn, LoginOut, MeOut, OutletInfo
+from ..services.store_views import dock_label, outlet_name, window_of
 
 router = APIRouter(tags=["auth"])
 
@@ -76,7 +78,8 @@ def _me(user: User) -> dict:
 
 
 @router.get("/me", operation_id="getMe", response_model=MeOut)
-def get_me(user: AnyUser) -> MeOut:
+def get_me(user: AnyUser, db: Db) -> MeOut:
+    outlet = db.get(reference.Outlet, user.outlet_id) if user.outlet_id else None
     return MeOut(
         id=user.id,
         email=user.email,
@@ -84,5 +87,11 @@ def get_me(user: AnyUser) -> MeOut:
         display_name=user.display_name,
         depot=user.depot,
         outlet_id=user.outlet_id,
+        outlet=OutletInfo(
+            id=outlet.id, name=outlet_name(outlet), brand=outlet.brand.value, district=outlet.district,
+            dock=dock_label(outlet.dock_type), window=window_of(outlet),
+        )
+        if outlet
+        else None,
         vehicle_id=user.vehicle_id,
     )

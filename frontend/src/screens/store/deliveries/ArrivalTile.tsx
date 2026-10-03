@@ -1,8 +1,9 @@
 import { Icon } from "../../../shared/ui/Icon";
 import { Mono } from "../../../shared/ui/Mono";
 import type { ArrivalRange, Delivery } from "../../../domain/delivery";
-import { WINDOW_LABEL } from "../../../domain/outlet";
+import { windowLabel } from "../../../domain/outlet";
 import styles from "./ArrivalTile.module.css";
+import { useStore } from "../../../app/StoreContext";
 
 export type ArrivalTileProps = {
   arrival: ArrivalRange;
@@ -13,9 +14,10 @@ export type ArrivalTileProps = {
 
 /** The teal tile on a delivery card: "ARRIVES from 05:30", or "ON THE WAY Arrives about 05:26". */
 export function ArrivalTile({ arrival, vehicle, onTheWay }: ArrivalTileProps) {
+  const { outlet } = useStore();
   const windowLine = (
     <p className={styles.window}>
-      Window <Mono>{WINDOW_LABEL}</Mono>
+      Window <Mono>{windowLabel(outlet)}</Mono>
       {vehicle && (
         <>
           {" "}

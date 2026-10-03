@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useOutbox } from "../../../field/offline";
 import { useDriverRun } from "../context/useDriverRun";
-import { RUN_DATE } from "../fixtures";
+import { runDate } from "../../../field/clock/runDate";
 import type { DriverRun } from "../types";
 import { outboxRows, type OutboxRow } from "./outboxModel";
 import type { OutboxProgress } from "./OutboxSheet";
@@ -22,7 +22,7 @@ export type OutboxView = {
  */
 export function useOutboxView(syncing: boolean): OutboxView {
   const records = useOutbox();
-  const { run } = useDriverRun(RUN_DATE);
+  const { run } = useDriverRun(runDate());
 
   const resolvedStops = useMemo(
     () => new Set((run?.stops ?? []).filter((stop) => stop.resolution).map((stop) => stop.outletId)),

@@ -10,41 +10,56 @@
  *   "Plan not released yet, arrival time follows" instead of a time.
  */
 
+import { colomboMs, formatDate, formatTime, isoDate } from "../field/clock/clock";
+
 export const CUTOFF_HOUR = 16;
 export const CUTOFF_MINUTE = 0;
 
 export const RELEASE_HOUR = 23;
 export const RELEASE_MINUTE = 40;
 
+// Days are read and counted in Asia/Colombo (UTC+05:30, no daylight saving), never in the browser's own time zone.
+const DAY_MS = 86_400_000;
+const WEEKDAY_INDEX: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+
+const hhmm = (hour: number, minute: number) => `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+
+/** The ISO date `days` after (or before) another, as a calendar date. */
+function isoPlusDays(iso: string, days: number): string {
+  return isoDate(colomboMs(iso, "12:00") + days * DAY_MS);
+}
+
+/** 0 for Sunday to 6 for Saturday, in Asia/Colombo. */
+function weekdayOf(date: Date): number {
+  return WEEKDAY_INDEX[formatDate(date.getTime()).split(" ")[0] ?? ""] ?? 0;
+}
+
+/** The hour of day (0 to 23) in Asia/Colombo. */
+function hourOf(date: Date): number {
+  return Number(formatTime(date.getTime()).slice(0, 2));
+}
+
+/** Midnight at the start of the Colombo day `date` falls on. */
 function dateOnly(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  return new Date(colomboMs(toIsoDate(date), "00:00"));
 }
 
 export function addDays(date: Date, days: number): Date {
-  const next = dateOnly(date);
-  next.setDate(next.getDate() + days);
-  return next;
+  return new Date(dateOnly(date).getTime() + days * DAY_MS);
 }
 
 export function toIsoDate(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  return isoDate(date.getTime());
 }
 
 /** The cutoff instant (16:00) for orders counting toward the given operating day. */
 export function cutoffFor(operatingDate: string): Date {
-  const eve = addDays(new Date(`${operatingDate}T00:00:00`), -1);
-  eve.setHours(CUTOFF_HOUR, CUTOFF_MINUTE, 0, 0);
-  return eve;
+  return new Date(colomboMs(isoPlusDays(operatingDate, -1), hhmm(CUTOFF_HOUR, CUTOFF_MINUTE)));
 }
 
 /** The plan-release instant (23:40) for the given operating day. */
 export function releaseFor(operatingDate: string): Date {
-  const eve = addDays(new Date(`${operatingDate}T00:00:00`), -1);
-  eve.setHours(RELEASE_HOUR, RELEASE_MINUTE, 0, 0);
-  return eve;
+  return new Date(colomboMs(isoPlusDays(operatingDate, -1), hhmm(RELEASE_HOUR, RELEASE_MINUTE)));
 }
 
 /** True once `now` is at or past the 16:00 cutoff for orders on `operatingDate`. */
@@ -66,7 +81,7 @@ export function isPlanReleased(operatingDate: string, now: Date): boolean {
  */
 export function operatingDayFor(now: Date): string {
   let candidate = addDays(now, 1);
-  while (isPastCutoff(toIsoDate(candidate), now) || candidate.getDay() === 0) {
+  while (isPastCutoff(toIsoDate(candidate), now) || weekdayOf(candidate) === 0) {
     candidate = addDays(candidate, 1);
   }
   return toIsoDate(candidate);
@@ -88,8 +103,8 @@ export function isAfterCutoff(now: Date): boolean {
 
 /** The operating day after `operatingDate`, skipping Sunday. "Reconnect before 16:00 or this order moves to Wed." */
 export function nextOperatingDayAfter(operatingDate: string): string {
-  let candidate = addDays(new Date(`${operatingDate}T00:00:00`), 1);
-  while (candidate.getDay() === 0) candidate = addDays(candidate, 1);
+  let candidate = addDays(new Date(colomboMs(operatingDate, "00:00")), 1);
+  while (weekdayOf(candidate) === 0) candidate = addDays(candidate, 1);
   return toIsoDate(candidate);
 }
 
@@ -103,8 +118,8 @@ const RUN_END_HOUR = 8;
  */
 export function deliveryDayFor(now: Date): string {
   const today = dateOnly(now);
-  if (today.getDay() !== 0 && now.getHours() < RUN_END_HOUR) return toIsoDate(today);
+  if (weekdayOf(today) !== 0 && hourOf(now) < RUN_END_HOUR) return toIsoDate(today);
   let candidate = addDays(now, 1);
-  while (candidate.getDay() === 0) candidate = addDays(candidate, 1);
+  while (weekdayOf(candidate) === 0) candidate = addDays(candidate, 1);
   return toIsoDate(candidate);
 }

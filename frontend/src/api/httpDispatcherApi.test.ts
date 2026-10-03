@@ -422,32 +422,33 @@ describe("the scenario clock and the presenter control", () => {
     const { demo, calls } = harness(json({ now: "2026-09-28T15:30:00+05:30", checkpoint: "2026-09-28T15:30:00+05:30", serviceDate: "2026-09-29" }));
     const now = await demo.readClock();
     expect(path(calls[0]!)).toBe("/api/v1/clock");
-    expect([now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes()]).toEqual([2026, 8, 28, 15, 30]);
+    expect(now.getTime()).toBe(Date.parse("2026-09-28T15:30:00+05:30"));
   });
 
-  it("advances by sending a bare wall-clock time (the server reads it as Colombo) and returns the new time", async () => {
+  it("advances by sending the instant and returns the new time", async () => {
     const { demo, calls } = harness(json({ now: "2026-09-29T03:02:00+05:30", checkpoint: "2026-09-28T15:30:00+05:30", serviceDate: "2026-09-29" }));
-    const now = await demo.advance(new Date(2026, 8, 29, 3, 2, 0));
+    const now = await demo.advance(new Date("2026-09-29T03:02:00+05:30"));
     expect(path(calls[0]!)).toBe("/api/v1/demo/advance");
     expect(calls[0]!.method).toBe("POST");
-    expect(calls[0]!.body).toEqual({ to: "2026-09-29T03:02:00" });
-    expect([now.getDate(), now.getHours(), now.getMinutes()]).toEqual([29, 3, 2]);
+    expect(calls[0]!.body).toEqual({ to: "2026-09-28T21:32:00.000Z" }); // the same moment, 03:02 in Colombo
+    expect(now.getTime()).toBe(Date.parse("2026-09-29T03:02:00+05:30"));
   });
 
   it("a backwards advance is the server's 409 clock_backwards, as an ApiError", async () => {
     const { demo } = harness(errorReply(409, "clock_backwards", "The clock only moves forward. Use Reset demo to start again."));
-    await expect(demo.advance(new Date(2026, 8, 28, 9, 0))).rejects.toMatchObject({ name: "ApiError", code: "clock_backwards" });
+    await expect(demo.advance(new Date("2026-09-28T09:00:00+05:30"))).rejects.toMatchObject({ name: "ApiError", code: "clock_backwards" });
   });
 
   it("reset returns the clock at the checkpoint", async () => {
     const { demo, calls } = harness(json({ clock: { now: "2026-09-28T15:30:00+05:30", checkpoint: "2026-09-28T15:30:00+05:30", serviceDate: "2026-09-29" }, seeded: true }));
     const now = await demo.reset();
     expect(path(calls[0]!)).toBe("/api/v1/demo/reset");
-    expect([now.getHours(), now.getMinutes()]).toEqual([15, 30]);
+    expect(now.getTime()).toBe(Date.parse("2026-09-28T15:30:00+05:30"));
   });
 
   it("server time and wall-clock strings round-trip", () => {
     const date = fromServerTime("2026-09-29T07:31:00+05:30");
-    expect(toServerTime(date)).toBe("2026-09-29T07:31:00");
+    expect(date.getTime()).toBe(Date.parse("2026-09-29T07:31:00+05:30"));
+    expect(Date.parse(toServerTime(date))).toBe(date.getTime());
   });
 });

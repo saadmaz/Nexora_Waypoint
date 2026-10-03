@@ -4,7 +4,7 @@ import { FieldTabBar, FieldTopBar, type FieldTab } from "../../../field/componen
 import { Card } from "../../../shared/ui/Card";
 import { LogOutButton } from "../../auth/AccountMenu";
 import { accountName } from "../../auth/accountName";
-import { DOCKS } from "../fixtures";
+import { DOCKS } from "../../../domain/field";
 import { useLoader } from "../LoaderContext";
 import styles from "./LoaderMe.module.css";
 

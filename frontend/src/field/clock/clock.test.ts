@@ -1,16 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  HERO_DATE,
-  HERO_EVENING_DATE,
-  clockOptionsFromSearch,
-  colomboMs,
-  createFieldClock,
-  createFixedClock,
-  formatDate,
-  formatTime,
-  isoDate,
-  minutesUntil,
-} from "./clock";
+import { colomboMs, formatDate, formatTime, isoDate, minutesUntil } from "./clock";
+import { HERO_DATE, HERO_EVENING_DATE, clockOptionsFromSearch, createFieldClock, createFixedClock } from "./mockClock";
 
 describe("scenario clock", () => {
   it("reads and writes times in Asia/Colombo, whatever the browser's zone", () => {

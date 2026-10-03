@@ -9,7 +9,7 @@ import { Icon } from "../../../shared/ui/Icon";
 import { Mono } from "../../../shared/ui/Mono";
 import { useDriverApi, useT } from "../context/DriverContext";
 import { useDriverRun } from "../context/useDriverRun";
-import { RUN_DATE } from "../fixtures";
+import { runDate } from "../../../field/clock/runDate";
 import { DriverShell } from "../shell/DriverShell";
 import type { FinishedRun, RunDistance } from "../types";
 import styles from "./Finish.module.css";
@@ -23,7 +23,7 @@ export function FinishScreen() {
   const api = useDriverApi();
   const navigate = useNavigate();
   const connectivity = useConnectivity();
-  const { run } = useDriverRun(RUN_DATE);
+  const { run } = useDriverRun(runDate());
   const [distance, setDistance] = useState<RunDistance | null>(null);
   const [finished, setFinished] = useState<FinishedRun | null>(null);
   const [done, setDone] = useState(false);
@@ -31,7 +31,7 @@ export function FinishScreen() {
 
   useEffect(() => {
     let active = true;
-    void Promise.all([api.getRunDistance(RUN_DATE), api.getFinishedRun(RUN_DATE)]).then(([d, f]) => {
+    void Promise.all([api.getRunDistance(runDate()), api.getFinishedRun(runDate())]).then(([d, f]) => {
       if (!active) return;
       setDistance(d);
       setFinished(f);
@@ -48,7 +48,7 @@ export function FinishScreen() {
   async function finish() {
     setBusy(true);
     try {
-      setFinished(await api.finishRun(RUN_DATE));
+      setFinished(await api.finishRun(runDate()));
     } finally {
       setBusy(false);
     }

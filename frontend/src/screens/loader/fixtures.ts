@@ -1,4 +1,4 @@
-import type { Depot, DepotId, PlannedOrder, Stop, Trip, Vehicle } from "../../domain/field";
+import type { DepotId, PlannedOrder, Stop, Trip, Vehicle } from "../../domain/field";
 
 /**
  * The loader's seed data (field conventions section 9, PRD v3 section 4c): the two docks, the
@@ -8,10 +8,7 @@ import type { Depot, DepotId, PlannedOrder, Stop, Trip, Vehicle } from "../../do
  * sum (for example a vehicle's "orders checked" badge), the frame wins.
  */
 
-export const DOCKS: Depot[] = [
-  { id: "peliyagoda", name: "Peliyagoda" },
-  { id: "kandy", name: "Kandy" },
-];
+export { DOCKS } from "../../domain/field";
 
 /**
  * The ids are the server's `pin_people.id` (Priya 1, Ruwan 2, seeded by `seed/accounts.py`), not names.

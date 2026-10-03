@@ -141,7 +141,7 @@ export function MoveToDialog({ open, onOpenChange, api, plan, orderId, deferred,
                     <b className={styles.optionTitle}>{o.title}</b>
                   </Mono>
                   {refused && <span className={styles.reason}>{o.result?.violations.map((v) => shortReason(v.text)).join(" · ")}</span>}
-                  {o.current && <span className={styles.sub}>Current · {deferred ? `Deferred · ${deferred.kind} → Wed 30 Sep` : "On this trip"}</span>}
+                  {o.current && <span className={styles.sub}>Current · {deferred ? `Deferred · ${deferred.kind} → ${deferred.nextRun}` : "On this trip"}</span>}
                   {!o.current && !refused && o.result?.ok && <span className={styles.allowed}>{o.result.summary}</span>}
                 </span>
                 {refused && <span className={styles.notAllowed}>Not allowed</span>}

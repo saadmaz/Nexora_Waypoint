@@ -12,7 +12,7 @@ from waypoint_rules.vocab import OrderStatus
 from ..models import field as f
 from ..models import plans
 from ..models.comms import Notice
-from ..models.enums import ActorKind, Availability, ConflictRecommendation, DeviceRecordType, PlanState
+from ..models.enums import ActorKind, AudienceKind, Availability, ConflictRecommendation, DeviceRecordType, PlanState
 from ..models.orders import Order
 from ..models.people import Driver, PinPerson
 from ..models.reference import CalendarDay, Outlet, ServiceAllowance, Vehicle
@@ -42,7 +42,7 @@ def _runs(db: Session, day: date, vehicle_id: str) -> dict[int, f.Run]:
         select(plans.Trip.trip_no, f.Run)
         .join(plans.Trip, plans.Trip.id == f.Run.trip_id)
         .join(plans.PlanVersion, plans.PlanVersion.id == plans.Trip.plan_version_id)
-        .where(f.Run.vehicle_id == vehicle_id, plans.PlanVersion.service_date == day)
+        .where(plans.Trip.vehicle_id == vehicle_id, plans.PlanVersion.service_date == day)
         .order_by(f.Run.id)
     ).all()
     return {trip_no: run for trip_no, run in rows}
@@ -87,7 +87,7 @@ def stops(db: Session, day: date, version: plans.PlanVersion, trip: plans.Trip) 
     return [
         StopRow(
             order_id=order.id, outlet_id=outlet.id, outlet_name=outlet.name, seq=on_trip[order.id].seq, temp=order.temp,
-            units=order.units, status=OrderStatus(order.status.value), tags=tuple(order.tags or ()), window_open=outlet.window_open,
+            units=order.units, status=OrderStatus(order.status.value), tags=_stop_tags(order), window_open=outlet.window_open,
             window_close=outlet.window_close, planned_arrival=on_trip[order.id].planned_arrival, brand=outlet.brand,
             district=outlet.district, dock=outlet.dock_type, parking_constraint=outlet.parking_constraint,
             handling_minutes=_handling_minutes(on_trip[order.id]), allowance_minutes=allowances.get((outlet.brand, outlet.dock_type)),
@@ -116,10 +116,16 @@ def _trip_orders(db: Session, day: date, version: plans.PlanVersion, trip: plans
     return on_trip
 
 
+def _stop_tags(order: Order) -> tuple[str, ...]:
+    """The temperature first ("Chilled", "Ambient"), then the order's own tags: the phone shows the first as a chip."""
+    temp = order.temp.value.capitalize()
+    return (temp, *[t for t in (order.tags or []) if t != temp])
+
+
 def _handling_minutes(to: plans.TripOrder) -> int | None:
-    if to.handling_start is None or to.handling_end is None:
+    if to.planned_handling_start is None or to.planned_handling_end is None:
         return None
-    return round((to.handling_end - to.handling_start).total_seconds() / 60)
+    return round((to.planned_handling_end - to.planned_handling_start).total_seconds() / 60)
 
 
 def vehicle(db: Session, day: date, vehicle_id: str) -> VehicleRow | None:
@@ -150,7 +156,7 @@ def acknowledged(db: Session, version: plans.PlanVersion, vehicle_id: str) -> bo
             .where(
                 plans.Acknowledgement.plan_version_id == version.id,
                 plans.Acknowledgement.actor_kind == ActorKind.DRIVER,
-                plans.Acknowledgement.vehicle_id == vehicle_id,
+                plans.Acknowledgement.driver_vehicle_id == vehicle_id,
             )
             .limit(1)
         )
@@ -188,7 +194,7 @@ def _confirmed_by(db: Session, gate: plans.LoadGate, vehicle_id: str, trip_no: i
         .where(
             f.DeviceRecord.type == DeviceRecordType.LOADER_CONFIRM_LOADED,
             f.DeviceRecord.vehicle_id == vehicle_id,
-            f.DeviceRecord.trip_no == trip_no,
+            f.DeviceRecord.trip_id == gate.trip_id,
             f.DeviceRecord.device_time == gate.confirmed_at,
         )
         .limit(1)
@@ -201,11 +207,12 @@ def _confirmed_by(db: Session, gate: plans.LoadGate, vehicle_id: str, trip_no: i
 
 def notices(db: Session, vehicle_id: str, since: datetime | None) -> list[NoticeRow]:
     """The vehicle's notices newer than ``since``, newest first."""
-    query = select(Notice).where(Notice.audience == f"driver:{vehicle_id}")
+    query = select(Notice).where(Notice.audience_kind == AudienceKind.DRIVER, Notice.vehicle_id == vehicle_id)
     if since is not None:
         query = query.where(Notice.created_at > since)
     return [
-        NoticeRow(id=n.id, tag=n.tag.value, title=n.title, body=n.body, created_at=n.created_at, read=n.read_at is not None, refs=dict(n.refs or {}))
+        # The phone keeps its own read state, so the server reports every notice as unread.
+        NoticeRow(id=n.id, tag=n.tag.value, title=n.title, body=n.body, created_at=n.created_at, read=False, refs=dict(n.refs or {}))
         for n in db.scalars(query.order_by(Notice.created_at.desc(), Notice.id.desc()))
     ]
 
@@ -233,7 +240,7 @@ def finished_runs(db: Session, vehicle_id: str) -> list[tuple[f.Run, plans.Trip,
             select(f.Run, plans.Trip, plans.PlanVersion.service_date)
             .join(plans.Trip, plans.Trip.id == f.Run.trip_id)
             .join(plans.PlanVersion, plans.PlanVersion.id == plans.Trip.plan_version_id)
-            .where(f.Run.vehicle_id == vehicle_id, f.Run.finished_at.is_not(None))
+            .where(plans.Trip.vehicle_id == vehicle_id, f.Run.finished_at.is_not(None))
             .order_by(plans.PlanVersion.service_date.desc(), plans.Trip.trip_no.desc())
         ).all()
     ]

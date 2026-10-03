@@ -11,7 +11,7 @@ import { Mono } from "../../../shared/ui/Mono";
 import { MonoText } from "../../../shared/ui/MonoText";
 import { useT } from "../context/DriverContext";
 import { useDriverRun } from "../context/useDriverRun";
-import { RUN_DATE } from "../fixtures";
+import { runDate } from "../../../field/clock/runDate";
 import { outboxRows, summarise, type OutboxRow } from "../outbox/outboxModel";
 import { RecordPill } from "../outbox/RecordPill";
 import { StatusBar } from "../outbox/StatusBar";
@@ -56,7 +56,7 @@ export function SyncResultScreen({ connectivityOverride, viewOverride, rowsOverr
   const connectivity = connectivityOverride ?? liveConnectivity;
   const now = useNow();
   const records = useOutbox();
-  const { run } = useDriverRun(RUN_DATE);
+  const { run } = useDriverRun(runDate());
   const photos = usePhotoState(run);
 
   const asked = viewOverride?.kind ?? (params.get("view") as SyncViewKind | null) ?? "empty";
@@ -87,7 +87,7 @@ export function SyncResultScreen({ connectivityOverride, viewOverride, rowsOverr
           : requested;
 
   const back = () => navigate("/driver/run");
-  const subtitle = <MonoText>{t("sync.subtitle", { runNo: run?.runNo ?? 1, vehicleId: run?.vehicle.id ?? "VEH039" })}</MonoText>;
+  const subtitle = <MonoText>{t("sync.subtitle", { runNo: run?.runNo ?? 1, vehicleId: run?.vehicle.id ?? "" })}</MonoText>;
   const lastSync = formatTime(connectivity.lastSyncAt ?? now);
 
   const thumb = (

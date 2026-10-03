@@ -36,7 +36,7 @@ describe("mock sign-in", () => {
     for (const account of ACCOUNTS) {
       const result = await mockAuthApi.signIn(account.email, DEMO_PASSWORD);
       expect(result.ok).toBe(true);
-      expect(readSession(account.role)).toMatchObject({ role: account.role, email: account.email, displayName: account.displayName });
+      expect(readSession(account.role)).toMatchObject({ role: account.role, email: account.email, displayName: expect.any(String) });
     }
   });
 

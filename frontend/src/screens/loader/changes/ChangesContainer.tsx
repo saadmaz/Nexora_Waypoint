@@ -7,6 +7,7 @@ import { useConnectivity, useFieldQuery, type ConnectivityStatus } from "../../.
 import { usePeople } from "../usePeople";
 import { useLoader } from "../LoaderContext";
 import { PlanChanged, type PlanChangedPhase } from "./PlanChanged";
+import { LOADER_POLL_MS } from "../poll";
 
 const DOCK_NAME: Record<string, string> = { peliyagoda: "Peliyagoda", kandy: "Kandy" };
 
@@ -45,7 +46,7 @@ export function ChangesContainer() {
   // A newer plan can land while this screen is open; the dock is the source of truth for it.
   useEffect(() => {
     if (clock.fixed) return;
-    const id = window.setInterval(() => dock.refresh(), 15_000);
+    const id = window.setInterval(() => dock.refresh(), LOADER_POLL_MS);
     return () => window.clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clock.fixed, dock.refresh]);
