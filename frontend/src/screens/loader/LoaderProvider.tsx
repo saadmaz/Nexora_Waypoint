@@ -6,7 +6,7 @@ import { useFieldClock } from "../../field/clock/useClock";
 import { getSetting, setSetting } from "../../field/offline";
 import { LoaderContext, type LoaderPerson } from "./LoaderContext";
 import { createApiLoaderApi, registerApiLoaderHandlers } from "./apiLoaderApi";
-import { createMockLoaderApi } from "./mockLoaderApi";
+import { devMocks } from "../../devMocks/registry";
 
 const DOCK_SETTING_KEY = "dock";
 
@@ -23,7 +23,7 @@ function dockFromUrl(): DepotId | null {
 export function LoaderProvider({ children }: { children: ReactNode }) {
   const clock = useFieldClock();
   const [api] = useState(() => {
-    if (roleApiMode("loader") !== "api") return createMockLoaderApi(clock.nowMs);
+    if (roleApiMode("loader") !== "api") return devMocks().loader.createMockLoaderApi(clock.nowMs);
     // The mock registers its own sync handlers when its module loads; the real ones replace them before anything is sent.
     registerApiLoaderHandlers();
     return createApiLoaderApi();

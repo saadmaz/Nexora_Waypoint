@@ -3,11 +3,11 @@ import { useLocation } from "react-router-dom";
 import type { StoreApi } from "../api/StoreApi";
 import { createApiStoreApi } from "../api/apiStoreApi";
 import { roleApiMode } from "../api/http/config";
-import { createMockStoreApi } from "../api/mockStoreApi";
+import { createServerClock } from "../api/serverClock";
 import { clockTime } from "../domain/format";
+import { useServerClockReady } from "../hooks/useServerClockReady";
 import { OUTLET } from "../domain/outlet";
-import { applyPreset, isPreset } from "./presets";
-import { createScenarioClock } from "./scenarioClock";
+import { devMocks } from "../devMocks/registry";
 import { StoreContext } from "./StoreContext";
 
 /** The presets already running or done for an API, so a second mount does not write them again. */
@@ -31,16 +31,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [base] = useState(() => {
     const params = new URLSearchParams(location.search);
     const state = params.get("state");
-    const clock = createScenarioClock(params.get("at"), params.get("date"));
+    const onApi = roleApiMode("store") === "api";
+    // On the real API the clock is the server's: it ticks, and the page extrapolates between answers (DP-26).
+    const server = onApi ? createServerClock("store") : null;
+    // Mocks are development only: devMocks() is never called in a production build, where every role is on the API.
+    const mocks = onApi ? null : devMocks();
+    const clock = server
+      ? { now: () => new Date(server.nowMs()), advanceTo: undefined }
+      : mocks!.scenarioClock.createScenarioClock(params.get("at"), params.get("date"));
     const now = clock.now;
     const seed = state && EMPTY_SEED_STATES.includes(state) ? "empty" : "placed";
-    const onApi = roleApiMode("store") === "api";
-    const presets = onApi ? [] : (params.get("preset") ?? "").split(",").filter(isPreset);
+    const presets = mocks ? (params.get("preset") ?? "").split(",").filter(mocks.storePresets.isPreset) : [];
     const presenter = params.get("presenter") === "1";
-    const api = onApi ? createApiStoreApi() : createMockStoreApi(now, { seed });
-    return { api, now, advanceTo: clock.advanceTo, presets, presenter };
+    const api = mocks ? mocks.store.createMockStoreApi(now, { seed }) : createApiStoreApi();
+    return { api, now, advanceTo: clock.advanceTo, presets, presenter, server, applyPreset: mocks?.storePresets.applyPreset };
   });
-  const { api, now, advanceTo, presets, presenter } = base;
+  const { api, now, advanceTo, presets, presenter, server, applyPreset } = base;
+  useEffect(() => server?.start(), [server]);
+  const clockReady = useServerClockReady(server);
   const [clockVersion, setClockVersion] = useState(0);
   const jump = useMemo(
     () =>
@@ -54,14 +62,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   // Presets run before the first screen draws, once per API even if React mounts the provider twice.
-  const [ready, setReady] = useState(presets.length === 0);
+  const [presetsDone, setReady] = useState(presets.length === 0);
+  const ready = presetsDone && clockReady;
   useEffect(() => {
     if (presets.length === 0) return;
     let alive = true;
     let run = PRESET_RUNS.get(api);
     if (!run) {
       run = (async () => {
-        for (const preset of presets) await applyPreset(api, now, preset);
+        for (const preset of presets) await applyPreset?.(api, now, preset);
       })();
       PRESET_RUNS.set(api, run);
     }
@@ -71,7 +80,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => {
       alive = false;
     };
-  }, [api, now, presets]);
+  }, [api, now, presets, applyPreset]);
 
   // The unread count follows the clock: a new row arrives when its time passes.
   const [unread, setUnread] = useState(0);

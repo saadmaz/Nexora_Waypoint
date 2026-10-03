@@ -8,7 +8,7 @@ import type {
   RecentOrderDay,
   UnitFactors,
 } from "../domain/order";
-import { clockTime } from "../domain/format";
+import { clockTime, weekdayShort } from "../domain/format";
 import type { Issue } from "../domain/issue";
 import { isAfterCutoff, isPastCutoff, operatingDayFor } from "../domain/schedule";
 import { EMPTY_RECORD, deriveDelivery, type DeliveryRecord, type OutletFixture } from "./mockDeliveries";
@@ -347,7 +347,7 @@ export function createMockStoreApi(
           };
         });
       return [...current, ...recentFixture()]
-        .filter((day) => new Date(`${day.date}T00:00:00`).getDay() !== 0)
+        .filter((day) => weekdayShort(day.date) !== "Sun")
         .filter((day) => (before ? day.date < before : true))
         .slice(0, limit);
     },
