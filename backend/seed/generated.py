@@ -93,6 +93,7 @@ def extend_reference(db: Session, *, service_date: date) -> dict[str, int]:
     rng = random.Random(RANDOM_SEED)
     vehicles = 0
     iso = service_date.isocalendar()
+    ledger: list[FuelLedger] = []
     for n in range(1, 61):
         vid = f"VEH{n:03d}"
         if vid in ref.VEHICLES:
@@ -100,9 +101,12 @@ def extend_reference(db: Session, *, service_date: date) -> dict[str, int]:
         depot, vtype, temp, spec = _vehicle_kind(vid)
         kg, m3, km_per_l, quota = _SPEC[spec]
         db.merge(Vehicle(id=vid, type=vtype, temp=temp, weight_cap_kg=kg, volume_cap_m3=m3, km_per_l=km_per_l, weekly_fuel_quota_l=quota, depot_id=depot))
-        # Week-to-date fuel (A7): a fifth to two-thirds of the quota is already used.
-        db.merge(FuelLedger(vehicle_id=vid, iso_year=iso.year, iso_week=iso.week, used_before_l=round(quota * rng.uniform(0.1, 0.35), 0)))
+        # Week-to-date fuel (A7): a tenth to a third of the quota is already used.
+        ledger.append(FuelLedger(vehicle_id=vid, iso_year=iso.year, iso_week=iso.week, used_before_l=round(quota * rng.uniform(0.1, 0.35), 0)))
         vehicles += 1
+    db.flush()  # the vehicles must exist before the ledger rows that point at them (no relationship tells the unit of work the order)
+    for row in ledger:
+        db.merge(row)
 
     outlets = 0
     for i, oid in enumerate(PELIYAGODA_OUTLETS):
