@@ -4,7 +4,9 @@ import { createServerClock } from "../../api/serverClock";
 import type { Role } from "../../domain/status";
 import { useServerClockReady } from "../../hooks/useServerClockReady";
 import { setTimeSource } from "../offline/time";
-import { clockOptionsFromSearch, createFieldClock, type ClockOptions, type FieldClock } from "./clock";
+import { devMocks } from "../../devMocks/registry";
+import type { FieldClock } from "./clock";
+import type { ClockOptions } from "./mockClock";
 import { setRunDateSource } from "./runDate";
 import { ClockContext } from "./useClock";
 
@@ -35,7 +37,7 @@ export function ClockProvider({ clock, start, drivesOfflineCore = true, role, ch
       clock ??
       (server
         ? { nowMs: server.nowMs, runDate: server.runDate, fixed: false }
-        : createFieldClock(clockOptionsFromSearch(window.location.search, start)));
+        : devMocks().fieldClock.createFieldClock(devMocks().fieldClock.clockOptionsFromSearch(window.location.search, start)));
     // Before any child effect runs, so a screen's first load already asks for the right run.
     setRunDateSource(built.runDate);
     return built;

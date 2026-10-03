@@ -11,6 +11,8 @@ export type DevMocks = {
   dispatcher: typeof import("../screens/dispatcher/mock/mockDispatcherApi");
   loader: typeof import("../screens/loader/mockLoaderApi");
   driver: typeof import("../screens/driver/api/mockDriverApi");
+  fieldClock: typeof import("../field/clock/mockClock");
+  driverFixtures: typeof import("../screens/driver/fixtures");
 };
 
 let installed: DevMocks | null = null;

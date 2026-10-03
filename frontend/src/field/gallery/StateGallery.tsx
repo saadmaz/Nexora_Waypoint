@@ -1,7 +1,7 @@
 import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { SheetEnvironmentContext } from "../components/sheetEnvironment";
 import { ClockProvider } from "../clock/ClockContext";
-import { createFixedClock } from "../clock/clock";
+import { createFixedClock } from "../clock/mockClock";
 import styles from "./StateGallery.module.css";
 
 /**

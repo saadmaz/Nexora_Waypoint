@@ -19,6 +19,9 @@ export type DockVehicleSummary = {
   /** Set once a newer version exists than the dock's acknowledgement, for L1.5 and L1.6's tags. */
   changeTag?: "Changed" | "No change";
   heldReason?: string;
+  /** The vehicle this one stands in for once Dispatch has swapped them, and the one that took this one's trips. */
+  replaces?: string;
+  replacedBy?: string;
 };
 
 export type DockAcknowledgement = { version: number; personId: string; personName: string; at: string };
@@ -63,6 +66,9 @@ export type LoadPlanView = {
   planVersion: number;
   status: VehicleLoadStatus;
   heldReason?: string;
+  /** The vehicle this one stands in for once Dispatch has swapped them, and the one that took this one's trips. */
+  replaces?: string;
+  replacedBy?: string;
   /** Already in reverse stop order: load 1st is first in this array. */
   orders: LoadPlanOrderRow[];
   confirmedAt?: string;

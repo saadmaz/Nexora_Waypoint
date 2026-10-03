@@ -130,8 +130,8 @@ export function LoadPlanContainer({ flagOpen = false, embedded = false, vehicleI
   const checked = { done: rows.filter((r) => r.state === "checked").length, total: rows.length };
   const chilledZone = rows.some((r) => r.chilled);
 
-  const isSwap = vehicleId === "VEH036";
-  const swap: SwapBanner | undefined = isSwap ? { replacesVehicleId: "VEH003", note: `OUT009 removed in v${view.planVersion}` } : undefined;
+  const isSwap = view.replaces !== undefined;
+  const swap: SwapBanner | undefined = view.replaces ? { replacesVehicleId: view.replaces, note: `Plan v${view.planVersion}` } : undefined;
   const capacity: CapacityStat | undefined = isSwap
     ? {
         weightKg: view.orders.reduce((s, o) => s + o.weightKg, 0),
@@ -164,13 +164,9 @@ export function LoadPlanContainer({ flagOpen = false, embedded = false, vehicleI
       capacity={capacity}
       rows={rows}
       heldReason={view.heldReason}
-      heldGoTo={vehicleId === "VEH003" ? { label: "Go to VEH035", onClick: () => navigate("/loader/vehicles/VEH035/trips/1") } : undefined}
+      heldGoTo={view.replacedBy ? { label: `Go to ${view.replacedBy}`, onClick: () => navigate(`/loader/vehicles/${view.replacedBy}/trips/1`) } : undefined}
       loadedBy={view.confirmedBy ? { name: view.confirmedBy, at: view.confirmedAt ?? "" } : undefined}
-      whoKnows={
-        vehicleId === "VEH039"
-          ? [`Nimal's phone shows ${rows.length} orders on board`, `Dispatch and ${rows[0]?.outletId ?? "the outlet"} see Loaded`]
-          : [`The driver's phone shows ${rows.length} orders on board`, "Dispatch sees Loaded"]
-      }
+      whoKnows={[`The driver's phone shows ${rows.length} orders on board`, "Dispatch sees Loaded"]}
       onRecordUnits={recordUnits}
       onFlagShort={(orderId, units) => goFlag({ type: "Missing item", orderId, unitsShort: rows.find((r) => r.orderId === orderId)!.unitsExpected - units })}
       onFlagIssue={() => goFlag()}

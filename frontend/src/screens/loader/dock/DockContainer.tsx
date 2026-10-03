@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { colomboMs, formatTime, HERO_DATE, minutesUntil } from "../../../field/clock/clock";
+import { colomboMs, formatTime, minutesUntil } from "../../../field/clock/clock";
+import { runDate } from "../../../field/clock/runDate";
 import { useFieldClock, useNow } from "../../../field/clock/useClock";
 import { useConnectivity, useFieldQuery, type ConnectivityStatus, type FieldQueryResult } from "../../../field/offline";
 import { formatCountdown } from "../../../field/format";
 import { PinSheet, type ChipStatus } from "../../../field/components";
-import { DOCKS } from "../fixtures";
+import { DOCKS } from "../../../domain/field";
 import { usePeople } from "../usePeople";
 import { useLoader } from "../LoaderContext";
 import type { DepotId } from "../../../domain/field";
@@ -120,7 +121,7 @@ export function DockContainer({
     buildCard(v, {
       locked,
       lockedVersion: view.planVersion,
-      changeTag: showChangeTags ? (v.vehicle.id === "VEH003" || v.vehicle.id === "VEH036" ? "Changed" : "No change") : undefined,
+      changeTag: showChangeTags ? (v.status === "held" || v.status === "replaced" || v.replaces ? "Changed" : "No change") : undefined,
       primary: !locked && v.vehicle.id === nextToLoad?.vehicle.id,
       embedded,
       selected: v.vehicle.id === selectedVehicleId,
@@ -189,7 +190,7 @@ function buildCard(
     navigate: ReturnType<typeof useNavigate>;
   },
 ): VehicleCardProps {
-  const minutes = minutesUntil(colomboMs(HERO_DATE, v.departsAt), opts.now);
+  const minutes = minutesUntil(colomboMs(runDate(), v.departsAt), opts.now);
   const inLabel = formatCountdown(minutes);
   const goTo = opts.goToId
     ? { label: `Go to ${opts.goToId}`, onClick: () => opts.navigate(`/loader/vehicles/${opts.goToId}/trips/1`) }

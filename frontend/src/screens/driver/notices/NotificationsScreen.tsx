@@ -37,7 +37,7 @@ export function NotificationsScreen({ connectivityOverride }: NotificationsScree
   const { notices, unread, loaded, markRead, markAllRead } = useNotices();
   const [filter, setFilter] = useState<NoticeFilter>("all");
 
-  const subtitle = <MonoText>{t("sync.subtitle", { runNo: run?.runNo ?? 1, vehicleId: run?.vehicle.id ?? "VEH039" })}</MonoText>;
+  const subtitle = <MonoText>{t("sync.subtitle", { runNo: run?.runNo ?? 1, vehicleId: run?.vehicle.id ?? "" })}</MonoText>;
   const shown = notices.filter((notice) => matchesFilter(notice, filter));
   const synced = notices.length > 0 && connectivity.status === "online" && connectivity.lastSyncAt !== null;
 

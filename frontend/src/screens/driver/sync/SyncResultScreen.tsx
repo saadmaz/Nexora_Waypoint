@@ -87,7 +87,7 @@ export function SyncResultScreen({ connectivityOverride, viewOverride, rowsOverr
           : requested;
 
   const back = () => navigate("/driver/run");
-  const subtitle = <MonoText>{t("sync.subtitle", { runNo: run?.runNo ?? 1, vehicleId: run?.vehicle.id ?? "VEH039" })}</MonoText>;
+  const subtitle = <MonoText>{t("sync.subtitle", { runNo: run?.runNo ?? 1, vehicleId: run?.vehicle.id ?? "" })}</MonoText>;
   const lastSync = formatTime(connectivity.lastSyncAt ?? now);
 
   const thumb = (

@@ -7,7 +7,7 @@ import type { OrderStatus } from "./status";
 
 /** "Tue 29 Sep" */
 export function dayLabel(iso: string): string {
-  return formatDate(colomboMs(iso, "12:00"));
+  return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? formatDate(colomboMs(iso, "12:00")) : "";
 }
 
 /** "Wed" */

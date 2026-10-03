@@ -14,7 +14,7 @@ import { Tag } from "../../../shared/ui/Tag";
 import { useDriverApi, useT } from "../context/DriverContext";
 import { useDriverRun } from "../context/useDriverRun";
 import { runDate } from "../../../field/clock/runDate";
-import { RECENT_RECEIVERS } from "../fixtures";
+import { devMocks } from "../../../devMocks/registry";
 import { buildOfflineBanner } from "../offlineBanner";
 import { DriverShell } from "../shell/DriverShell";
 import type { TFn } from "../stopFormat";
@@ -216,7 +216,7 @@ export function OutcomeScreen({ connectivityOverride, stopIdOverride, subviewOve
           outletId={stop.outletId}
           initialName={receiverName}
           // The suggestions are demo names; against the real API there is no history of receivers to suggest from yet.
-          recentNames={roleApiMode("driver") === "api" ? [] : (RECENT_RECEIVERS[stop.outletId] ?? [])}
+          recentNames={roleApiMode("driver") === "api" ? [] : (devMocks().driverFixtures.RECENT_RECEIVERS[stop.outletId] ?? [])}
           onSave={(name) => {
             setReceiverName(name);
             setSubview("form");

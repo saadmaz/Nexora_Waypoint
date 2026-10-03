@@ -6,8 +6,10 @@ import * as auth from "../screens/auth/mockAuthApi";
 import * as dispatcher from "../screens/dispatcher/mock/mockDispatcherApi";
 import * as loader from "../screens/loader/mockLoaderApi";
 import * as driver from "../screens/driver/api/mockDriverApi";
+import * as driverFixtures from "../screens/driver/fixtures";
+import * as fieldClock from "../field/clock/mockClock";
 import { setDevMocks } from "./registry";
 
 export function installDevMocks(): void {
-  setDevMocks({ store, storePresets, scenarioClock, auth, dispatcher, loader, driver });
+  setDevMocks({ store, storePresets, scenarioClock, auth, dispatcher, loader, driver, driverFixtures, fieldClock });
 }

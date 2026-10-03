@@ -1,6 +1,6 @@
 import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { ClockProvider } from "../../field/clock/ClockContext";
-import { HERO_EVENING_DATE } from "../../field/clock/clock";
+import { devMocks } from "../../devMocks/registry";
 import { FieldRuntime } from "../../field/FieldRuntime";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { RoleRoot } from "../../shared/RoleRoot";
@@ -18,7 +18,6 @@ import { WideColumn } from "./tablet/WideColumn";
 const LOADER_THEME = "dark";
 
 /** Where the loader's own clock starts without `?at=`: the first frame, L1.1 at 23:45 on Monday evening. */
-const LOADER_START = { date: HERO_EVENING_DATE, time: "23:45" };
 
 /**
  * The Loader role root: `/loader/*`. The state gallery sits outside the runtime and the clock,
@@ -27,13 +26,15 @@ const LOADER_START = { date: HERO_EVENING_DATE, time: "23:45" };
  * from 1024 px.
  */
 export function LoaderApp() {
+  // Where the mock clock starts. On the real API the clock is the server's and this is never read.
+  const start = import.meta.env.DEV ? devMocks().fieldClock.LOADER_START : undefined;
   return (
     <Routes>
       {import.meta.env.DEV && <Route path="_states" element={<LoaderGallery />} />}
       <Route
         path="*"
         element={
-          <ClockProvider start={LOADER_START} role="loader">
+          <ClockProvider {...(start ? { start } : {})} role="loader">
             <FieldRuntime>
               <RoleRoot theme={LOADER_THEME}>
                 <LoaderProvider>
