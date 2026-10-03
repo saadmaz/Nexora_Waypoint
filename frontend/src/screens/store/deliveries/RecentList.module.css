@@ -1,0 +1,37 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  padding: 0 var(--space-4);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+}
+
+.row + .row {
+  border-top: 1px solid var(--line);
+}
+
+.top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-1);
+  white-space: nowrap;
+  font: var(--text-data);
+  font-size: 15px;
+}
+
+.count {
+  font: var(--text-body-sm);
+  color: var(--ink-muted);
+}
+
+.detail {
+  font: var(--text-body-sm);
+  color: var(--ink-muted);
+}

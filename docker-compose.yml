@@ -1,0 +1,78 @@
+# Waypoint: db + api (migrate, seed, serve) + web (nginx: SPA and /api proxy).
+#
+#   cp .env.example .env
+#   docker compose up --build            # http://localhost:8080
+#   docker compose up --build db api     # API only: http://localhost:8000/api/docs
+#
+# Every value has a default, so `.env` is optional for a first run.
+
+services:
+  db:
+    image: postgres:18.6
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-waypoint}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-waypoint}
+      POSTGRES_DB: ${POSTGRES_DB:-waypoint}
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-waypoint} -d ${POSTGRES_DB:-waypoint}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-waypoint}:${POSTGRES_PASSWORD:-waypoint}@db:5432/${POSTGRES_DB:-waypoint}
+      # dev keeps the published default usable so a clean checkout runs. Set ENVIRONMENT to anything
+      # else and the API refuses to start until JWT_SECRET is a value of your own.
+      ENVIRONMENT: ${ENVIRONMENT:-dev}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-env-change-me-in-env}
+      JWT_TTL_HOURS: ${JWT_TTL_HOURS:-12}
+      CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:8080","http://localhost:5173"]}
+      SEED_ON_START: ${SEED_ON_START:-true}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-waypoint-demo}
+      DATA_DIR: /data
+      UPLOADS_DIR: /app/uploads
+    # Migrate, seed (skipped unless SEED_ON_START=true; idempotent), then serve.
+    command: >
+      sh -c "alembic upgrade head && python -m seed.run && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    volumes:
+      # The competition CSVs stay on your machine (git-ignored, never committed). Read-only.
+      - ./data:/data:ro
+      - uploads:/app/uploads
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: deploy/web/Dockerfile
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  uploads:

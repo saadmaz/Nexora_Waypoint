@@ -1,0 +1,45 @@
+# Pinned orders for Tue 29 Sep 2026 (PRD v3 §4c and A18 to A20).
+#
+# Sizes, windows and history are from §4c. ORD2001 and ORD2002 are NOT here: the judge places them as Anusha at
+# scenario 15:40 (walkthrough step 1); the seed only reserves those IDs for OUT084's next two orders.
+# `received` is the time on Mon 28 Sep; null means §4c gives none and run.py uses `default_received`.
+# All pinned rows are Confirmed (§14 step 6), except rows received after the clock (15:30): those are Ordered.
+service_date: 2026-09-29
+received_date: 2026-09-28
+default_received: "12:00"
+reserved_ids: [ORD2001, ORD2002]
+
+orders:
+  - {id: ORD2003, outlet: OUT087, temp: ambient, units: 9, kg: 55, m3: 0.6, deferred_yesterday: false, days_since_served: 1, received: "14:48"}
+  - {id: ORD1014, outlet: OUT011, temp: chilled, units: 40, kg: 240, m3: 1.6, deferred_yesterday: false, days_since_served: 1, received: null}
+  - {id: ORD1016, outlet: OUT006, temp: chilled, units: 38, kg: 230, m3: 1.5, deferred_yesterday: false, days_since_served: 1, received: null}
+  - {id: ORD1011, outlet: OUT005, temp: chilled, units: 43, kg: 260, m3: 1.7, deferred_yesterday: false, days_since_served: 1, received: null}
+  - {id: ORD1002, outlet: OUT009, temp: chilled, units: 35, kg: 210, m3: 1.4, deferred_yesterday: false, days_since_served: 1, received: "14:02"}
+  - {id: ORD1001, outlet: OUT012, temp: chilled, units: 37, kg: 220, m3: 1.5, deferred_yesterday: true, days_since_served: 2, received: "13:41"}
+  - {id: ORD1013, outlet: OUT008, temp: chilled, units: 12, kg: 70, m3: 0.7, deferred_yesterday: false, days_since_served: 1, received: null}
+  - {id: ORD1015, outlet: OUT013, temp: chilled, units: 12, kg: 75, m3: 0.7, deferred_yesterday: false, days_since_served: 1, received: null}
+  - {id: ORD1018, outlet: OUT010, temp: chilled, units: 17, kg: 100, m3: 1.0, deferred_yesterday: false, days_since_served: 1, received: null}
+  - {id: ORD1012, outlet: OUT004, temp: chilled, units: 16, kg: 95, m3: 0.9, deferred_yesterday: false, days_since_served: 1, received: null}
+  - {id: ORD1009, outlet: OUT014, temp: chilled, units: 16, kg: 95, m3: 0.9, deferred_yesterday: false, days_since_served: 1, received: null}
+  - {id: ORD1017, outlet: OUT007, temp: chilled, units: 11, kg: 65, m3: 0.6, deferred_yesterday: false, days_since_served: 1, received: null}
+  - {id: ORD1020, outlet: OUT001, temp: chilled, units: 208, kg: 1250, m3: 8.6, deferred_yesterday: false, days_since_served: 3, received: "15:12"}
+  - {id: ORD1023, outlet: OUT026, temp: chilled, units: 11, kg: 65, m3: 0.6, deferred_yesterday: false, days_since_served: 1, received: null}
+  - {id: ORD1024, outlet: OUT028, temp: chilled, units: 17, kg: 100, m3: 0.9, deferred_yesterday: false, days_since_served: 1, received: null}
+  - {id: ORD1022, outlet: OUT032, temp: chilled, units: 15, kg: 90, m3: 0.8, deferred_yesterday: false, days_since_served: 1, received: null}
+  - {id: ORD1021, outlet: OUT034, temp: chilled, units: 12, kg: 75, m3: 0.7, deferred_yesterday: false, days_since_served: 1, received: null}
+  - {id: ORD1004, outlet: OUT027, temp: chilled, units: 15, kg: 90, m3: 0.8, deferred_yesterday: false, days_since_served: 1, received: null}
+  - {id: ORD1003, outlet: OUT025, temp: chilled, units: 20, kg: 120, m3: 1.0, deferred_yesterday: false, days_since_served: 1, received: null}
+  - {id: ORD1005, outlet: OUT029, temp: chilled, units: 13, kg: 80, m3: 0.7, deferred_yesterday: true, days_since_served: 2, received: "13:48"}
+  - {id: ORD1006, outlet: OUT033, temp: chilled, units: 22, kg: 130, m3: 1.1, deferred_yesterday: false, days_since_served: 1, received: null}
+  - {id: ORD1007, outlet: OUT015, temp: ambient, units: 30, kg: 450, m3: 6.5, deferred_yesterday: false, days_since_served: 7, received: "14:27"}
+  - {id: ORD1025, outlet: OUT017, temp: chilled, units: 24, kg: 150, m3: 1.0, deferred_yesterday: false, days_since_served: 1, received: "14:39"}
+  - {id: ORD1026, outlet: OUT023, temp: ambient, units: 18, kg: 260, m3: 3.1, deferred_yesterday: false, days_since_served: 1, received: "15:03"}
+
+# A20: Kandy queue rows ORD2004 to ORD2007, received 14:55, 15:05, 15:18, 15:31. The PRD gives no outlet or
+# size for them, so they are not seeded yet. Fill in `outlet`, `temp`, `units`, `kg`, `m3` and move each line
+# up into `orders` (ORD2007 arrives after the 15:30 clock, so it seeds as Ordered).
+unspecified:
+  - {id: ORD2004, received: "14:55"}
+  - {id: ORD2005, received: "15:05"}
+  - {id: ORD2006, received: "15:18"}
+  - {id: ORD2007, received: "15:31"}

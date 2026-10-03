@@ -1,0 +1,89 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: var(--size-button-lg);
+  padding: 0 20px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  font: var(--text-button-lg);
+  text-align: center;
+  transition: background-color var(--duration-colour) ease, color var(--duration-colour) ease,
+    border-color var(--duration-colour) ease;
+}
+
+/* Medium: 44 px, radius 8, smaller label. Still a full tap target. */
+.medium {
+  min-height: var(--size-button-md);
+  padding: 0 16px;
+  border-radius: var(--radius-md);
+  font: var(--text-button-md);
+}
+
+.auto {
+  width: auto;
+}
+
+.primary {
+  background: var(--route);
+  color: var(--on-route);
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--route-hover);
+}
+
+.secondary {
+  background: var(--surface-1);
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.secondary:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--route);
+}
+
+.ghost:hover:not(:disabled) {
+  background: var(--route-soft);
+}
+
+/* Danger outline, for Cancel order. Outlined, not filled, because it is
+   reversible up to the cutoff and should not shout. */
+.dangerOutline {
+  background: transparent;
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.dangerOutline:hover:not(:disabled) {
+  background: var(--danger-soft);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.spinner {
+  display: inline-flex;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+}
