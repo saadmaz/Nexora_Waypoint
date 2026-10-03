@@ -17,6 +17,7 @@
     "test:api-auth": "node scripts/api-auth-check.ts",
     "test:api-roles": "node scripts/api-roles-check.ts",
     "test:api-dispatcher": "node scripts/api-dispatcher-check.ts",
+    "test:api-sync": "node scripts/api-sync-check.ts",
     "test:loader-stories": "node scripts/loader-stories.ts"
   },
   "dependencies": {
