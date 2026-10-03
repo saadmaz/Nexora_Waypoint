@@ -40,8 +40,9 @@ Against a rebuilt `docker compose up --build`, signed out, on the production bun
 - Security headers present on the page and on a hashed asset.
 - No gallery string remains in `dist/assets/` (the bundle is also about 33 KiB smaller).
 
-Suites: 271 frontend tests pass (3 new files), backend pytest exits 0, ruff and mypy clean,
-`alembic heads` prints one head, `tsc -b` and `oxlint` clean.
+Suites: 268 frontend tests pass across 18 files, 23 of them in the two new guard suites; backend
+pytest exits 0 with the new hardening suite; ruff and mypy clean; `alembic heads` prints one head;
+`tsc -b` and `oxlint` clean; `npm run build` succeeds.
 
 ## Headline
 
