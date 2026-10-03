@@ -710,6 +710,7 @@ def _one(db: Session, b: Batch, rec: SyncRecordIn) -> SyncResultOut:
             row.result = answer.result
             row.result_reason = answer.reason
             row.conflict_id = answer.conflict_id
+            db.flush()  # the record exists before a photo points at it
             _link_blobs(db, rec)
             db.flush()
     except Exception as exc:  # one bad record never fails the batch

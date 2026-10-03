@@ -8,9 +8,9 @@ from typing import Annotated
 from fastapi import APIRouter, File, Form, UploadFile
 
 from ..deps import Db, FieldUser
-from ..errors import not_implemented
 from ..models.enums import AttachmentKind
 from ..schemas.sync import AttachmentOut, SyncIn, SyncOut
+from ..services import attachments as attachment_service
 from ..services import sync as sync_service
 
 router = APIRouter(tags=["sync"])
@@ -36,4 +36,6 @@ def upload_attachment(
     kind: Annotated[AttachmentKind, Form()] = AttachmentKind.PHOTO,
 ) -> AttachmentOut:
     """A photo or signature (multipart). Idempotent by the blob's ``clientId``."""
-    raise not_implemented("uploadAttachment")
+    out = attachment_service.upload(db, client_id, kind, file.content_type, file.file)
+    db.commit()
+    return out

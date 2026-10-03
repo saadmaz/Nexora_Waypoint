@@ -13,7 +13,7 @@ from typing import Any
 
 from sqlalchemy import func, select
 
-from app.config import COLOMBO
+from app.config import COLOMBO, get_settings
 
 from .test_dispatcher_live import HERO, advance, board, defer_hero, release
 
@@ -282,3 +282,76 @@ def test_an_outcome_the_screen_words_is_mapped_to_the_rule(client, auth, reseed)
     with SessionLocal() as db:
         order = db.get(Order, "ORD2003")
         assert order is not None and "Store closed" in order.tags
+
+
+# --------------------------------------------------------------------------- attachments
+
+PHOTO = b"\xff\xd8\xff\xe0" + b"waypoint-pod" * 32 + b"\xff\xd9"
+
+
+def upload(client, auth, blob_id: str, body: bytes = PHOTO, role: str = "driver"):
+    return client.post(
+        "/api/v1/attachments",
+        data={"clientId": blob_id, "kind": "photo"},
+        files={"file": ("photo.jpg", body, "image/jpeg")},
+        headers=auth(role),
+    )
+
+
+def test_an_attachment_uploaded_twice_is_one_row_and_one_file(client, auth, reseed, tmp_path, monkeypatch):
+    from app.db import SessionLocal
+    from app.models.field import Attachment
+
+    monkeypatch.setattr(get_settings(), "uploads_dir", tmp_path)
+    blob_id = str(uuid.uuid4())
+    first = upload(client, auth, blob_id)
+    assert first.status_code == 201, first.text
+    assert first.json() == {"id": blob_id, "kind": "photo", "mime": "image/jpeg", "bytes": len(PHOTO), "duplicate": False}
+    again = upload(client, auth, blob_id, body=b"a different body the server must not take")
+    assert again.status_code == 201 and again.json()["duplicate"] is True and again.json()["bytes"] == len(PHOTO)
+
+    with SessionLocal() as db:
+        rows = list(db.scalars(select(Attachment).where(Attachment.id == uuid.UUID(blob_id))))
+    assert len(rows) == 1
+    files = [p for p in tmp_path.iterdir()]
+    assert [p.name for p in files] == [f"{blob_id}.jpg"] and files[0].read_bytes() == PHOTO
+
+
+def test_a_photo_is_tied_to_its_record_whichever_arrives_first(client, auth, reseed, tmp_path, monkeypatch):
+    from app.db import SessionLocal
+    from app.models.field import Attachment
+
+    monkeypatch.setattr(get_settings(), "uploads_dir", tmp_path)
+    version = on_the_road(client, auth)
+    advance(client, auth, "2026-09-29T06:00:00+05:30")
+    after, before = str(uuid.uuid4()), str(uuid.uuid4())
+
+    # The usual order: the record, then its photo.
+    outcome = record(
+        "driver.outcome", {"date": DAY, "outletId": "OUT087", "orderId": "ORD2003", "outcome": "Delivered", "unitsDelivered": 9,
+                           "receiverName": "M. Perera", "photoBlobId": after}, "05:58", version,
+    )
+    outcome["blobIds"] = [after]
+    synced = results(sync(client, auth, [outcome]))[0]
+    assert synced["result"] == "accepted", synced
+    assert upload(client, auth, after).status_code == 201
+
+    # A photo that arrives first waits unlinked, and is tied when its record is synced.
+    assert upload(client, auth, before).status_code == 201
+    arrival = record("driver.arrival", {"date": DAY, "outletId": "OUT084", "at": "05:26"}, "05:26", version)
+    arrival["blobIds"] = [before]
+    with SessionLocal() as db:
+        assert db.get(Attachment, uuid.UUID(before)).device_record_id is None
+    linked = results(sync(client, auth, [arrival]))[0]
+    assert linked["result"] == "accepted", linked
+
+    with SessionLocal() as db:
+        assert str(db.get(Attachment, uuid.UUID(after)).device_record_id) == outcome["clientId"]
+        assert str(db.get(Attachment, uuid.UUID(before)).device_record_id) == arrival["clientId"]
+
+
+def test_an_empty_attachment_is_refused_and_leaves_no_file(client, auth, tmp_path, monkeypatch):
+    monkeypatch.setattr(get_settings(), "uploads_dir", tmp_path)
+    res = upload(client, auth, str(uuid.uuid4()), body=b"")
+    assert res.status_code == 422 and res.json()["code"] == "empty_file"
+    assert list(tmp_path.iterdir()) == []
