@@ -34,6 +34,10 @@ async function main() {
   const browser = await chromium.launch();
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const page = await context.newPage();
+  // Every role area is behind sign-in (route guards, a547006): sign in as Nimal from the demo rows first.
+  await page.goto(`${base}/sign-in`, { waitUntil: "networkidle" });
+  await page.getByText("Nimal · Driver").click();
+  await page.waitForURL(/\/driver\//, { timeout: 15_000 });
   const failures: string[] = [];
 
   function check(condition: boolean, message: string) {
