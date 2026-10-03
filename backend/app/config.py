@@ -11,6 +11,19 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 COLOMBO = ZoneInfo("Asia/Colombo")
 
+#: Secrets that have been published in the repository, so anyone can mint a token with them.
+#: Refused outside development: see ``Settings.check_secrets``.
+PUBLISHED_SECRETS = frozenset(
+    {
+        "change-me-in-env",
+        "change-me-in-env-change-me-in-env",
+    }
+)
+
+
+class InsecureSettings(RuntimeError):
+    """A default that is safe on a laptop but not anywhere else. Raised at startup, not per request."""
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_prefix="", extra="ignore")
@@ -19,6 +32,9 @@ class Settings(BaseSettings):
     jwt_secret: str = "change-me-in-env"
     jwt_ttl_hours: int = 12
     cors_origins: list[str] = ["http://localhost:5173"]
+
+    #: ``dev`` keeps the published defaults usable so a clean checkout runs. Anything else refuses them.
+    environment: str = "dev"
 
     #: Seed on API start when the database is empty (PRD §14).
     seed_on_start: bool = False
@@ -33,7 +49,28 @@ class Settings(BaseSettings):
     #: Demo passwords (O-4). Overridden in .env; listed in the README.
     demo_password: str = "waypoint-demo"
 
+    @property
+    def is_dev(self) -> bool:
+        return self.environment.strip().lower() in {"dev", "development", "local", "test"}
+
+    def check_secrets(self) -> None:
+        """Refuse to start outside development with a secret that is printed in the repository.
+
+        ``ENVIRONMENT=dev`` (the default) keeps ``docker compose up`` working on a clean checkout,
+        which the judge walkthrough needs. Any other value means a real deployment, where a token
+        signed with a published secret would be accepted as any account.
+        """
+        if self.is_dev:
+            return
+        if self.jwt_secret in PUBLISHED_SECRETS:
+            raise InsecureSettings(
+                f"JWT_SECRET is still a published default and ENVIRONMENT is {self.environment!r}. "
+                "Set a long random value, for example: python -c \"import secrets; print(secrets.token_urlsafe(48))\""
+            )
+
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    settings = Settings()
+    settings.check_secrets()
+    return settings

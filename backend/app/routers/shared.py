@@ -29,8 +29,13 @@ def get_clock(db: Db, _: AnyUser) -> ClockOut:
 
 
 @router.post("/demo/advance", operation_id="advanceClock", response_model=ClockOut)
-def advance_clock(body: AdvanceIn, db: Db, user: AnyUser) -> ClockOut:
-    """The presenter control's "Go to next step". Refuses to go backwards (409 ``clock_backwards``)."""
+def advance_clock(body: AdvanceIn, db: Db, user: Dispatcher) -> ClockOut:
+    """The presenter control's "Go to next step". Refuses to go backwards (409 ``clock_backwards``).
+
+    Dispatcher only, like ``/demo/reset``: the clock is shared by every role, so moving it changes
+    cutoffs and plan state for everyone. The presenter control that calls this is the dispatcher's
+    (PRD §13); the store's own control moves a local scenario clock and never reaches the server.
+    """
     clock.advance(db, body.to, actor=user.email)
     db.commit()
     return clock_out(db)
