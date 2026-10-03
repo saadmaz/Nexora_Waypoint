@@ -52,6 +52,7 @@ from .schedule import (
     ServiceDay,
     is_offline,
     lateness_risk,
+    next_plan_at,
     service_day_for,
     store_arrival,
 )
