@@ -457,7 +457,12 @@ def release_change(
 
 
 def release(db: Session, service_date: date, *, send_notices: bool, actor: str, actor_name: str) -> plans.PlanVersion:
-    """Lock the latest draft as the next released version, and tell the docks, the drivers and (optionally) the stores."""
+    """Lock the latest draft as released, in place, and tell the docks, the drivers and (optionally) the stores.
+
+    The version the dispatcher reviewed is the version that goes out, with the same number: "Release plan v3" releases
+    v3. The scenario's 23:30 job writes that v3 draft ("ready to release"); releasing earlier simply releases the draft
+    that exists. A released version is never edited again: later changes create the next number.
+    """
     now = clock.now(db).replace(tzinfo=None)
     day = repo.load_day(db, service_date, now)
     if day.latest is None:
@@ -468,20 +473,20 @@ def release(db: Session, service_date: date, *, send_notices: bool, actor: str, 
     if failed:
         raise ApiError(409, "gate_blocked", "The plan can't be released yet: " + "; ".join(failed), failed)
 
-    plan = plan_of(day)
-    trips = [t for t in plan.trips.values() if t.order_ids]
-    version = _write_version(db, service_date, state=PlanState.RELEASED, note=f"{_scope(day)}", actor=actor_name, now=now)
-    _write_trips(db, version, trips, day.orders, day.ref)
-    specs = [spec_of(d) for d in day.deferrals]
+    version = db.get(plans.PlanVersion, day.latest.id)
+    assert version is not None
+    trips = [t for t in plan_of(day).trips.values() if t.order_ids]
+    version.state = PlanState.RELEASED
+    version.released_at = repo.aware(now)
+    version.note = _scope(day)
+    version.created_by = actor_name
+
     if send_notices:
-        specs = [
-            DeferralSpec(s.order_id, s.type, s.binding, s.reason_text, s.impact, s.frees, s.next_run_date, s.decided_by, s.decided_at, s.notice_sent_at or now, s.notice_seen_at)
-            for s in specs
-        ]
-        for d in day.deferrals:
-            if d.notice_sent_at is None:
-                _store_notice(db, d, day, version.number, now)
-    _write_deferrals(db, version, specs, now)
+        sent = {d.id: d for d in day.deferrals if d.notice_sent_at is None}
+        for row in db.scalars(select(order_models.Deferral).where(order_models.Deferral.plan_version_id == version.id, order_models.Deferral.withdrawn_at.is_(None))):
+            if row.id in sent:
+                row.notice_sent_at = repo.aware(now)
+                _store_notice(db, sent[row.id], day, version.number, now)
 
     # The docks and the drivers always hear about a released plan.
     for depot in sorted({day.ref.vehicles[t.vehicle_id].depot for t in trips}):

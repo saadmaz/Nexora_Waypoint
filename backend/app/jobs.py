@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 from waypoint_rules import OrderEvent
 
 from .models.comms import Notice, ScenarioEvent
-from .models.enums import AuditType, Availability, NoticeTag, ServerStatus
+from .models.enums import AuditType, Availability, NoticeTag, PlanState, ServerStatus
 from .models.orders import Order
 from .models.plans import VehicleDayStatus
 from .services import audit, planning
@@ -83,19 +83,27 @@ def _draft_due(db: Session, now: datetime, ops: list[date]) -> list[date]:
 Handler = Callable[[Session, ScenarioEvent, datetime, list[date]], None]
 
 
-def _evening_adjustments(db: Session, event: ScenarioEvent, now: datetime, ops: list[date]) -> None:
-    """Kumari's adjustments after the capacity review, saved as the next draft (v2). A refused move is skipped and logged."""
+def _save_scripted_draft(db: Session, event: ScenarioEvent, now: datetime, ops: list[date], note: str) -> None:
+    """Save the scripted moves (possibly none) as the next draft. A plan that is already released is left alone."""
     service_date = repo.active_service_date(now, ops)
     latest = repo.latest_version(db, service_date)
-    if latest is None:
+    if latest is None or latest.state is PlanState.RELEASED:
         return
     moves: list[tuple[str, tuple[str, int] | None]] = []
     for m in (event.payload or {}).get("moves", []):
         to = m.get("to")
         moves.append((m["orderId"], None if to in (None, "deferred") else (to["vehicleId"], int(to["trip"]))))
-    planning.save_moves(
-        db, service_date, moves, note="Kumari's adjustments after the capacity review", actor=SYSTEM, actor_name="Kumari", skip_refused=True
-    )
+    planning.save_moves(db, service_date, moves, note=note, actor=SYSTEM, actor_name="Kumari", skip_refused=True)
+
+
+def _evening_adjustments(db: Session, event: ScenarioEvent, now: datetime, ops: list[date]) -> None:
+    """Kumari's adjustments after the capacity review, saved as the next draft (v2). A refused move is skipped and logged."""
+    _save_scripted_draft(db, event, now, ops, "Kumari's adjustments after the capacity review")
+
+
+def _final_draft(db: Session, event: ScenarioEvent, now: datetime, ops: list[date]) -> None:
+    """The draft Kumari releases (v3): both depots, ready to release at 23:30 (the release itself is hers, at 23:40)."""
+    _save_scripted_draft(db, event, now, ops, "Peliyagoda + Kandy · ready to release")
 
 
 def _vehicle_available(db: Session, event: ScenarioEvent, now: datetime, ops: list[date]) -> None:
@@ -114,6 +122,7 @@ def _vehicle_available(db: Session, event: ScenarioEvent, now: datetime, ops: li
 
 HANDLERS: dict[str, Handler] = {
     "evening_adjustments": _evening_adjustments,
+    "final_draft": _final_draft,
     "vehicle_available": _vehicle_available,
 }
 

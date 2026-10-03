@@ -159,8 +159,14 @@ def seed_scenario_events(db: Session) -> int:
     return len(events)
 
 
-def seed(db: Session, *, data_dir: Path | None = None, strict: bool = False) -> dict[str, Any]:
-    """Run every step in one transaction. The caller commits."""
+def seed(
+    db: Session, *, data_dir: Path | None = None, strict: bool = False, reuse_accounts: bool = False
+) -> dict[str, Any]:
+    """Run every step in one transaction. The caller commits.
+
+    ``reuse_accounts`` keeps the users, PIN people and drivers as they are when they exist: a demo reset does not truncate
+    them, and re-hashing five passwords and PINs with bcrypt costs about three seconds.
+    """
     data_dir = data_dir or get_settings().data_dir
     report: dict[str, Any] = {}
 
@@ -175,7 +181,7 @@ def seed(db: Session, *, data_dir: Path | None = None, strict: bool = False) -> 
         report["reference"] = {"source": "fallback (PRD §4c), data/*.csv not found", **fallback.load(db)}
         report["checks"] = "skipped (fallback data)"
 
-    report["accounts"] = accounts.seed(db)
+    report["accounts"] = {"reused": True} if reuse_accounts and is_seeded(db) else accounts.seed(db)
     seed_clock(db)
     report["pinned"] = seed_pinned_orders(db)
     report["vehicle_day"] = seed_vehicle_day(db)
@@ -189,7 +195,7 @@ def reset(*, actor: str = "demo") -> dict[str, Any]:
         # Fail loudly rather than hang if another session still holds a lock on these tables.
         db.execute(text("SET LOCAL lock_timeout = '10s'"))
         db.execute(text("TRUNCATE " + ", ".join(OPERATIONAL_TABLES) + " RESTART IDENTITY CASCADE"))
-        report = seed(db)
+        report = seed(db, reuse_accounts=True)
         db.commit()
     return report
 

@@ -8,8 +8,10 @@
 #   evening_adjustments   Kumari's adjustments after the capacity review, saved as the next draft (v2).
 #                         payload.moves: [{orderId, to: {vehicleId, trip} | "deferred"}]. A refused move is skipped and
 #                         logged. Empty here: the planner's own draft is already the plan Kumari signs off (DP-24).
+#   final_draft           The draft Kumari releases (v3, both depots), saved at 23:30 so "Release plan v3" releases v3.
 #   vehicle_available     A vehicle back from the workshop. payload.vehicle: VEH036 at 02:45 (A12).
 # Kinds for the loader, driver and sync owners (load confirmations, departures, the 06:40 sync) are added with them.
 events:
   - {at: "2026-09-28T21:15:00+05:30", kind: evening_adjustments, payload: {moves: []}}
+  - {at: "2026-09-28T23:30:00+05:30", kind: final_draft, payload: {moves: []}}
   - {at: "2026-09-29T02:45:00+05:30", kind: vehicle_available, payload: {vehicle: VEH036}}
