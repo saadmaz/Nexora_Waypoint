@@ -133,6 +133,31 @@ def planned_fuel(trip: Trip, vehicle: Vehicle, orders: dict[str, Order], ref: Re
     return TripFuel(km=km, litres=km / vehicle.km_per_l)
 
 
+@dataclass(frozen=True, slots=True)
+class RunLeg:
+    #: None denotes the depot, never an invented outlet identifier.
+    from_outlet_id: str | None
+    to_outlet_id: str | None
+    km: float
+
+
+def planned_run_legs(trip: Trip, orders: dict[str, Order], ref: RefData) -> tuple[RunLeg, ...]:
+    """Physical movement for R7/R9 and GPS gaps, including the return to the depot.
+
+    Consecutive orders at one outlet share a stop, unlike the per-order budget/fuel formulas.
+    VEH039's three orders at two outlets give 8 + 3 + 8 = 19 km, while planned fuel uses 22 km.
+    """
+    stops = _group_stops(trip.order_ids, orders)
+    if not stops:
+        return ()
+    district = ref.district_of(ref.outlets[stops[0][0]])
+    return (
+        RunLeg(None, stops[0][0], district.outbound_km),
+        *(RunLeg(previous[0], current[0], district.inter_stop_km) for previous, current in zip(stops, stops[1:], strict=False)),
+        RunLeg(stops[-1][0], None, district.outbound_km),
+    )
+
+
 def trip_load(trip: Trip, orders: dict[str, Order]) -> tuple[float, float]:
     """(kg, m³) carried on the trip."""
     return (

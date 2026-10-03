@@ -30,6 +30,8 @@ from waypoint_rules import (
     legal_vehicles,
     minutes_pools,
     planned_clock,
+    planned_fuel,
+    planned_run_legs,
     recommend_swap,
     scarcest_pool,
     service_day_for,
@@ -100,6 +102,20 @@ def test_planned_clock_hero_two_orders_share_one_arrival(v3, orders, ref):
     assert [s.order_ids for s in clock.stops] == [("ORD2001", "ORD2002"), ("ORD2003",)]
     assert hhmm(clock.stops[0].arrival) == "05:26" and hhmm(clock.stops[0].handling_start) == "05:30"
     assert hhmm(clock.stops[1].arrival) == "06:06"
+
+
+def test_four_routing_bases_stay_distinct(v3, orders, ref):
+    trip = v3.trips[("VEH039", 1)]
+    assert len(trip.order_ids) == 3
+    assert trip_minutes(trip, orders, ref) == 16 + 6 * 2 + 15 * 3 == 73
+    assert planned_fuel(trip, ref.vehicles[trip.vehicle_id], orders, ref).km == 22
+    assert len(planned_clock(trip, orders, ref).stops) == 2
+    legs = planned_run_legs(trip, orders, ref)
+    assert [(leg.from_outlet_id, leg.to_outlet_id, leg.km) for leg in legs] == [
+        (None, "OUT084", 8), ("OUT084", "OUT087", 3), ("OUT087", None, 8),
+    ]
+    assert sum(leg.km for leg in legs) == 19
+    assert planned_run_legs(Trip("VEH039", 1, trip.depart_at, []), orders, ref) == ()
 
 
 # --------------------------------------------------------------------------- hard constraints

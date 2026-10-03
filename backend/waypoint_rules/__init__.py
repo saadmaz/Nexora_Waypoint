@@ -5,7 +5,18 @@ checks and the Datathon notebook (PRD v3 §11). The frontend never re-implements
 asks the API, which asks this package.
 """
 
-from .calc import StopTiming, TripClock, TripFuel, hhmm, planned_clock, planned_fuel, trip_load, trip_minutes
+from .calc import (
+    RunLeg,
+    StopTiming,
+    TripClock,
+    TripFuel,
+    hhmm,
+    planned_clock,
+    planned_fuel,
+    planned_run_legs,
+    trip_load,
+    trip_minutes,
+)
 from .constraints import (
     Violation,
     check_trip,
@@ -71,6 +82,8 @@ from .vocab import (
 )
 
 __all__ = [
+    "RunLeg",
+    "planned_run_legs",
     "Binding",
     "BindingResult",
     "Brand",
