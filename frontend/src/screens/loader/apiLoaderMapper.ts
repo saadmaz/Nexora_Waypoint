@@ -99,7 +99,14 @@ export function mapDock(out: Schemas["DockOut"], dockId: DepotId, local: LocalLo
       status,
     };
   });
-  const acknowledgement = out.acknowledged ? (local.acknowledgement.get(dockId) ?? { version: out.planVersion, personId: "", personName: "", at: "" }) : undefined;
+  // An acknowledgement the tablet has saved but not yet synced counts at once, for the version it was given for: the server
+  // answers "not acknowledged" until the outbox record has been sent, and the dock must not stay locked meanwhile.
+  const pending = local.acknowledgement.get(dockId);
+  const acknowledgement = out.acknowledged
+    ? (pending ?? { version: out.planVersion, personId: "", personName: "", at: "" })
+    : pending && pending.version >= out.planVersion
+      ? pending
+      : undefined;
   return {
     dockId,
     planVersion: out.planVersion,

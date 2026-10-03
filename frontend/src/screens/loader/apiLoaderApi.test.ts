@@ -94,6 +94,20 @@ describe("reads", () => {
     expect(view.newerVersionExists).toBe(true);
   });
 
+  it("unlocks the dock at once on an acknowledgement the server has not received yet", async () => {
+    server({ "/api/v1/loader/docks/peliyagoda": json(dock({ acknowledged: false })) });
+    const api = createApiLoaderApi();
+    expect((await api.getDock("peliyagoda")).acknowledgement).toBeUndefined();
+    await db.outbox.add({ clientId: "a2", type: "loader.ack", payload: { dockId: "peliyagoda", version: 3, personId: "1", personName: "Ruwan" }, deviceTime: "t", planVersionOnDevice: 3, actor: "1", status: "waiting", attempts: 0, createdAt: clock });
+    expect((await api.getDock("peliyagoda")).acknowledgement).toMatchObject({ version: 3, personName: "Ruwan" });
+  });
+
+  it("does not let an acknowledgement of an older version unlock a newer plan", async () => {
+    server({ "/api/v1/loader/docks/peliyagoda": json(dock({ acknowledged: false, planVersion: 4 })) });
+    await db.outbox.add({ clientId: "a3", type: "loader.ack", payload: { dockId: "peliyagoda", version: 3, personId: "1", personName: "Ruwan" }, deviceTime: "t", planVersionOnDevice: 3, actor: "1", status: "waiting", attempts: 0, createdAt: clock });
+    expect((await createApiLoaderApi().getDock("peliyagoda")).acknowledgement).toBeUndefined();
+  });
+
   it("maps the load plan in reverse stop order and lays the tablet's unsent counts over the server's", async () => {
     server({ "/api/v1/loader/docks/peliyagoda": json(dock()), "/api/v1/loader/vehicles/VEH003/trips/1": json(loadPlan) });
     const api = createApiLoaderApi();
