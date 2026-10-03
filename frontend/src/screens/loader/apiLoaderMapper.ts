@@ -109,7 +109,10 @@ export function mapDock(out: Schemas["DockOut"], dockId: DepotId, local: LocalLo
     out.acknowledgedVersion != null
       ? { version: out.acknowledgedVersion, personId: "", personName: out.acknowledgedBy ?? "", at: hhmm(out.acknowledgedAt) }
       : undefined;
-  const acknowledgement = pending && pending.version >= out.planVersion ? pending : fromServer;
+  // The tablet's own record wins when the server has already counted an acknowledgement (it names the person, which the
+  // server's answer alone may not), or when it is for the plan now current and simply has not synced yet. An older
+  // record never unlocks a newer plan; the server's own acknowledgement then stands and says which version it was for.
+  const acknowledgement = pending && (out.acknowledged || pending.version >= out.planVersion) ? pending : fromServer;
   return {
     dockId,
     planVersion: out.planVersion,
