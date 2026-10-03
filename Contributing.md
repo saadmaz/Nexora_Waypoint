@@ -106,6 +106,7 @@ What each branch owns is defined by the PRD (`waypoint-prd-v3.md`). The section 
 | `feature/store-receipt` | 🏪 Store deliveries, receipt, issues, updates feed (S2 to S4) and wiring the store app to the API | `routers/store.py` (all but orders), `frontend/src/screens/store` | §3, §19 |
 | `feature/analytics` | 📊 Capacity outlook D9 and the Datathon notebook | `routers/dispatcher.py` (forecast), `analytics/` | §12 D9 |
 | `feature/release` | 🏁 Presenter control, Playwright walkthrough, docs, deploy | `e2e/`, `docs/`, `deploy/`, `README.md` | §16 to §19 |
+| `feature/api-wiring` | 🔌 Typed HTTP client, the real clients for auth, store, driver and loader behind `VITE_<ROLE>_API`, the field fetch transport (`/sync`, `/attachments`) | `frontend/src/api/http`, `frontend/src/api/api*Api.ts`, `frontend/src/field/offline/fetchTransport.ts`, `apiSync.ts`, `frontend/src/screens/*/api*Api.ts` | §9, §15, §19 |
 
 **Branches that will not be merged**
 
