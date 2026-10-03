@@ -13,6 +13,11 @@ export type DispatcherContextValue = {
   clockVersion: number;
   /** Moves the scenario clock forward (the presenter control); absent when the clock is real time. */
   advanceTo?: (to: Date) => void;
+  /**
+   * Starts the demo again on the server (the presenter control's "Reset demo"), then the clock and the screens reload.
+   * Absent for the mock, where the control reloads the page.
+   */
+  resetDemo?: () => Promise<void>;
   /** Bumped after every write, so every screen re-reads what it shows. */
   dataVersion: number;
   /** Call after a write. */

@@ -29,10 +29,11 @@ const STEPS: { time: string; label: string }[] = [
 /**
  * The presenter control (PRD v3 section 13), for the dispatcher's mock: a small floating panel, switched on from
  * the avatar menu or `?presenter=1`, that moves the scenario clock forward to the next walkthrough moment and
- * starts the demo again. It never goes backwards; Reset demo reloads the app at the address it opened at.
+ * starts the demo again. It never goes backwards; Reset demo reloads the app at the address it opened at. On the real API
+ * (`VITE_DISPATCHER_API=api`) the same two buttons call `/demo/advance` and `/demo/reset`.
  */
 export function PresenterControl() {
-  const { advanceTo, presenter } = useDispatcher();
+  const { advanceTo, presenter, resetDemo } = useDispatcher();
   const now = useNow();
   if (!advanceTo || !presenter) return null;
 
@@ -53,7 +54,7 @@ export function PresenterControl() {
       ) : (
         <p className={styles.end}>End of the dispatcher's walkthrough.</p>
       )}
-      <button type="button" className={styles.reset} onClick={() => window.location.reload()}>
+      <button type="button" className={styles.reset} onClick={() => (resetDemo ? void resetDemo().catch(() => undefined) : window.location.reload())}>
         <RotateCcw size={14} />
         Reset demo
       </button>
