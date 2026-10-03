@@ -102,3 +102,31 @@ def test_binding_ties_do_not_depend_on_dictionary_order():
 
     resources = {Binding.WEIGHT: (10, 20), Binding.VOLUME: (5, 10)}
     assert binding_resource(resources) == binding_resource(dict(reversed(list(resources.items()))))
+
+
+def test_policy_set_exchange_frees_actual_gap_and_prefers_lower_impact():
+    from waypoint_rules.planner import _policy_replacements
+
+    pool, ref = world([Order("A", "A", Temp.AMBIENT, 1, 25, 1), Order("B", "B", Temp.AMBIENT, 1, 25, 1),
+                       Order("C", "C", Temp.AMBIENT, 1, 40, 1, True), Order("D", "D", Temp.AMBIENT, 1, 90, 1, True),
+                       Order("W", "W", Temp.AMBIENT, 1, 50, 1, False, 5)], [vehicle("V")])
+    trips = [Trip("V", 1, at("03:30"), ["A", "B", "C"]), Trip("V", 2, at("04:00"), ["D"])]
+    plan = Plan(DAY, {trip.key: trip for trip in trips}, ["W"])
+    repaired = _policy_replacements(plan, set(pool), pool, ref, {})
+    assert set(repaired.deferred) == {"A", "B"}  # neither alone frees the required 40 kg
+    assert check_plan(repaired, pool, ref) == []
+
+
+def test_policy_exchange_uses_shortfall_surplus_before_order_id():
+    from waypoint_rules.planner import _policy_replacements
+
+    pool, ref = world([Order("A", "A", Temp.AMBIENT, 1, 60, 1), Order("Z", "Z", Temp.AMBIENT, 1, 40, 1),
+                       Order("P", "P", Temp.AMBIENT, 1, 90, 1, True), Order("W", "W", Temp.AMBIENT, 1, 30, 1)], [vehicle("V")])
+    trips = [Trip("V", 1, at("03:30"), ["A", "Z"]), Trip("V", 2, at("04:00"), ["P"])]
+    plan = Plan(DAY, {trip.key: trip for trip in trips}, ["W"])
+    # Waiting W itself frees only 30 kg with zero surplus, so it remains the best equal-impact
+    # deferral. Mark it older to require the lower-impact store choice, then choose Z's 10 kg
+    # surplus instead of A's 30 kg surplus despite A sorting first.
+    pool["W"] = replace(pool["W"], days_since_served=3)
+    repaired = _policy_replacements(plan, set(pool), pool, ref, {})
+    assert repaired.deferred == ["Z"]

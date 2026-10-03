@@ -34,7 +34,7 @@ from datetime import date, datetime, time, timedelta
 from math import fsum
 
 from . import messages as msg
-from .calc import planned_clock, trip_load
+from .calc import planned_clock, planned_fuel, trip_load, trip_minutes
 from .constraints import (
     Violation,
     check_plan,
@@ -43,11 +43,21 @@ from .constraints import (
     order_vehicle_violations,
     trip_brand,
     usable_vehicles,
+    vehicle_day_totals,
 )
-from .deferrals import Frees, Impact, binding_freed, classify_deferral, frees, impact_on_store, policy_deferral_key
+from .deferrals import (
+    Frees,
+    Impact,
+    binding_freed,
+    classify_deferral,
+    frees,
+    impact_on_store,
+    policy_candidate_sets,
+    policy_deferral_key,
+)
 from .model import Order, Plan, RefData, Trip, Vehicle, VehicleDay
 from .schedule import next_operating_day
-from .vocab import MAX_TRIPS_PER_VEHICLE, Binding, Brand, DeferralType, RuleId, Temp
+from .vocab import FRESH_BUDGET_MIN, MAX_TRIPS_PER_VEHICLE, Binding, Brand, DeferralType, RuleId, Temp
 
 #: A Fresh first trip never leaves before the Fresh operating window opens (PRD §4a, A5).
 FRESH_FIRST_DEPARTURE = time(3, 30)
@@ -298,7 +308,7 @@ def repair_continuity(
 def _policy_replacements(
     plan: Plan, eligible: set[str], orders: dict[str, Order], ref: RefData, days: Mapping[str, VehicleDay],
 ) -> Plan:
-    """One bounded exchange per waiting order, strictly reducing store impact on the binding resource.
+    """One bounded set exchange per waiting order, strictly reducing store impact on the binding resource.
 
     Whole-plan checks prove enough actual resource is freed, including windows/return sequencing.
     A protected order is never displaced. Equal keys retain the stable greedy allocation.
@@ -317,17 +327,46 @@ def _policy_replacements(
             binding = next((_BINDING_OF_RULE[v.rule] for v in violations if v.rule in _BINDING_OF_RULE), None)
             if binding is None:
                 continue
-            for displaced in sorted(trip.order_ids):
-                if orders[displaced].deferred_yesterday:
-                    continue
-                trial = _replace_orders(result, key, displaced, oid, orders, ref)
+            gap_kg = max(0.0, trip_load(augmented, orders)[0] - vehicle.weight_cap_kg)
+            gap_m3 = max(0.0, trip_load(augmented, orders)[1] - vehicle.volume_cap_m3)
+            if binding is Binding.WEIGHT:
+                required = gap_kg
+            elif binding is Binding.VOLUME:
+                required = gap_m3
+            elif binding is Binding.FUEL:
+                before = days.get(vehicle.id)
+                required = max(0.0, (before.fuel_used_before_l if before else 0.0)
+                               + sum(planned_fuel(t, vehicle, orders, ref).litres for t in result.trips_of(vehicle.id) if t.key != key)
+                               + planned_fuel(augmented, vehicle, orders, ref).litres - vehicle.weekly_fuel_quota_l)
+            elif binding is Binding.REEFER_MINUTES:
+                total = vehicle_day_totals(vehicle, result.trips_of(vehicle.id), orders, ref, days.get(vehicle.id))
+                required = max(0.0, total.fresh_min - trip_minutes(trip, orders, ref)
+                               + trip_minutes(augmented, orders, ref) - FRESH_BUDGET_MIN)
+            else:
+                required = max((max(0.0, (stop.arrival - stop.window_close).total_seconds() / 60)
+                                for stop in planned_clock(augmented, orders, ref).stops), default=0.0)
+            for displaced in policy_candidate_sets(trip.order_ids, orders):
+                trial = deepcopy(result)
+                target = trial.trips[key]
+                target.order_ids = [o for o in target.order_ids if o not in displaced] + [oid]
+                trial.deferred.remove(oid)
+                trial.deferred.extend(displaced)
+                for retimed in _retime(trial.trips_of(key[0]), orders, ref, trial.service_date):
+                    trial.trips[retimed.key] = retimed
                 if check_plan(trial, orders, ref, days):
                     continue
-                reduced = Trip(trip.vehicle_id, trip.trip_no, trip.depart_at, [o for o in trip.order_ids if o != displaced])
+                reduced = Trip(trip.vehicle_id, trip.trip_no, trip.depart_at, [o for o in trip.order_ids if o not in displaced])
                 old_units = binding_freed(trip, reduced, orders, ref, vehicle, binding)
                 new_units = binding_freed(augmented, trip, orders, ref, vehicle, binding)
-                old_key = policy_deferral_key((displaced,), orders, freed=old_units, required=new_units)
-                waiting_key = policy_deferral_key((oid,), orders, freed=new_units, required=new_units)
+                if old_units + 1e-9 < required:
+                    continue
+                removed_kg = trip_load(trip, orders)[0] - trip_load(reduced, orders)[0]
+                removed_m3 = trip_load(trip, orders)[1] - trip_load(reduced, orders)[1]
+                old_key = policy_deferral_key(displaced, orders, freed=old_units, required=required,
+                                             surplus_kg=max(0.0, removed_kg - gap_kg), surplus_m3=max(0.0, removed_m3 - gap_m3))
+                waiting_key = policy_deferral_key((oid,), orders, freed=new_units, required=required,
+                                                 surplus_kg=max(0.0, orders[oid].weight_kg - gap_kg),
+                                                 surplus_m3=max(0.0, orders[oid].volume_m3 - gap_m3))
                 if old_key < waiting_key:
                     choices.append((old_key, key, trial))
         if choices:

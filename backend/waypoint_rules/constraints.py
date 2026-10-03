@@ -254,6 +254,8 @@ def check_plan(
     valid_trips: dict[str, list[Trip]] = {}
     keys: set[tuple[str, int]] = set()
     for key, trip in sorted(plan.trips.items()):
+        if trip.depart_at.date() != plan.service_date:
+            out.append(Violation(RuleId.TRIPS, f"{trip.vehicle_id} trip {trip.trip_no} departs on the wrong service date"))
         if key != trip.key or trip.key in keys:
             out.append(Violation(RuleId.TRIPS, f"Duplicate or mismatched trip key {trip.key}"))
         keys.add(trip.key)

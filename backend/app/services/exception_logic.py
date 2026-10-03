@@ -18,15 +18,14 @@ from waypoint_rules import (
     Violation,
     check_trip,
     check_vehicle_day,
-    legal_vehicles,
     order_vehicle_violations,
     planned_clock,
     recommend_swap,
     trip_load,
     trip_minutes,
+    validate_policy_action,
     vehicle_day_totals,
 )
-from waypoint_rules import messages as msg
 from waypoint_rules.vocab import (
     FRESH_BUDGET_MIN,
     STYLE_TECH_BUDGET_MIN,
@@ -152,8 +151,8 @@ def build_swap(day: DispatchDay, failed: str, replacement: Vehicle, defer_overri
         order = day.orders.get(oid)
         if order is None or oid not in on_trips:
             violations.append(Violation(RuleId.WHOLE, f"{oid} is not on {failed}'s trips, so deferring it does not help"))
-        elif order.deferred_yesterday and legal_vehicles(order, day.ref, day.vehicle_days):
-            violations.append(Violation(RuleId.CONT, msg.continuity(order.outlet_id)))
+        else:
+            violations.extend(validate_policy_action(order, DeferralType.POLICY, day.ref, reason="Vehicle replacement"))
 
     plan = plan_of(day)
     for t in trips:

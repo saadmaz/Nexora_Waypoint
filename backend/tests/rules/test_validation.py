@@ -40,7 +40,7 @@ def test_complete_plan_and_metadata(v3, orders, ref, vdays):
     assert any(v.rule is RuleId.WHOLE for v in check_plan(v3, orders, ref, vdays, deferral_reasons=reasons))
 
 
-@pytest.mark.parametrize("mutation", ["duplicate", "served_and_deferred", "missing", "unknown", "trip_key"])
+@pytest.mark.parametrize("mutation", ["duplicate", "served_and_deferred", "missing", "unknown", "trip_key", "service_date"])
 def test_corrupt_assignment_is_rejected(v3, orders, ref, vdays, mutation):
     plan = deepcopy(v3)
     if mutation == "duplicate":
@@ -51,8 +51,10 @@ def test_corrupt_assignment_is_rejected(v3, orders, ref, vdays, mutation):
         plan.deferred.remove("ORD1009")
     elif mutation == "unknown":
         plan.deferred.append("UNKNOWN")
-    else:
+    elif mutation == "trip_key":
         plan.trips[("VEH003", 2)].trip_no = 1
+    else:
+        plan.trips[("VEH003", 1)].depart_at = at("03:30").replace(day=30)
     assert check_plan(plan, orders, ref, vdays)
 
 

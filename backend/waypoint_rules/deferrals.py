@@ -17,7 +17,7 @@ from .vocab import FRESH_BUDGET_MIN, STYLE_TECH_BUDGET_MIN, Binding, Brand, Defe
 
 
 def classify_deferral(order: Order, ref: RefData, vehicle_days: dict[str, VehicleDay] | None = None) -> DeferralType:
-    """``capacity`` when no legal vehicle exists for the whole order, else ``policy``."""
+    """``capacity`` when no physically capable vehicle exists for the whole order, else ``policy``."""
     return DeferralType.POLICY if capable_vehicles(order, ref) else DeferralType.CAPACITY
 
 
@@ -241,8 +241,8 @@ def recommend_swap(
 ) -> SwapRecommendation:
     """Which orders to defer so ``trip`` fits ``replacement`` (D8).
 
-    Protected orders (outlet deferred yesterday) are never candidates. Smallest set first;
-    within a size, lowest impact, then least surplus (kg, then m³). VEH003 trip 1 on VEH036:
+    Protected orders (outlet deferred yesterday) are never candidates. Rank by impact per
+    binding unit, then set size, binding/kg/m³ surplus and IDs. VEH003 trip 1 on VEH036:
     gap 120 kg / 0.7 m³ → defer ORD1002 (OUT009), surplus 90 kg / 0.7 m³.
     """
     kg, m3 = trip_load(trip, orders)

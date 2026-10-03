@@ -288,6 +288,8 @@ def _validate_for_write(day: DispatchDay, plan: Plan, specs: list[DeferralSpec])
     pool = {oid: order for oid, order in day.orders.items() if oid in expected}
     reasons = {spec.order_id: (spec.type, spec.reason_text) for spec in specs}
     violations = check_plan(plan, pool, day.ref, day.vehicle_days, deferral_reasons=reasons)
+    if plan.service_date != day.service_date:
+        raise ApiError(409, "invalid_plan", "Plan service date does not match the input day")
     if len(reasons) != len(specs) or violations:
         raise ApiError(409, "invalid_plan", "Plan validation failed before persistence",
                        [v.message for v in violations] or ["Duplicate deferral records"])
