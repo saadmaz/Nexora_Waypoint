@@ -82,6 +82,7 @@ erDiagram
     traffic_speed {
         text district PK,FK
         integer hour PK
+        boolean monsoon PK
         float speed_factor
     }
     road_conditions {
@@ -564,6 +565,6 @@ erDiagram
 | 5 | Dropped `conflicts.device_record_ids` (kept `device_records.conflict_id`); `device_records.trip_no` → `trip_id` FK; `load_checks.client_id` is now a FK; dropped `runs.driver_id` and `runs.vehicle_id` (both come from the trip), one run per trip; `drivers.user_id` unique; `acknowledgements.actor_id` split into `pin_person_id` and `driver_vehicle_id` FKs; `dock` columns renamed `depot_id` | Removes duplicate and ambiguous keys. |
 | 6 | `orders.service_date` and `plan_versions.service_date` reference `calendar_days`; `outlet_service_history.time` is a `time`; `*_user_id` / `*_pin_id` FKs added next to `actor`, `decided_by`, `raised_by`, `resolved_by`; `exceptions.kind` lists `store_issue` | Plans can't target a missing calendar day, and every action traces to an account. |
 | 7 | `notices.audience` text replaced by `audience_kind` plus `outlet_id`, `vehicle_id`, `depot_id` FKs; new `notice_reads` (one row per reader) | Notices go to real records and each loader or driver has their own read state. |
-| 8 | `traffic_speed` stored as district × hour rows instead of raw JSON; new `road_conditions` (date, district, disruption, delay) | Matches the competition CSVs and lets ETAs account for monsoon and roadworks. |
+| 8 | `traffic_speed` stored as district × hour × monsoon rows instead of raw JSON (the CSV has a monsoon and a non-monsoon row for every district and hour); new `road_conditions` (date, district, disruption, delay) | Matches the competition CSVs and lets ETAs account for monsoon and roadworks. |
 | 9 | `districts` `UNIQUE(name, depot_id)` and `outlets (district, depot_id)` composite FK | An outlet's depot can no longer disagree with its district's depot. |
 | 10 | `audit_events.order_id` FK; one dashed line left; overview diagram without columns | Order history is a join, and the slides get a readable picture. |
