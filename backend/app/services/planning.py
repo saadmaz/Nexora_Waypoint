@@ -284,7 +284,13 @@ def _save_draft(
 
 def _validate_for_write(day: DispatchDay, plan: Plan, specs: list[DeferralSpec]) -> None:
     """Fail before any version/trip/status/audit mutation; database constraints remain the final safety net."""
-    expected = day.plannable | {oid for trip in plan.trips.values() for oid in trip.order_ids} | set(plan.deferred)
+    # Draft/redraft/release own the closed queue. Live changes own the stored released
+    # version, including orders that have since loaded or departed. The proposal must
+    # never contribute IDs to either trusted input pool.
+    if day.chosen is not None and day.chosen.state is PlanState.RELEASED:
+        expected = {oid for trip in day.trips for oid in trip.order_ids} | {d.order_id for d in day.deferrals}
+    else:
+        expected = day.plannable
     pool = {oid: order for oid, order in day.orders.items() if oid in expected}
     reasons = {spec.order_id: (spec.type, spec.reason_text) for spec in specs}
     violations = check_plan(plan, pool, day.ref, day.vehicle_days, deferral_reasons=reasons)
