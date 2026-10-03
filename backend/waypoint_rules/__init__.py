@@ -49,7 +49,16 @@ from .deferrals import (
 from .lifecycle import IllegalTransition, OrderEvent, allowed_events, transition
 from .model import District, Order, Outlet, Plan, RefData, Trip, Vehicle, VehicleDay
 from .moves import CheckItem, Move, MoveResult, TripSummary, validate_move, why_this_vehicle
-from .planner import DraftDeferral, DraftStop, DraftTrip, OutletHistory, PlanDraft, draft_plan
+from .planner import (
+    DraftDeferral,
+    DraftStop,
+    DraftTrip,
+    FeasibleInsertion,
+    OutletHistory,
+    PlanDraft,
+    draft_plan,
+    feasible_insertions,
+)
 from .reconcile import (
     DeviceRecord,
     Outcome,
@@ -86,6 +95,8 @@ from .vocab import (
 )
 
 __all__ = [
+    "FeasibleInsertion",
+    "feasible_insertions",
     "capable_vehicles",
     "check_plan",
     "usable_vehicles",

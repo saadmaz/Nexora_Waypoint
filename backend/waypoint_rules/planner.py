@@ -30,23 +30,23 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime, time, timedelta
+from math import fsum
 
 from . import messages as msg
-from .calc import planned_clock
+from .calc import planned_clock, trip_load
 from .constraints import (
     Violation,
+    check_plan,
     check_trip,
     check_vehicle_day,
     order_vehicle_violations,
     trip_brand,
+    usable_vehicles,
 )
 from .deferrals import Frees, Impact, classify_deferral, frees, impact_on_store
 from .model import Order, Plan, RefData, Trip, Vehicle, VehicleDay
 from .schedule import next_operating_day
 from .vocab import MAX_TRIPS_PER_VEHICLE, Binding, Brand, DeferralType, RuleId, Temp
-
-#: A trip stops looking for more orders after this many in a row did not fit (it is full; the rest are lower priority).
-MAX_MISSES_PER_TRIP = 12
 
 #: A Fresh first trip never leaves before the Fresh operating window opens (PRD §4a, A5).
 FRESH_FIRST_DEPARTURE = time(3, 30)
@@ -177,83 +177,76 @@ def _back_at_depot(trip: Trip, orders: dict[str, Order], ref: RefData) -> dateti
     return planned_clock(trip, orders, ref).back_at_depot
 
 
-def _fill(
-    state: _VehicleState,
-    candidates: list[str],
-    orders: dict[str, Order],
-    ref: RefData,
-    service_date: date,
-    brand: Brand,
-) -> list[Trip]:
-    """The trips ``state``'s vehicle can take from ``candidates`` (already in priority order), without committing."""
-    vehicle = state.vehicle
-    added: list[Trip] = []
-    remaining = list(candidates)
-    while len(state.trips) + len(added) < MAX_TRIPS_PER_VEHICLE and remaining:
-        so_far = [*state.trips, *added]
-        trip_no = len(so_far) + 1
-        not_before = _back_at_depot(so_far[-1], orders, ref) if so_far else None
-        current: list[str] = []
-        misses = 0
-        for oid in remaining:
-            if order_vehicle_violations(orders[oid], vehicle, ref, state.vday, None, check_capacity_alone=True):
-                continue
-            candidate = _sequence([*current, oid], orders, ref)
-            depart = _departure(candidate, orders, ref, service_date, brand, not_before)
-            trip = Trip(vehicle.id, trip_no, depart, candidate)
-            if check_trip(trip, orders, ref, state.vday) or check_vehicle_day(vehicle, [*so_far, trip], orders, ref, state.vday):
-                misses += 1
-                if misses >= MAX_MISSES_PER_TRIP:
-                    break  # the trip is full: later, lower-priority orders will not fit either
-                continue
-            current = candidate
-            misses = 0
-        if not current:
-            break
-        depart = _departure(current, orders, ref, service_date, brand, not_before)
-        added.append(Trip(vehicle.id, trip_no, depart, current))
-        remaining = [o for o in remaining if o not in current]
-    return added
+@dataclass(frozen=True, slots=True)
+class FeasibleInsertion:
+    vehicle_id: str
+    trip_no: int
+    #: The resulting complete vehicle day, including recalculated later departures.
+    trips: tuple[Trip, ...]
 
 
-def _top_up(
-    states: list[_VehicleState],
-    remaining: list[str],
-    orders: dict[str, Order],
-    ref: RefData,
-    service_date: date,
-    brand: Brand,
-    district: str,
-    group_trips: list[tuple[_VehicleState, Trip]],
-) -> list[str]:
-    """Ambient-only orders first join trips that already exist for their brand and district, in priority order.
+def _retime(trips: Iterable[Trip], orders: dict[str, Order], ref: RefData, service_date: date) -> list[Trip]:
+    result: list[Trip] = []
+    for trip in sorted(trips, key=lambda t: t.trip_no):
+        if not trip.order_ids:
+            continue
+        sequence = _sequence(trip.order_ids, orders, ref)
+        brand = ref.outlets[orders[sequence[0]].outlet_id].brand
+        before = _back_at_depot(result[-1], orders, ref) if result else None
+        depart = _departure(sequence, orders, ref, service_date, brand, before)
+        result.append(Trip(trip.vehicle_id, trip.trip_no, depart, sequence))
+    return result
 
-    The chilled work has already taken what it needs, so the spare room on a reefer trip is free to use. Only a vehicle's last
-    trip is extended (nothing later depends on when it returns). Returns the orders still without a place.
+
+def feasible_insertions(
+    order: Order, plan: Plan, orders: dict[str, Order], ref: RefData,
+    vehicle_days: Mapping[str, VehicleDay],
+) -> list[FeasibleInsertion]:
+    """All legal insertions for the current order, sorted by vehicle and trip number.
+
+    Other orders in the input may still be in the provisional deferred pool. This operation changes
+    one assignment only; trip/day checks plus complete partition validation protect each candidate.
     """
-    left = list(remaining)
-    for state in states:
-        if not state.trips:
-            continue
-        trip = state.trips[-1]
-        first = ref.outlets[orders[trip.order_ids[0]].outlet_id]
-        if first.brand is not brand or first.district != district:
-            continue
-        before = _back_at_depot(state.trips[-2], orders, ref) if len(state.trips) > 1 else None
-        joined = False
-        for oid in list(left):
-            if order_vehicle_violations(orders[oid], state.vehicle, ref, state.vday, None, check_capacity_alone=True):
+    if plan.trip_of_order(order.id) is not None:
+        return []
+    out: list[FeasibleInsertion] = []
+    for vid in usable_vehicles(order, ref, vehicle_days):
+        existing = plan.trips_of(vid)
+        numbers = {trip.trip_no for trip in existing}
+        targets = sorted(numbers | ({1, 2} - numbers if len(existing) < MAX_TRIPS_PER_VEHICLE else set()))
+        for number in targets:
+            trial = [Trip(t.vehicle_id, t.trip_no, t.depart_at, list(t.order_ids)) for t in existing]
+            target = next((t for t in trial if t.trip_no == number), None)
+            if target is None:
+                target = Trip(vid, number, datetime.combine(plan.service_date, time()), [])
+                trial.append(target)
+            target.order_ids.append(order.id)
+            retimed = _retime(trial, orders, ref, plan.service_date)
+            vday = vehicle_days.get(vid)
+            if any(check_trip(t, orders, ref, vday) for t in retimed):
                 continue
-            candidate = _sequence([*trip.order_ids, oid], orders, ref)
-            moved = Trip(trip.vehicle_id, trip.trip_no, _departure(candidate, orders, ref, service_date, brand, before), candidate)
-            if check_trip(moved, orders, ref, state.vday) or check_vehicle_day(state.vehicle, [*state.trips[:-1], moved], orders, ref, state.vday):
+            if check_vehicle_day(ref.vehicles[vid], retimed, orders, ref, vday):
                 continue
-            trip.order_ids, trip.depart_at = moved.order_ids, moved.depart_at
-            left.remove(oid)
-            joined = True
-        if joined and (state, trip) not in group_trips:
-            group_trips.append((state, trip))
-    return left
+            proposed = Plan(plan.service_date, {**plan.trips, **{t.key: t for t in retimed}},
+                            [oid for oid in plan.deferred if oid != order.id])
+            if not check_plan(proposed, orders, ref, vehicle_days):
+                out.append(FeasibleInsertion(vid, number, tuple(retimed)))
+    return out
+
+
+def _vehicle_rank(
+    insertion: FeasibleInsertion, order: Order, orders: dict[str, Order], ref: RefData,
+    *, chilled_remains: bool, legal_ambient_exists: bool,
+) -> tuple[int, float, float, float, float, str, int]:
+    vehicle = ref.vehicles[insertion.vehicle_id]
+    target = next(t for t in insertion.trips if t.trip_no == insertion.trip_no)
+    kg, m3 = trip_load(target, orders)
+    remaining_kg = (vehicle.weight_cap_kg - kg) / vehicle.weight_cap_kg
+    remaining_m3 = (vehicle.volume_cap_m3 - m3) / vehicle.volume_cap_m3
+    reserve = int(order.temp is Temp.AMBIENT and vehicle.is_reefer and chilled_remains and legal_ambient_exists)
+    # Nine decimal places for ranking only. Rule checks above use the unrounded loads.
+    return (reserve, round(max(remaining_kg, remaining_m3), 9), round(remaining_kg + remaining_m3, 9),
+            vehicle.weight_cap_kg, vehicle.volume_cap_m3, vehicle.id, insertion.trip_no)
 
 
 def _explain(
@@ -312,13 +305,11 @@ class _Strategy:
 
     #: Groups with the most weight take vehicles first (otherwise the lightest do).
     heaviest_first: bool
-    #: Once a group has its first vehicle, a new vehicle is opened only if it takes at least this many orders.
-    min_orders_on_new_vehicle: int
 
 
-#: Tried in turn for each depot; the best result wins. A single stray order must not burn a vehicle's first trip
-#: when that trip is worth more to another group, so some strategies defer the tail of a group instead.
-_STRATEGIES = (_Strategy(True, 1), _Strategy(True, 2), _Strategy(False, 1), _Strategy(False, 2))
+#: Preserve the existing bounded heavy/light group-order strategies. Global result quality is separate
+#: from the local current-order vehicle comparator; there is no minimum batch-size cutoff.
+_STRATEGIES = (_Strategy(True), _Strategy(False))
 
 
 @dataclass(slots=True)
@@ -351,75 +342,43 @@ def _plan_depot(
     ]
     result = _DepotPlan(states, {}, [])
 
-    # Step 3: group by (brand, district) within the depot, chilled work apart from ambient-only work. A reefer is the scarce
-    # vehicle, so the chilled group plans first and takes it; an ambient order at an outlet that also has a chilled order stays
-    # with it (one outlet, one stop, one arrival), and the ambient-only orders then prefer the dry-box trucks.
-    chilled_outlets = {
-        (ref.outlets[pool[o].outlet_id].brand, ref.outlets[pool[o].outlet_id].district, pool[o].outlet_id)
-        for o in placeable
-        if pool[o].temp is Temp.CHILLED
-    }
-    groups: dict[tuple[Brand, str, bool], list[str]] = {}
+    # Group exactly by brand/district within this depot. Temperature and access restrict candidates,
+    # never raise an order's operational priority.
+    groups: dict[tuple[Brand, str], list[str]] = {}
     for oid in placeable:
         outlet = ref.outlets[pool[oid].outlet_id]
-        with_chilled = pool[oid].temp is Temp.CHILLED or (outlet.brand, outlet.district, outlet.id) in chilled_outlets
-        groups.setdefault((outlet.brand, outlet.district, with_chilled), []).append(oid)
-
-    # The heaviest group leads (or the lightest, under the other strategy); chilled groups always come first.
+        groups.setdefault((outlet.brand, outlet.district), []).append(oid)
     sign = -1 if strategy.heaviest_first else 1
-    group_order: dict[tuple[Brand, str, bool], tuple[bool, float, str, str]] = {
-        key: (not key[2], sign * sum(pool[o].weight_kg for o in members), key[0].value, key[1])
-        for key, members in groups.items()
-    }
-
+    group_order = {key: (sign * fsum(pool[o].weight_kg for o in sorted(members)), key[0].value, key[1])
+                   for key, members in groups.items()}
+    # The complete provisional partition enables the same check_plan used at the write boundary.
+    plan = Plan(service_date, {}, sorted(pool))
     for key in sorted(groups, key=lambda k: group_order[k]):
-        brand = key[0]
-        # Step 4: priority inside the group.
-        remaining = sorted(groups[key], key=lambda o: _priority(o, pool, ref))
-        has_chilled = any(pool[o].temp is Temp.CHILLED for o in remaining)
-        group_trips: list[tuple[_VehicleState, Trip]] = []
-        if not key[2]:
-            remaining = _top_up(states, remaining, pool, ref, service_date, brand, key[1], group_trips)
-
-        # Step 5: build trips on the best-fit vehicle until nothing more can be placed.
-        while remaining:
-            best: tuple[tuple[int, int, int, float, float, str], _VehicleState, list[Trip]] | None = None
-            for state in states:
-                added = _fill(state, remaining, pool, ref, service_date, brand)
-                if not added:
-                    continue
-                served = {o for t in added for o in t.order_ids}
-                opens_new = group_trips != [] and all(state is not used for used, _ in group_trips)
-                if opens_new and len(served) < strategy.min_orders_on_new_vehicle:
-                    continue
-                protected = sum(1 for o in served if pool[o].deferred_yesterday)
-                reefer_spare = 1 if state.vehicle.is_reefer and not has_chilled else 0
-                rank = (
-                    -protected,
-                    -len(served),
-                    reefer_spare,
-                    state.vehicle.weight_cap_kg,
-                    state.vehicle.volume_cap_m3,
-                    state.vehicle.id,
-                )
-                if best is None or rank < best[0]:
-                    best = (rank, state, added)
-            if best is None:
-                break
-            _, chosen, added = best
-            for trip in added:
-                chosen.trips.append(trip)
-                group_trips.append((chosen, trip))
-            placed = {o for t in added for o in t.order_ids}
-            remaining = [o for o in remaining if o not in placed]
-
-        # Step 6: what is left is a policy deferral, with the reason it did not fit.
-        for oid in remaining:
-            result.policy[oid] = _explain(oid, group_trips, pool, ref, depot)
-            if pool[oid].deferred_yesterday:
-                result.warnings.append(
-                    f"{oid} ({pool[oid].outlet_id}) was deferred yesterday and is deferred again: {result.policy[oid][1]}"
-                )
+        for oid in sorted(groups[key], key=lambda o: _priority(o, pool, ref)):
+            candidates = feasible_insertions(pool[oid], plan, pool, ref, vdays)
+            if not candidates:
+                continue  # all remaining orders are still evaluated, regardless of earlier misses
+            ambient = any(not ref.vehicles[c.vehicle_id].is_reefer for c in candidates)
+            chilled = any(pool[o].temp is Temp.CHILLED for o in plan.deferred if o in placeable)
+            chosen = min(candidates, key=lambda c: _vehicle_rank(c, pool[oid], pool, ref,
+                         chilled_remains=chilled, legal_ambient_exists=ambient))
+            for trip in chosen.trips:
+                plan.trips[trip.key] = trip
+            plan.deferred.remove(oid)
+    for state in states:
+        state.trips = plan.trips_of(state.vehicle.id)
+    for oid in placeable:
+        if oid not in plan.deferred:
+            continue
+        outlet = ref.outlets[pool[oid].outlet_id]
+        group_trips = [(state, trip) for state in states for trip in state.trips
+                       if ref.outlets[pool[trip.order_ids[0]].outlet_id].brand is outlet.brand
+                       and ref.outlets[pool[trip.order_ids[0]].outlet_id].district == outlet.district]
+        result.policy[oid] = _explain(oid, group_trips, pool, ref, depot)
+        if pool[oid].deferred_yesterday:
+            result.warnings.append(
+                f"{oid} ({pool[oid].outlet_id}) was deferred yesterday and is deferred again: {result.policy[oid][1]}"
+            )
     return result
 
 
@@ -493,12 +452,17 @@ def draft_plan(
                 trips.append(DraftTrip(trip.vehicle_id, trip.trip_no, brand_of, first.district, trip.depart_at, stops))
 
     trips.sort(key=lambda t: (t.vehicle_id, t.trip_no))
-    return PlanDraft(
+    result = PlanDraft(
         service_date,
         tuple(trips),
         tuple(deferrals[o] for o in sorted(deferrals)),
         tuple(warnings),
     )
+    violations = check_plan(result.as_plan(), pool, ref, vdays,
+                            deferral_reasons={d.order_id: (d.type, d.reason_text) for d in result.deferrals})
+    if violations:
+        raise ValueError("Planner produced an invalid result: " + "; ".join(v.message for v in violations))
+    return result
 
 
 def _capacity_binding(order: Order, ref: RefData) -> Binding:
