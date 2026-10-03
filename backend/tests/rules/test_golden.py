@@ -8,7 +8,9 @@ import pytest
 
 from waypoint_rules import (
     Binding,
+    Brand,
     DeferralType,
+    DeferredMinutes,
     IllegalTransition,
     LatenessRisk,
     Move,
@@ -18,6 +20,7 @@ from waypoint_rules import (
     Role,
     RuleId,
     Trip,
+    TripMinutes,
     binding_resource,
     check_trip,
     check_vehicle_day,
@@ -25,8 +28,10 @@ from waypoint_rules import (
     headline,
     lateness_risk,
     legal_vehicles,
+    minutes_pools,
     planned_clock,
     recommend_swap,
+    scarcest_pool,
     service_day_for,
     status_label,
     store_arrival,
@@ -193,6 +198,31 @@ def test_headline_and_binding():
     )
     b = binding_resource({Binding.REEFER_MINUTES: (2590, 2160), Binding.WEIGHT: (100, 1000)})
     assert b.resource is Binding.REEFER_MINUTES and b.percent == 120 and b.over_by == 430
+
+
+def test_reefer_minutes_count_only_what_a_reefer_must_carry():
+    """Ambient Fresh on a dry truck is not asked of the reefers, and an ambient deferral does not need one."""
+    trips = [
+        TripMinutes(Brand.FRESH, True, 200),
+        TripMinutes(Brand.FRESH, False, 900),  # ambient Fresh on a dry truck
+        TripMinutes(Brand.STYLE, False, 80),
+    ]
+    deferred = [DeferredMinutes(Brand.FRESH, True, 30), DeferredMinutes(Brand.FRESH, False, 25), DeferredMinutes(Brand.STYLE, False, 10)]
+    reefer, fresh_all, style_tech = minutes_pools(trips, deferred, usable=10, usable_reefers=2)
+
+    assert (reefer.label, reefer.demand, reefer.supply) == ("Reefer Fresh minutes", 230, 540)
+    assert (fresh_all.demand, fresh_all.supply) == (1155, 2700)  # every Fresh trip and every Fresh deferral, on every vehicle
+    assert (style_tech.demand, style_tech.supply) == (90, 4800)
+
+
+def test_the_scarcest_pool_is_the_highest_ratio_and_a_pool_without_supply_is_dropped():
+    pools = minutes_pools([TripMinutes(Brand.FRESH, True, 600)], [DeferredMinutes(Brand.FRESH, True, 30)], usable=4, usable_reefers=2)
+    worst = scarcest_pool(pools)
+    assert worst is not None and worst.label == "Reefer Fresh minutes" and worst.percent == 117 and worst.over_by == 90
+
+    no_reefer = minutes_pools([TripMinutes(Brand.FRESH, False, 100)], [], usable=3, usable_reefers=0)
+    assert "Reefer Fresh minutes" not in {p.label for p in no_reefer}
+    assert scarcest_pool([]) is None
 
 
 # --------------------------------------------------------------------------- calendar and store view

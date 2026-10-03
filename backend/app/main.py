@@ -27,6 +27,7 @@ def create_app() -> FastAPI:
             403: {"model": ErrorBody},
             409: {"model": ErrorBody},
             422: {"model": ErrorBody},
+            429: {"model": ErrorBody},
             501: {"model": ErrorBody},
         },
     )

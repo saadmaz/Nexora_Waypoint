@@ -96,6 +96,13 @@ describe("signIn", () => {
     expect(await api.signIn("driver@waypoint.demo", "waypoint-demo")).toEqual({ ok: false, reason: "unavailable" });
   });
 
+  it("says unavailable, not a wrong password, after too many attempts", async () => {
+    // The rate limiter never checked the credentials, so blaming the password would be untrue.
+    const { api } = apiWith(failure(429, "too_many_attempts"));
+
+    expect(await api.signIn("driver@waypoint.demo", "waypoint-demo")).toEqual({ ok: false, reason: "unavailable" });
+  });
+
   it("says unavailable, not a stored session, when the backend returns a role this app does not have", async () => {
     const { api } = apiWith(login("auditor"));
 

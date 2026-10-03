@@ -78,16 +78,18 @@ def test_wrong_role_is_403(client, auth, role, method, path, body):
     assert set(res.json()) == {"code", "message", "details"}
 
 
-# (role that is allowed, method, path): built later, so the body is a 501 with the error shape
-RIGHT_ROLE_501 = [
-    ("dispatcher", "GET", "/api/v1/dispatcher/forecast?depot=peliyagoda"),
-    ("store", "GET", "/api/v1/store/updates"),
-    ("loader", "GET", "/api/v1/loader/docks/kandy"),
+# (role that is allowed, method, path, expected status): the right role gets past the guard to a real answer.
+# Before the first release the dock answers 200 with plan version 0; the others read an empty set.
+RIGHT_ROLE_REACHES = [
+    ("store", "GET", "/api/v1/store/updates", 200),
+    ("loader", "GET", "/api/v1/loader/docks/kandy", 200),
+    ("driver", "GET", "/api/v1/driver/history", 200),
 ]
 
 
-@pytest.mark.parametrize(("role", "method", "path"), RIGHT_ROLE_501)
-def test_right_role_reaches_the_501_body(client, auth, role, method, path):
+@pytest.mark.parametrize(("role", "method", "path", "status"), RIGHT_ROLE_REACHES)
+def test_right_role_reaches_the_route(client, auth, role, method, path, status):
     res = client.request(method, path, headers=auth(role))
-    assert res.status_code == 501
-    assert res.json()["code"] == "not_implemented"
+    assert res.status_code == status, res.text
+    if status != 200:
+        assert set(res.json()) == {"code", "message", "details"}

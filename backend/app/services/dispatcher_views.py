@@ -10,12 +10,16 @@ from __future__ import annotations
 from datetime import date, datetime
 
 from waypoint_rules import (
+    DeferredMinutes,
     Move,
     MoveResult,
     Plan,
     Trip,
+    TripMinutes,
     headline,
+    minutes_pools,
     planned_clock,
+    scarcest_pool,
     trip_load,
     trip_minutes,
     vehicle_day_totals,
@@ -28,6 +32,7 @@ from waypoint_rules.vocab import (
     Brand,
     DeferralType,
     DockType,
+    Temp,
     VehicleTemp,
     VehicleType,
 )
@@ -680,31 +685,30 @@ def capacity_view(day: DispatchDay, depot: s.DepotId) -> s.CapacityView:
     else:
         reefer_note = f"{_depot_title(depot)} reefer trucks and vans"
 
-    # Binding resource: minutes demanded (what the trips use, plus what the deferred orders would need) against supply.
-    def minutes(brand_is_fresh: bool) -> float:
-        used = sum(trip_minutes(_rules_trip(t), day.orders, day.ref) for t in trips if (t.brand is Brand.FRESH) == brand_is_fresh)
-        freed = sum(
-            float(d.frees.get("minutes", 0) or 0) for d in forced if (day.outlets[day.orders[d.order_id].outlet_id].brand is Brand.FRESH) == brand_is_fresh
-        )
-        return used + freed
-
     usable = _usable_vehicles(day, depot)
     usable_reefers = [v for v in usable if day.ref.vehicles[v].temp is VehicleTemp.REEFER]
-    fresh_supply = len(usable_reefers) * FRESH_BUDGET_MIN
-    st_supply = len(usable) * STYLE_TECH_BUDGET_MIN
-    candidates: list[tuple[str, float, float, int, int]] = []
-    if latest is not None:
-        if fresh_supply:
-            candidates.append(("Reefer Fresh minutes", minutes(True), fresh_supply, len(usable_reefers), FRESH_BUDGET_MIN))
-        if st_supply:
-            candidates.append(("Style + Tech minutes", minutes(False), st_supply, len(usable), STYLE_TECH_BUDGET_MIN))
-    worst = max(candidates, key=lambda c: c[1] / c[2], default=None)
+    pools = (
+        minutes_pools(
+            [TripMinutes(t.brand, day.ref.vehicles[t.vehicle_id].temp is VehicleTemp.REEFER, trip_minutes(_rules_trip(t), day.orders, day.ref)) for t in trips],
+            [
+                DeferredMinutes(
+                    day.outlets[day.orders[d.order_id].outlet_id].brand, day.orders[d.order_id].temp is Temp.CHILLED, float(d.frees.get("minutes", 0) or 0)
+                )
+                for d in forced
+            ],
+            len(usable),
+            len(usable_reefers),
+        )
+        if latest is not None
+        else []
+    )
+    worst = scarcest_pool(pools)
     binding = (
         s.CapacityBinding(
-            resource=worst[0], demand=worst[1], supply=worst[2], available=worst[3], per_vehicle=worst[4],
-            percent=round(100 * worst[1] / worst[2]), over_by=worst[1] - worst[2],
+            resource=worst.label, demand=worst.demand, supply=worst.supply, available=worst.available, per_vehicle=worst.per_vehicle,
+            percent=worst.percent, over_by=worst.over_by,
         )
-        if worst is not None and worst[1] > worst[2]
+        if worst is not None and worst.demand > worst.supply
         else None
     )
 
@@ -798,6 +802,7 @@ def capacity_view(day: DispatchDay, depot: s.DepotId) -> s.CapacityView:
                 ],
             )
         if usable_reefers:
+            fresh_supply = len(usable_reefers) * FRESH_BUDGET_MIN
             fresh_used = sum(trip_minutes(_rules_trip(t), day.orders, day.ref) for t in trips if t.brand is Brand.FRESH)
             view.fresh_use = round(min(1.0, fresh_used / fresh_supply), 2) if fresh_supply else 0.0
     return view

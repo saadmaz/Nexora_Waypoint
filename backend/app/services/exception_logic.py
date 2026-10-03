@@ -352,6 +352,7 @@ def exception_view(day: DispatchDay, row: ExceptionRow, *, next_run: date | None
         ]
         recommendation = s.ExceptionRecommendation(
             order_id=first,
+            order_ids=list(swap.defer),
             outlet_id=o.outlet_id,
             title=f"{', '.join(outlets)}: chilled order" if len(outlets) == 1 else f"{', '.join(outlets)}: {len(swap.defer)} orders",
             kind=DeferralType.POLICY,

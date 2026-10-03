@@ -58,7 +58,7 @@ class AttachmentKind(StrEnum):
 
 
 class ExceptionKind(StrEnum):
-    LOADER_FLAG = "loader_flag"
+    LOADER_SHORTFALL = "loader_shortfall"
     DRIVER_PROBLEM = "driver_problem"
     STORE_ISSUE = "store_issue"
 
@@ -114,3 +114,17 @@ class AuditType(StrEnum):
     ISSUE_REPORTED = "ISSUE_REPORTED"
     NOTICE_SEEN = "NOTICE_SEEN"
     CLOCK_ADVANCED = "CLOCK_ADVANCED"
+
+
+class StopOutcome(StrEnum):
+    PENDING = "pending"
+    DELIVERED = "delivered"
+    PARTIAL = "partial"
+    FAILED = "failed"
+
+
+class AudienceKind(StrEnum):
+    STORE = "store"
+    DRIVER = "driver"
+    DOCK = "dock"
+    DISPATCHER = "dispatcher"

@@ -38,6 +38,11 @@
   border-color: var(--warning);
 }
 
+.ok.selected,
+.ok.selected:hover {
+  border-color: var(--line-strong);
+}
+
 .weekLabel {
   display: flex;
   flex-direction: column;

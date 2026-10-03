@@ -151,6 +151,26 @@ docker compose up
 
 Docker Compose starts the application, database, and seed data.
 
+The local database uses `postgres:18.6`. Its named `pgdata` volume mounts at
+`/var/lib/postgresql` (the PostgreSQL 18 image manages its versioned data directory there).
+No custom `PGDATA` is needed. A fresh startup runs Alembic `0001 → 0002`, the deterministic seed,
+and FastAPI before starting the web service.
+
+**Upgrading an old PostgreSQL 16 local volume:** local Hackathon data is disposable. Stop Compose
+and remove only your project's old `pgdata` volume, then run the normal first-run command again.
+Do not attach the PG16 data directory to PG18 or attempt an in-place upgrade. Inspect the exact
+volume name before removing it; keep the separate uploads volume.
+
+```bash
+docker compose down
+docker volume ls  # identify this project's old <project>_pgdata volume
+docker volume rm <project>_pgdata  # replace with the exact name you identified
+docker compose up --build
+```
+
+These are manual development steps. Startup and seed scripts never delete Docker volumes.
+See [the v3 data model](docs/data-model.md) and [database validation](docs/database-validation.md).
+
 ---
 
 ## 🎯 Judge Walkthrough
@@ -158,7 +178,7 @@ Docker Compose starts the application, database, and seed data.
 The complete workflow can be demonstrated using the seeded accounts:
 
 1. **Store Manager** → Create an order
-2. **Dispatcher** → Plan and allocate deliveries
+2. **Dispatcher** → Plan and allocate deliveries (steps in [Dispatcher](#-dispatcher-waypoint-dispatch))
 3. **Loader** → Load the assigned vehicle
 4. **Driver** → Complete the delivery
 5. **Store Manager** → Confirm receipt
@@ -1265,13 +1285,83 @@ Figma wins on UI and copy (field conventions section 2); where it was silent or 
 
 ---
 
+## 🧭 Dispatcher (Waypoint Dispatch)
+
+Branch: `feature/dispatcher`. Screens D1 to D9 and the whole `/api/v1/dispatcher` surface behind them.
+
+### What is real
+
+All 20 dispatcher routes answer from the database. Nothing a dispatcher sees in `api` mode comes from a fixture.
+
+- **The planner** (`backend/waypoint_rules/planner.py`) is a pure, deterministic function: the same orders give the same plan. It tries four orderings per depot and keeps the one with the fewest continuity warnings, then deferrals, then trips. Every trip it builds passes `check_trip` and `check_vehicle_day`.
+- **Plan versions.** v1 is drafted by the system 5 minutes after the cutoff, v2 (21:15) and v3 (23:30) by the scripted events, and Release makes the latest draft live in place. Later changes (the reefer swap, a deferred stop) release the next number.
+- **The scenario clock drives the day.** `app/jobs.py` runs inside `POST /demo/advance`, in the same transaction: cutoff (Ordered to Confirmed, notices to stores), the draft, the scripted events in `backend/seed/scenario_events.yaml`.
+- **Every move is checked by the rules package.** `validate-move` returns the refusal text from `waypoint_rules`; the screens show it and never re-derive it.
+- **Every state change writes an `audit_events` row** in the same transaction.
+- **The day.** With no `data/*.csv` the seed generates the rest of the day (`backend/seed/generated.py`, A41): 60 vehicles, Peliyagoda 212 orders and Kandy 62 for Tue 29 Sep, the same on every run. `SEED_GENERATED_ORDERS=false` keeps only the small story world, which the API tests use.
+
+### Run it
+
+```bash
+docker compose up -d --build db api
+cd frontend
+VITE_AUTH_API=api VITE_DISPATCHER_API=api npm run dev      # http://localhost:5173
+```
+
+Sign in as `dispatcher@waypoint.demo` (password in the API mode section). The presenter control advances the server clock and resets the demo in seconds.
+
+### The dispatcher's part of the judge walkthrough
+
+| Clock | What to do | What you see |
+|---|---|---|
+| Mon 15:30 | Open Queue (D1). The store places ORD2001 and ORD2002 | Both under OUT084 in the Kandy queue, status Ordered |
+| Mon 16:00 | Advance the clock past the cutoff | Orders turn Confirmed; the queue locks; stores get their notices |
+| Mon 16:05 | Open Trips (D3) | Plan v1, drafted by the system, with its deferrals and the capacity bars (D2) |
+| | Drag a stop to a vehicle that breaks a rule (window 08:06, reefer plus two brands, continuity) | A refusal naming the rule; nothing changes |
+| Mon 21:15 and 23:30 | Advance | Drafts v2 and v3 appear |
+| Mon 23:45 | Release (D5) | "Plan v3 is live"; deferrals can be sent to the stores; acknowledgements fill in |
+| Tue 02:55 | Loader flags VEH003 (D8) | Review the exception: swap to VEH036 releases plan v4 and defers ORD1002 |
+| Tue 05:17 | Live board (D6) | The driver is shown offline after 3 quiet minutes; Defer stop releases the next version |
+| Tue 06:40 | Inbox and Conflicts (D7) | The conflict from the driver's sync; Keep delivery withdraws the deferral and closes it |
+| Any time | Forecast (D9) | A baseline outlook for the next four weeks, labelled as such |
+
+Steps 3 to 6 and 13 to 16 of PRD §16 are the dispatcher's. Rows that need a loader, driver or store action depend on those roles' backend routes (see the table below).
+
+### Departures from the PRD and the design
+
+- **Peliyagoda defers 17 on the generated day, not 19.** The count moves in steps of two to four as one more chilled order appears, so 19 is not reachable by tuning the chilled share alone. The screens show the computed number (DP-01).
+- **The refused moves are found on the generated day, not fixed in the PRD.** On the generated day VEH003 has no trip 2, so the PRD's example move (ORD1009 to VEH003 trip 2) is answered `no_such_trip`. `tests/api/test_seed_generated.py::test_the_walkthrough_has_a_refused_move_of_each_kind_on_the_generated_day` searches the v1 plan in a fixed order for the first move of each kind (a window, a reefer plus a second rule, the continuity guard) and prints them. Run it with `pytest -s` to get the order and trip to drag.
+- **D9 lists all four weeks.** A week under 90% shows as OK instead of being left out, so the screen always has four rows to compare.
+- **A Fresh first trip leaves just in time.** It leaves at `max(03:30, first window opens - outbound - 4 min)`, so VEH039 leaves at 05:10 for OUT084 when that is its first stop (A5). A trip whose first stop opens earlier, such as OUT087 at 03:00, still leaves at 03:30.
+- **Stop order inside a trip** is: window open, window close, outlet id, with orders for one outlet adjacent. Load order is the reverse of stop order.
+- **D9 is a baseline, not the Datathon model.** Demand is today's own chilled Fresh queue scaled by the calendar (payday +6%, a festival ramp its own factor); the screen says so in its label. The PRD builds it from `deliveries_train.csv`, which is not in the repository.
+- **Generated order sizes are invented** (A41). Sampling them from `deliveries_train.csv` needs its column names, which the data owner has to supply.
+- **The presenter control's step times** are the hero script's, not the planner's own; the planner releases v3 at its own pace.
+
+### Shared files this branch touches
+
+`backend/app/routers/dispatcher.py` (all of it), `backend/app/schemas/dispatcher.py`, `backend/app/jobs.py`, `backend/app/clock.py` (calls the jobs), `backend/app/config.py` (`seed_generated_orders`), `backend/seed/` (`run.py`, `generated.py`, `accounts.py`, `scenario_events.yaml`, `fixtures/vehicle_day.yaml`) and `backend/waypoint_rules` (`planner.py`, `schedule.py`, `reconcile.py`, `messages.py`). These are shared contracts (Contributing §18): the backend-foundation owner needs to approve them.
+
+### Checks
+
+```bash
+cd backend && ruff check . && mypy && pytest && alembic heads
+cd frontend && npm run lint && npm run typecheck && npm test && npm run build
+```
+
+No migration was added. The database-backed API tests need PostgreSQL (`docker compose up -d db`).
+
+---
+
 ## 🔌 API mode (`feature/api-wiring`)
 
 Every role runs on its mock by default. Each can be switched to the real backend on its own, so a role goes live the day its backend routes do and not before. Branch: `feature/api-wiring`, cut from `develop`, frontend only apart from three backend lines for the demo password (below).
 
 ### Flags
 
-All are read at build time, none is required, and every one defaults to `mock`. Set them in the shell that starts Vite (or in `frontend/.env.local`, which is git-ignored).
+All are read at build time and every one defaults to `mock` in development. Set them in the shell that starts Vite (or in `frontend/.env.local`, which is git-ignored).
+
+**A production build is always on the database.** `frontend/.env.production` (committed, no secrets) sets the five `VITE_<ROLE>_API` flags to `api`, so `npm run build`, the Docker web image and any static host serve every role from the API. Nothing in a deployed build reads a mock. A static host with no `/api` proxy (Cloudflare Pages or Workers assets) must also set `VITE_API_BASE` at build time to the API's origin and add the site's origin to the API's `CORS_ORIGINS`; behind the Docker nginx the default (same origin) is right.
 
 | Variable | Values | What it switches |
 |---|---|---|
@@ -1308,8 +1398,8 @@ CORS_ORIGINS='["http://localhost:8080","http://localhost:5173","http://localhost
 | Command | Needs | Proves |
 |---|---|---|
 | `npm test` | nothing | The HTTP client, the fetch transport, the four role clients and the mappers, all against a stubbed `fetch` (244 tests, 42 of them the dispatcher client) |
-| `npm run test:api-auth -- --base http://localhost:5191` | the API, the app with `VITE_AUTH_API=api` | Sign-in against the real backend: four accounts, four real tokens, wrong password, server down, a rejected token, a real 501 (32 checks) |
-| `npm run test:api-roles -- --base http://localhost:5192` | the API (with `:5192` in `CORS_ORIGINS`), the app with all four flags | Each role's first screen read goes to the real route with that role's own token; the transport gets a live 200 from `/me`, the typed 501 from `driver.getRun`, keeps an unsent record in the outbox as an error, and makes no request offline |
+| `npm run test:api-auth -- --base http://localhost:5191` | the API, the app with `VITE_AUTH_API=api` | Sign-in against the real backend: four accounts, four real tokens, wrong password, server down, a rejected token, a store route answered from the database |
+| `npm run test:api-roles -- --base http://localhost:5192` | the API (with `:5192` in `CORS_ORIGINS`), the app with all four flags | Each role's first screen read goes to the real route with that role's own token; the transport gets a live 200 from `/me`, the server's own 404 from `driver.getRun` while no plan is released, hands a record to `/sync`, and makes no request offline (run it on a freshly seeded database) |
 | `npm run test:api-dispatcher -- --base http://localhost:5173` | the API, the app with `VITE_AUTH_API=api VITE_DISPATCHER_API=api` | All 20 dispatcher operations: 401 with no token, 403 with a driver token, the typed 501 with a dispatcher token (or the real answer, compared with the mock's view, for a route that has landed); the same 20 through the app's client; the 501 on each of the nine screens' own error states; offline and recovery on the live board; the presenter control against `/demo/advance` and `/demo/reset`; a rejected token. It resets the demo at the end |
 | `npm run test:api-sync` | the API (`docker compose up -d --build db api`); no app | The offline path over HTTP: the gate confirmation, the phone's start, a store-request deferral at 05:21, then a 06:40 sync on the old plan that comes back accepted plus one conflict per deferred stop; the same batch again is all duplicate; the photo uploads once; D7 recommends and keeps the delivery; a dock acknowledgement of the replaced plan is a conflict. ORD2001 + ORD2002 are placed by the store, so until `POST /store/orders` lands it defers the first stop of VEH039 trip 1 instead and skips the board checks. It resets the demo at the start and the end |
 | `npm run test:hero`, `npm run test:offline` | the app in mock mode | The mock path is unchanged |
@@ -1319,17 +1409,16 @@ CORS_ORIGINS='["http://localhost:8080","http://localhost:5173","http://localhost
 | Route | Status | Client that calls it | Proven |
 |---|---|---|---|
 | `GET /health`, `POST /auth/login`, `GET /me`, `GET /clock`, `POST /demo/advance`, `POST /demo/reset` | built | `apiAuthApi`, the field transport (`driver.getMe`) | live |
-| `GET /store/order-form`, `POST /store/orders`, `PATCH /store/orders/{id}`, `POST /store/orders/{id}/cancel` | 501 | `StoreApi` | stubbed `fetch`; live 501 |
-| `GET /store/deliveries`, `/deliveries/{day}`, `/history`, `/issues`, `/updates`; `POST /store/receipts`, `/issues`, `/deferrals/{id}/seen`, `/reviews/{id}/answer`, `/updates/read-all` | 501 | `StoreApi` | stubbed `fetch`; live 501 |
-| `GET /driver/runs/{day}`, `/driver/notices`, `/driver/history` | 501 | `DriverApi` (`history` has no caller yet) | stubbed `fetch`; live 501 |
-| `GET /loader/docks/{dock}`, `/docks/{dock}/diff`, `/vehicles/{id}/trips/{trip}`, `/exceptions/{id}`; `POST /loader/pins/verify` | 501 | `LoaderApi` | stubbed `fetch`; live 501 |
-| `POST /sync`, `POST /attachments` | 501 | the field transport | stubbed `fetch`; live 501 |
-| `GET /dispatcher/queue`, `/orders/{id}/history` (`feature/order-management`) | 501 | `DispatcherApi` (`getQueue`, `getOrderHistory`) | stubbed `fetch`; live 401, 403 and 501 |
-| `GET /dispatcher/capacity`, `/plan`, `/deferrals`, `/acknowledgements`; `POST /dispatcher/plan/redraft`, `/plan/validate-move`, `/plan/moves`, `/plan/release`, `/deferrals/notify` (`feature/allocation-engine`) | 501 | `DispatcherApi` (`getCapacity`, `getPlan`, `listDeferrals`, `listAcknowledgements`, `redraftPlan`, `validateMove`, `saveMoves`, `releasePlan`, `notifyDeferrals`) | stubbed `fetch`; live 401, 403 and 501 |
-| `GET /dispatcher/live`, `/inbox`, `/conflicts/{id}`, `/exceptions/{id}`; `POST /dispatcher/stops/defer`, `/conflicts/{id}/ask-store`, `/conflicts/{id}/resolve`, `/exceptions/{id}/decide` (`feature/offline-sync`) | 501 | `DispatcherApi` (`getLiveBoard`, `deferStop`, `getInbox`, `getConflict`, `askStore`, `resolveConflict`, `getExceptionForReview`, `decideException`) | stubbed `fetch`; live 401, 403 and 501 |
-| `GET /dispatcher/forecast` (`feature/analytics`) | 501 | `DispatcherApi.getForecast` | stubbed `fetch`; live 401, 403 and 501 |
+| `GET /store/order-form`, `POST /store/orders`, `PATCH /store/orders/{id}`, `POST /store/orders/{id}/cancel` | built | `StoreApi` | backend tests on the hero day; the built app in a browser |
+| `GET /store/deliveries`, `/deliveries/{day}`, `/history`, `/issues`, `/updates`; `POST /store/receipts`, `/issues`, `/deferrals/{id}/seen`, `/reviews/{id}/answer`, `/updates/read-all` | built | `StoreApi` | backend tests on the hero day (deferral, review, receipt, issue); the built app in a browser |
+| `GET /driver/runs/{day}`, `/driver/notices`, `/driver/history` | built | `DriverApi` (`history` has no caller yet) | backend tests; the built app in a browser |
+| `GET /loader/docks/{dock}`, `/docks/{dock}/diff`, `/vehicles/{id}/trips/{trip}`, `/exceptions/{id}`; `POST /loader/pins/verify` | built | `LoaderApi` | backend tests; the built app and a PIN acknowledgement in a browser |
+| `POST /sync`, `POST /attachments` | built (`feature/offline-sync`) | the field transport | backend tests; `npm run test:api-sync` |
+| All 20 `/dispatcher/*` routes: queue, history, capacity, plan, redraft, validate-move, moves, release, deferrals, acknowledgements, live, inbox, conflicts, exceptions, defer stop, forecast | built (`feature/dispatcher`) | `DispatcherApi` | backend tests on the scenario day; the real screens driven against the API; live 401 and 403 |
 
-A 501 reaches a client as `NotImplementedApiError`, which names the backend's operation (the dispatcher client turns it into the dispatcher's own `ApiError` with code `not_implemented`). Nothing falls back to the mock. Until the routes land, a role in `api` mode shows its error or loading state.
+Every route in the contract is built, so no client meets a 501. If one ever did, it would reach a client as `NotImplementedApiError`, which names the backend's operation, and nothing falls back to the mock.
+
+**What the screens read from the database.** The store: the order form (its unit factors and starting quantities come from the outlet's own last orders), orders, deliveries, history, issues and the updates feed (`services/store_views.py`, `store_writes.py`; the feed is the store's `notices` rows, written as each thing happens by `store_notices.py`). The driver: the route package, notices and run history (`services/field_views.py`). The loader: the dock, its PIN people, the PIN check, the load list, a flag and a plan diff (same file). Each store, driver and loader write goes through the same services as before (`POST /sync` and the store routes) and writes an audit row in the same transaction.
 
 ### How the clients behave
 
@@ -1362,10 +1451,8 @@ The backend's replies do not carry everything the screens show. Each missing fie
 | Reply | Missing | Owner |
 |---|---|---|
 | `RunOut` (driver) | the loader's confirmation (who, when, shortfalls), each stop's brand, district, dock type and parking note, each order's weight and volume, when the plan version was released and its note, the vehicle's capacities. "Loaded" is read from the order statuses; brand is read from the outlet name | `feature/driver` (backend read endpoints) |
-| `NoticeOut` (driver) | the `tag` vocabulary. The backend's `NoticeTag` is `Order`, `Plan`, `Delivery`, `Deferral`, `Review`, `Change`; the driver's list has eight kinds (`resolved`, `plan_released`, ...). Only an exact match is shown, so every server notice is dropped today | `feature/driver` |
 | `DockOut`, `LoadPlanOut` (loader) | vehicle capacities and temperature class, loading progress, why a vehicle is held, who acknowledged the plan, each load line's brand, temperature, dock, weight and volume, who confirmed a load | `feature/loader` |
 | `PlanDiffOut` (loader) | the outlet, deferral type and next run of a removed order, and the new totals | `feature/loader` |
-| `DeliveryOut.review` (store) | the conflict id. `POST /store/reviews/{conflict_id}/answer` is keyed by it; the client reads `review.conflictId` and refuses to send without it | `feature/store-receipt` |
 | `SyncResultOut.serverPayload` | the keys of a conflict's detail. The client reads `serverVersion`, `change`, `changedAt` and `changedBy`, and `exceptionId` on a flag, none of which the contract names | `feature/offline-sync` |
 | `SyncRecordIn.payload` | a schema per record type. It is a free dict; the client sends the payload shapes the mocks already use | `feature/offline-sync` |
 | `LoaderExceptionOut.type` | its vocabulary. The client accepts the six names on the flag sheet and refuses any other as `unexpected_reply` | `feature/loader` |
@@ -1376,8 +1463,10 @@ The backend's replies do not carry everything the screens show. Each missing fie
 - **Dispatcher: the Capacity error banner** says "Capacity couldn't be calculated, fleet data missing." for every failed read, a 501 or a dropped connection included. The other eight screens say "Couldn't load ...".
 - **Dispatcher: no route is built**, so the view types are checked against the contract and a stubbed `fetch`, not against a real reply. The enum, id, move and null conversions are proven only in `httpDispatcherApi.test.ts`.
 
-- **Screens without a read-error state.** The Store's read pages and the driver's run screen render a loading skeleton forever when a read fails (they only handle write errors). Only the loader shows an error with Retry. With the backend at 501 this is what Store and Driver show in `api` mode. Fixing it means an error state on each of those screens.
-- **The loader draws its PIN people from fixtures** (`peopleFor(dockId)`), not from the API, so in `api` mode the people and the ids the server knows do not match. The PIN check only accepts a server id, the offline PIN hashes and the guest PIN are not built, and `LoaderApi` has no `getPeople`.
+- **Screens without a read-error state.** The Store's read pages and the driver's run screen render a loading skeleton forever when a read fails (they only handle write errors). Only the loader shows an error with Retry. Fixing it means an error state on each of those screens.
+- **The loader's PIN people come from the API** (`LoaderApi.getPeople`, read from the dock's `people`). The offline PIN hashes and the guest PIN ("Other...") are not built in `api` mode: the server only knows the named people, and a PIN needs a connection.
+- **The driver's receiver suggestions** (the "recent receivers" chips on the outcome screen) are demo names, so `api` mode shows none. There is no receiver history in the database to suggest from.
+- **Past deliveries for a store** (S1.6 Recent orders, S2.10, S4 History) are empty for an outlet until it has been served in the database. The seed only writes history for the pinned outlets, and sampling the earlier weeks needs the column names of `deliveries_train.csv`, which the data owner has to supply (Contributing §29: no AI tool opens the CSVs).
 - **Time.** The Store and the field apps still run on the app's own scenario clock, not on `GET /clock`.
 - **The driver's run date** is the fixture constant, and the photo-failed notice reads the stop number from the fixture.
 - **Mixed roles in one tab.** The sync engine has one photo uploader. When one tab visits a role on the API and then one on the mock, the provider that mounted last owns it.

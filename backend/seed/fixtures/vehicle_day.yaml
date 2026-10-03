@@ -10,7 +10,11 @@ fuel_used_before_l:
   VEH037: 30
   VEH039: 71
 
-# A12: four Peliyagoda vehicles are in the workshop, VEH036 until 02:45. The PRD names only VEH036, so the
-# other three are not seeded yet: add them here once the team picks them.
+# A12: four Peliyagoda vehicles are in the workshop, VEH036 until 02:45. The PRD names only VEH036, so the other three
+# are picked here (dry-box trucks, so the depot keeps 8 of 9 reefers available): they stay in until the evening. A vehicle that
+# is not in the loaded fleet is skipped, so these apply only where the fleet has them (the generated fallback fleet, or the CSV).
 in_workshop:
   - {vehicle: VEH036, available_from: "02:45"}
+  - {vehicle: VEH015, available_from: "18:00"}
+  - {vehicle: VEH022, available_from: "18:00"}
+  - {vehicle: VEH030, available_from: "18:00"}

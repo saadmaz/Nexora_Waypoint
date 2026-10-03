@@ -190,7 +190,7 @@ def test_release_locks_the_plan_and_tells_the_docks_and_drivers(client, auth, re
     assert plan["version"]["state"] == "released" and plan["readOnly"] is True
 
     with SessionLocal() as db:
-        audiences = {n.audience for n in db.scalars(select(Notice))}
+        audiences = {f"{n.audience_kind.value}:{n.outlet_id or n.vehicle_id or n.depot_id}" for n in db.scalars(select(Notice))}
         released = list(db.scalars(select(AuditEvent).where(AuditEvent.type == AuditType.PLAN_RELEASED)))
     assert "dock:peliyagoda" in audiences and "dock:kandy" in audiences
     assert any(a.startswith("driver:") for a in audiences) and any(a.startswith("store:") for a in audiences)
@@ -242,7 +242,7 @@ def test_acknowledgements_follow_the_docks_and_drivers(client, auth, reseed):
         version = db.scalar(select(PlanVersion).where(PlanVersion.number == number))
         db.add(
             Acknowledgement(
-                plan_version_id=version.id, actor_kind=ActorKind.PIN_PERSON, actor_id="Priya", dock="peliyagoda", vehicle_id=None,
+                plan_version_id=version.id, actor_kind=ActorKind.PIN_PERSON, pin_person_id=1, depot_id="peliyagoda", driver_vehicle_id=None,
                 acknowledged_at=datetime(2026, 9, 29, 0, 10, tzinfo=COLOMBO),
             )
         )

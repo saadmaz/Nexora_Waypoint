@@ -780,7 +780,7 @@ Repository name [BUILD]: **`Nexora_Waypoint`**.
  └───────────────────────────────────────────┘           │  waypoint_rules (pure Python)│
                                                          │  scenario clock + jobs       │
                                                          ├──────────────────────────────┤
-                                                         │ db: PostgreSQL 16            │
+                                                         │ db: PostgreSQL 18.6          │
                                                          │ uploads volume (POD photos)  │
                                                          └──────────────────────────────┘
  Datathon notebook ── imports waypoint_rules (Task 2B feasibility + trip minutes)
@@ -832,6 +832,8 @@ Nexora_Waypoint/
 The tablet's dock is a device setting stored in `settings`. `?dock=kandy|peliyagoda` works in the live app, not only in the gallery, and is remembered. When presenter mode is on, the loader top bar's menu shows "Change dock" (DP-19).
 
 ## 10. Data model (PostgreSQL) [BUILD]
+
+The latest relational schema is [docs/data-model.md](docs/data-model.md); it supersedes the older column lists below.
 
 Times are `timestamptz` stored in UTC and shown in Asia/Colombo. `service_date` is the delivery day (`date`). IDs from the datasets are kept as text primary keys (`OUT084`, `VEH039`, `ORD2001`).
 

@@ -31,13 +31,14 @@ from app.models.plans import FuelLedger, VehicleDayStatus
 from app.models.reference import Outlet, Vehicle
 from waypoint_rules.vocab import Temp
 
-from . import accounts, checks, fallback, load_reference
+from . import accounts, checks, fallback, generated, load_reference
 
 FIXTURES = Path(__file__).parent / "fixtures"
 SCENARIO_EVENTS = Path(__file__).parent / "scenario_events.yaml"
 
 #: Everything the seed or a demo run writes that is not reference data or accounts.
 OPERATIONAL_TABLES = [
+    "notice_reads", "conflict_orders", "exception_orders", "device_record_orders", "demand_forecasts",
     "audit_events", "notices", "scenario_events", "clock", "receipts", "conflicts", "exceptions", "attachments",
     "device_records", "runs", "load_gates", "load_checks", "acknowledgements", "trip_orders", "trips",
     "deferrals", "plan_versions", "fuel_ledger", "vehicle_day_status", "outlet_service_history", "orders",
@@ -63,6 +64,18 @@ def is_seeded(db: Session) -> bool:
     return (db.scalar(select(func.count()).select_from(User)) or 0) > 0
 
 
+def _pinned_service_date() -> date:
+    value: date = _yaml(FIXTURES / "pinned_orders.yaml")["service_date"]
+    return value
+
+
+def _orders_by_depot(db: Session, service_date: date) -> dict[str, int]:
+    rows = db.execute(
+        select(Outlet.depot_id, func.count()).join(Order, Order.outlet_id == Outlet.id).where(Order.service_date == service_date).group_by(Outlet.depot_id)
+    )
+    return {depot: n for depot, n in rows}
+
+
 def seed_clock(db: Session) -> None:
     start = get_settings().scenario_start
     row = db.get(Clock, 1)
@@ -78,7 +91,6 @@ def seed_pinned_orders(db: Session) -> dict[str, int]:
     service_date: date = data["service_date"]
     received_date: date = data["received_date"]
     default_received: str = data["default_received"]
-    clock_now = get_settings().scenario_start
 
     missing = sorted({o["outlet"] for o in data["orders"]} - set(db.scalars(select(Outlet.id))))
     if missing:
@@ -102,8 +114,8 @@ def seed_pinned_orders(db: Session) -> dict[str, int]:
                 units=o["units"],
                 weight_kg=float(o["kg"]),
                 volume_m3=float(o["m3"]),
-                # Rows that arrive after the scenario clock are still Ordered; everything else is Confirmed.
-                status=ServerStatus.ORDERED if received > clock_now else ServerStatus.CONFIRMED,
+                # Every order is Ordered at 15:30: the 16:00 cutoff job confirms them (PRD §4b, D1.1 shows Ordered before it).
+                status=ServerStatus.ORDERED,
                 tags=tags,
                 received_at=received,
                 placed_by="seed",
@@ -169,6 +181,7 @@ def seed(
     """
     data_dir = data_dir or get_settings().data_dir
     report: dict[str, Any] = {}
+    fallback_day = False
 
     if load_reference.csvs_present(data_dir):
         report["reference"] = {"source": "csv", **load_reference.load(db, data_dir)}
@@ -179,11 +192,21 @@ def seed(
         raise load_reference.SeedConfigError(f"--strict: no CSVs in {data_dir.resolve()}")
     else:
         report["reference"] = {"source": "fallback (PRD §4c), data/*.csv not found", **fallback.load(db)}
+        fallback_day = get_settings().seed_generated_orders
+        if fallback_day:
+            report["reference"]["generated"] = generated.extend_reference(db, service_date=_pinned_service_date())
         report["checks"] = "skipped (fallback data)"
 
     report["accounts"] = {"reused": True} if reuse_accounts and is_seeded(db) else accounts.seed(db)
     seed_clock(db)
     report["pinned"] = seed_pinned_orders(db)
+    if fallback_day:
+        # No CSVs: generate the rest of the day (A41) so the queue and the plan have a believable size.
+        by_depot = _orders_by_depot(db, _pinned_service_date())
+        report["generated_orders"] = generated.seed_orders(
+            db, service_date=_pinned_service_date(), received_date=_yaml(FIXTURES / "pinned_orders.yaml")["received_date"],
+            pinned_peliyagoda=by_depot.get("peliyagoda", 0), pinned_kandy=by_depot.get("kandy", 0),
+        )
     report["vehicle_day"] = seed_vehicle_day(db)
     report["scenario_events"] = seed_scenario_events(db)
     return report

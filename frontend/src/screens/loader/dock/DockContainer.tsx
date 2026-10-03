@@ -5,7 +5,8 @@ import { useFieldClock, useNow } from "../../../field/clock/useClock";
 import { useConnectivity, useFieldQuery, type ConnectivityStatus, type FieldQueryResult } from "../../../field/offline";
 import { formatCountdown } from "../../../field/format";
 import { PinSheet, type ChipStatus } from "../../../field/components";
-import { DOCKS, peopleFor } from "../fixtures";
+import { DOCKS } from "../fixtures";
+import { usePeople } from "../usePeople";
 import { useLoader } from "../LoaderContext";
 import type { DepotId } from "../../../domain/field";
 import type { DockView as DockViewModel, DockVehicleSummary } from "../types";
@@ -231,13 +232,14 @@ function PinAck({
   onDone: () => void;
 }) {
   const { api, setCurrentPerson } = useLoader();
+  const people = usePeople();
   return (
     <PinSheet
       open={open}
       onOpenChange={onOpenChange}
       title={`Acknowledge plan v${version} at ${dockId === "peliyagoda" ? "Peliyagoda" : "Kandy"} dock`}
       whoLabel="Who's acknowledging?"
-      people={peopleFor(dockId)}
+      people={people}
       verify={(personId, pin, otherName) => api.verifyPin(personId, pin, otherName)}
       onConfirmed={(personId, name) => {
         setCurrentPerson({ id: personId, name });

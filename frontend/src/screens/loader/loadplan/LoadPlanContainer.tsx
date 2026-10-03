@@ -4,7 +4,7 @@ import { formatTime } from "../../../field/clock/clock";
 import { useFieldClock } from "../../../field/clock/useClock";
 import { PinSheet } from "../../../field/components";
 import { useConnectivity, useFieldQuery, type ConnectivityStatus } from "../../../field/offline";
-import { peopleFor } from "../fixtures";
+import { usePeople } from "../usePeople";
 import { useLoader } from "../LoaderContext";
 import type { LoadPlanOrderRow } from "../types";
 import { FlagContainer } from "../flag/FlagContainer";
@@ -52,6 +52,7 @@ export function LoadPlanContainer({ flagOpen = false, embedded = false, vehicleI
   const vehicleId = vehicleProp ?? params.vehicleId ?? "";
   const trip: 1 | 2 = tripProp ?? (params.trip === "2" ? 2 : 1);
   const { api, dockId, currentPerson, setCurrentPerson } = useLoader();
+  const people = usePeople();
   const navigate = useNavigate();
   const clock = useFieldClock();
   const connectivity = useConnectivity();
@@ -183,7 +184,7 @@ export function LoadPlanContainer({ flagOpen = false, embedded = false, vehicleI
         onOpenChange={setGateOpen}
         title={`Confirm ${vehicleId} loaded`}
         whoLabel="Who's acknowledging?"
-        people={peopleFor(dockId)}
+        people={people}
         verify={(personId, pin, otherName) => api.verifyPin(personId, pin, otherName)}
         onConfirmed={(personId, name) => {
           setCurrentPerson({ id: personId, name });

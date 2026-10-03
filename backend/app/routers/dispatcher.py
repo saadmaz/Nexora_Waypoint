@@ -17,7 +17,7 @@ from waypoint_rules.vocab import Brand, OrderStatus, Temp
 
 from .. import clock
 from ..deps import Db, Dispatcher
-from ..errors import ApiError, not_found, not_implemented
+from ..errors import ApiError, not_found
 from ..models.enums import ConflictRecommendation
 from ..models.orders import Order as OrderRow
 from ..schemas.dispatcher import (
@@ -44,7 +44,7 @@ from ..schemas.dispatcher import (
     ResolveConflictIn,
     SaveMovesIn,
 )
-from ..services import conflicts, live_repo, live_views, planning, queue_repo, queue_views, stops
+from ..services import conflicts, forecast, live_repo, live_views, planning, queue_repo, queue_views, stops
 from ..services import dispatcher_views as views
 from ..services import exceptions as exception_service
 from ..services import planning_repo as repo
@@ -230,7 +230,7 @@ def list_acknowledgements(db: Db, user: Dispatcher, version: int | None = None) 
 @router.get("/forecast", operation_id="getForecast", response_model=ForecastView)
 def get_forecast(db: Db, user: Dispatcher, depot: DepotId = DEPOT_Q) -> ForecastView:
     """D9: the baseline capacity outlook (feature/analytics)."""
-    raise not_implemented("getForecast")
+    return forecast.load_forecast(db, depot, clock.now(db).replace(tzinfo=None))
 
 
 # ---- live operations, conflicts, exceptions (feature/offline-sync) ----------

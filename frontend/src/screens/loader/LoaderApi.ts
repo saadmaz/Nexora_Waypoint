@@ -1,4 +1,5 @@
 import type { DepotId } from "../../domain/field";
+import type { LoaderPerson } from "./LoaderContext";
 import type {
   DockView,
   ExceptionType,
@@ -31,6 +32,8 @@ export type FlagExceptionInput = {
  */
 export interface LoaderApi {
   getDock(dockId: DepotId): Promise<DockView>;
+  /** The people who can enter a PIN at this dock. The real API lists the dock's PIN people from the database. */
+  getPeople(dockId: DepotId): Promise<LoaderPerson[]>;
   verifyPin(personId: string, pin: string, otherName?: string): Promise<boolean>;
   /** Returns `"conflict"` when a newer version has since been released: the dock then re-reads it. */
   acknowledgePlan(input: AcknowledgePlanInput): Promise<"accepted" | "conflict">;
