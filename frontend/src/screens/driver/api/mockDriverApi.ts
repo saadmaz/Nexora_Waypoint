@@ -68,12 +68,12 @@ function cacheKey(date: string): string {
 
 /** Reads the phone's real IndexedDB cache directly, for callers outside a `createMockDriverApi`
  * instance (the sync handlers and the device-notice subscriber are registered once, globally). */
-async function readDeviceState(date: string): Promise<LocalRunState> {
+export async function readDeviceState(date: string): Promise<LocalRunState> {
   const entry = await getCache<LocalRunState>(cacheKey(date));
   return entry?.value ?? defaultLocalState();
 }
 
-async function writeDeviceState(date: string, state: LocalRunState, nowMs: number): Promise<void> {
+export async function writeDeviceState(date: string, state: LocalRunState, nowMs: number): Promise<void> {
   await putCache(cacheKey(date), state, nowMs);
 }
 
@@ -105,7 +105,7 @@ export function sortNotices(notices: readonly DriverNotice[]): DriverNotice[] {
   return [...notices].sort((a, b) => b.at.localeCompare(a.at) || SAME_MINUTE_ORDER.indexOf(a.kind) - SAME_MINUTE_ORDER.indexOf(b.kind));
 }
 
-function buildNotice(partial: Omit<DriverNotice, "id" | "read">): DriverNotice {
+export function buildNotice(partial: Omit<DriverNotice, "id" | "read">): DriverNotice {
   return { id: crypto.randomUUID(), read: false, ...partial };
 }
 
@@ -146,7 +146,7 @@ function buildConflictDetail(nowMs: number): ConflictDetail {
 
 /** Writes the conflict once per stop (both ORD2001 and ORD2002 share OUT084's), and queues the
  * "Delivery sent for review" notice the first time. */
-async function applyConflict(date: string, outletId: string, conflict: ConflictDetail, nowMs: number): Promise<void> {
+export async function applyConflict(date: string, outletId: string, conflict: ConflictDetail, nowMs: number): Promise<void> {
   const local = await readDeviceState(date);
   const isNew = !local.conflicts[outletId];
   local.conflicts[outletId] = conflict;
@@ -301,7 +301,7 @@ export function setFailNextUpload(armed: boolean): void {
   failNextUploadArmed = armed;
 }
 
-function consumeFailNextUpload(): boolean {
+export function consumeFailNextUpload(): boolean {
   if (!failNextUploadArmed) return false;
   failNextUploadArmed = false;
   return true;

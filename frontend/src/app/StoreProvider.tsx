@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import type { StoreApi } from "../api/StoreApi";
+import { createApiStoreApi } from "../api/apiStoreApi";
+import { roleApiMode } from "../api/http/config";
 import { createMockStoreApi } from "../api/mockStoreApi";
 import { clockTime } from "../domain/format";
 import { OUTLET } from "../domain/outlet";
@@ -15,12 +17,14 @@ const PRESET_RUNS = new WeakMap<StoreApi, Promise<void>>();
 const EMPTY_SEED_STATES = ["form", "offline", "queued", "error", "sending", "empty", "review"];
 
 /**
- * Creates the mock API and the scenario clock once, from the address the app was opened at
+ * Creates the Store's API and the scenario clock once, from the address the app was opened at
  * (`?at=HH:MM`, `?date=YYYY-MM-DD`, `?state=` for S1's preview frames, `?preset=` for writes that
  * a frame needs first). They are created once so the clock keeps ticking and the orders placed on
  * one screen are the ones the next screen lists. It also keeps the unread count that every
  * screen's bell shows. Must sit inside a router: the state gallery gives each frame its own
- * memory router and provider.
+ * memory router and provider. The API is the mock unless `VITE_STORE_API=api`; then it is the real
+ * one and `?state=` and `?preset=` do nothing, since there is no fixture to seed. The clock stays
+ * the app's own scenario clock either way.
  */
 export function StoreProvider({ children }: { children: ReactNode }) {
   const location = useLocation();
@@ -30,9 +34,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const clock = createScenarioClock(params.get("at"), params.get("date"));
     const now = clock.now;
     const seed = state && EMPTY_SEED_STATES.includes(state) ? "empty" : "placed";
-    const presets = (params.get("preset") ?? "").split(",").filter(isPreset);
+    const onApi = roleApiMode("store") === "api";
+    const presets = onApi ? [] : (params.get("preset") ?? "").split(",").filter(isPreset);
     const presenter = params.get("presenter") === "1";
-    return { api: createMockStoreApi(now, { seed }), now, advanceTo: clock.advanceTo, presets, presenter };
+    const api = onApi ? createApiStoreApi() : createMockStoreApi(now, { seed });
+    return { api, now, advanceTo: clock.advanceTo, presets, presenter };
   });
   const { api, now, advanceTo, presets, presenter } = base;
   const [clockVersion, setClockVersion] = useState(0);

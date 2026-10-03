@@ -835,7 +835,7 @@ The frames every role passes through before its own screens: sign-in (G1), the r
 
 ### Accounts
 
-One demo password for all four accounts. PRD v3 section 4c leaves passwords to A40 and the README. The password is the backend's `DEMO_PASSWORD` (`.env.example`, seeded by `backend/seed/accounts.py`); the mock uses the same value so signing in behaves the same in mock and API mode. There is no `.env.example` change here.
+One demo password for all four accounts. PRD v3 section 4c leaves passwords to A40 and the README. The password is the backend's `DEMO_PASSWORD` (`.env.example`, seeded by `backend/seed/accounts.py`); the mock uses the same value so signing in behaves the same in mock and API mode. The default is `waypoint-demo` in `.env.example`, `backend/app/config.py` and `docker-compose.yml`. Anyone whose own `.env` still sets `DEMO_PASSWORD=waypoint` must change it, or sign-in against the real backend fails. The backend tests set their own password and are unaffected.
 
 | Role | Email | Shown as | Lands on |
 |---|---|---|---|
@@ -892,7 +892,7 @@ There are five G1 and four G2 frames, as PRD v3 section 3 says. The conventions 
 
 ### Sign-in (A1)
 
-`/sign-in` is one screen, `SignInScreen`, that draws every G1 frame from props: the layout (desktop or phone), a wrong password, offline and busy. `SignInRoute` owns the state and talks to the AuthApi through `getAuthApi()`, which is where `VITE_AUTH_API` is read. It throws in `api` mode until the real client exists, so nobody signs in against the mock by accident.
+`/sign-in` is one screen, `SignInScreen`, that draws every G1 frame from props: the layout (desktop or phone), a wrong password, offline and busy. `SignInRoute` owns the state and talks to the AuthApi through `getAuthApi()`, which is where `VITE_AUTH_API` is read. In `api` mode it returns the real client (`apiAuthApi`), so nobody signs in against the mock by accident; see "API mode" below.
 
 - **Files** (`src/screens/auth/`): `SignInScreen.tsx` and its CSS module, `SignInRoute.tsx`, `signInStrings.ts` (every string, copied from Figma), `useIsPhone.ts`, `useSignInConnectivity.ts`, `authClient.ts`, and `gallery/` (the frame registry and the page).
 - **Gallery and compare.** `/auth/_states` lists the five frames at their Figma size; `?frame=G1.4` draws one. `npm run compare -- auth G1.1 G1.2 G1.3 G1.4 G1.5` screenshots them beside `.figma/<id>.png` (it needs `npm run dev` running).
@@ -1262,6 +1262,113 @@ Figma wins on UI and copy (field conventions section 2); where it was silent or 
 - Pixel-compared with `npm run compare` against Figma screenshots: R1.1, R1.3 A, R1.3 B, R1.4, R1.5, R1.6, R1.7, R1.8, R2.1, R2.2 B, R2.S 1, R3.1, R3.5 B, R3.5 C, R3.7, R3.9, R3.10, R4.1, R4.2, R4.3 1 to 3, R5.1 to R5.3, R5.S 1 to 4 and R8.1 to R8.4. R4, R5 and R8 match apart from the accepted items above; R1.3 A, R1.3 B, R1.4, R1.5, R1.6, R3.5 C and R3.7 differ as listed under the departures. The other R2 and R3 frames were text-verified in D5, not pixel-compared again.
 - Earlier, in D5: every registered R1 to R3 frame was read against the Figma file's own text; the sunlight switch, text size and language settings were checked for persistence across a reload.
 - **Not done:** the physical-phone check (see "Real devices"); the live camera viewfinder has only run through the file-input fallback; no vitest covers `useSyncWatcher` itself (there is no React testing library in the project), and the hero script is what shows R5.3 queued once.
+
+---
+
+## 🔌 API mode (`feature/api-wiring`)
+
+Every role runs on its mock by default. Each can be switched to the real backend on its own, so a role goes live the day its backend routes do and not before. Branch: `feature/api-wiring`, cut from `develop`, frontend only apart from three backend lines for the demo password (below).
+
+### Flags
+
+All are read at build time, none is required, and every one defaults to `mock`. Set them in the shell that starts Vite (or in `frontend/.env.local`, which is git-ignored).
+
+| Variable | Values | What it switches |
+|---|---|---|
+| `VITE_AUTH_API` | `mock` (default), `api` | Sign-in and sessions: `apiAuthApi` instead of the mock |
+| `VITE_STORE_API` | `mock` (default), `api` | `StoreApi`: `createApiStoreApi` instead of the mock. `?state=` and `?preset=` do nothing in `api` |
+| `VITE_DRIVER_API` | `mock` (default), `api` | `DriverApi` and the driver's sync handlers |
+| `VITE_LOADER_API` | `mock` (default), `api` | `LoaderApi` and the loader's sync handlers |
+| `VITE_DISPATCHER_API` | declared, not read by anything yet | The dispatcher has its own `DispatcherApi` and mock (`frontend/src/api/DispatcherApi.ts`); no real client exists |
+| `VITE_API_BASE` | an origin, no trailing slash | Where the API is. Unset: `http://localhost:8000` in `npm run dev`, the same origin in a production build (nginx proxies `/api` in Docker) |
+
+The two field roles share one transport. With neither on `api` nothing changes. With either on `api`, `startFieldRuntime()` installs a routing transport that sends each operation to the real `fetch` transport only when that operation's own role is on `api`, and to the mock otherwise, so a loader on the API and a driver on the mock can share a page.
+
+### Run both halves
+
+```bash
+# 1. the API on http://localhost:8000 (Docker Desktop must be running)
+docker compose up -d --build db api
+
+# 2. the app, every role in api mode, on port 5173 (the API allows :5173 and :8080 by default)
+cd frontend
+VITE_AUTH_API=api VITE_STORE_API=api VITE_DRIVER_API=api VITE_LOADER_API=api npm run dev
+```
+
+**CORS.** The API only allows `http://localhost:5173` and `http://localhost:8080`. On any other port the browser blocks the call and sign-in shows the offline notice, which looks like a bug and is not. Use `:5173`, or start the API with the origin added:
+
+```bash
+CORS_ORIGINS='["http://localhost:8080","http://localhost:5173","http://localhost:5191"]' docker compose up -d api
+```
+
+**Accounts.** `dispatcher@`, `loader@`, `driver@` and `store@waypoint.demo`, all with the password `waypoint-demo` (the backend's `DEMO_PASSWORD`).
+
+### Checks
+
+| Command | Needs | Proves |
+|---|---|---|
+| `npm test` | nothing | The HTTP client, the fetch transport, the three role clients and the mappers, all against a stubbed `fetch` (202 tests) |
+| `npm run test:api-auth -- --base http://localhost:5191` | the API, the app with `VITE_AUTH_API=api` | Sign-in against the real backend: four accounts, four real tokens, wrong password, server down, a rejected token, a real 501 (32 checks) |
+| `npm run test:api-roles -- --base http://localhost:5192` | the API (with `:5192` in `CORS_ORIGINS`), the app with all four flags | Each role's first screen read goes to the real route with that role's own token; the transport gets a live 200 from `/me`, the typed 501 from `driver.getRun`, keeps an unsent record in the outbox as an error, and makes no request offline |
+| `npm run test:hero`, `npm run test:offline` | the app in mock mode | The mock path is unchanged |
+
+### What the backend answers today (3 Oct)
+
+| Route | Status | Client that calls it | Proven |
+|---|---|---|---|
+| `GET /health`, `POST /auth/login`, `GET /me`, `GET /clock`, `POST /demo/advance`, `POST /demo/reset` | built | `apiAuthApi`, the field transport (`driver.getMe`) | live |
+| `GET /store/order-form`, `POST /store/orders`, `PATCH /store/orders/{id}`, `POST /store/orders/{id}/cancel` | 501 | `StoreApi` | stubbed `fetch`; live 501 |
+| `GET /store/deliveries`, `/deliveries/{day}`, `/history`, `/issues`, `/updates`; `POST /store/receipts`, `/issues`, `/deferrals/{id}/seen`, `/reviews/{id}/answer`, `/updates/read-all` | 501 | `StoreApi` | stubbed `fetch`; live 501 |
+| `GET /driver/runs/{day}`, `/driver/notices`, `/driver/history` | 501 | `DriverApi` (`history` has no caller yet) | stubbed `fetch`; live 501 |
+| `GET /loader/docks/{dock}`, `/docks/{dock}/diff`, `/vehicles/{id}/trips/{trip}`, `/exceptions/{id}`; `POST /loader/pins/verify` | 501 | `LoaderApi` | stubbed `fetch`; live 501 |
+| `POST /sync`, `POST /attachments` | 501 | the field transport | stubbed `fetch`; live 501 |
+| every `/dispatcher/*` route | 501 | none (no real dispatcher client) | not exercised |
+
+A 501 reaches a client as `NotImplementedApiError`, which names the backend's operation. Nothing falls back to the mock. Until the routes land, a role in `api` mode shows its error or loading state.
+
+### How the clients behave
+
+- **Offline.** A device that is offline, simulated offline or behind a closed coverage gate fails with the `NetworkError` the outbox already handles, before any request is made. A request that gets no answer (unreachable, 15 s timeout) becomes the same `NetworkError`. A network failure never ends a session; only a real 401 does, and it clears only that role.
+- **Writes** are saved on the device first and sent through `POST /sync`, one record at a time, each keyed by its own `clientId`. A replay after a dropped connection is answered `duplicate` and counted once. Photos upload after their record through `POST /attachments`, keyed by the photo's id.
+- **The driver** keeps the route package on the phone: `getRun` answers from that copy, refreshes one older than 30 s when online, and never fails once the route has been downloaded. Server notices are merged with the ones the phone makes itself.
+- **The loader** reads from the server with the tablet's unsent counts, acknowledgement and confirmation laid on top. A flag has no server id until it syncs, so its id is the record's `clientId` until then.
+- **The store** sends no outlet id; the server takes it from the token. A 409 on an order edit or cancel is the cutoff and a 404 a missing order.
+- **Vocabulary.** The backend writes `store_request`, `pending_sync` and `ambient`; the frontend's shared types say `store request`, `Pending sync` and `dry`. `frontend/src/api/vocab.ts` is the one place that translates, as full tables over the generated types, so a new backend value fails the build.
+
+### Contract gaps the clients work around
+
+The backend's replies do not carry everything the screens show. Each missing field is filled with a visibly neutral value, never a plausible-looking one, and listed in `RUN_GAPS` (`screens/driver/api/runMapper.ts`) and `LOADER_GAPS` (`screens/loader/apiLoaderMapper.ts`). These need backend changes before `driver` and `loader` can be demoed on the API:
+
+| Reply | Missing | Owner |
+|---|---|---|
+| `RunOut` (driver) | the loader's confirmation (who, when, shortfalls), each stop's brand, district, dock type and parking note, each order's weight and volume, when the plan version was released and its note, the vehicle's capacities. "Loaded" is read from the order statuses; brand is read from the outlet name | `feature/driver` (backend read endpoints) |
+| `NoticeOut` (driver) | the `tag` vocabulary. The backend's `NoticeTag` is `Order`, `Plan`, `Delivery`, `Deferral`, `Review`, `Change`; the driver's list has eight kinds (`resolved`, `plan_released`, ...). Only an exact match is shown, so every server notice is dropped today | `feature/driver` |
+| `DockOut`, `LoadPlanOut` (loader) | vehicle capacities and temperature class, loading progress, why a vehicle is held, who acknowledged the plan, each load line's brand, temperature, dock, weight and volume, who confirmed a load | `feature/loader` |
+| `PlanDiffOut` (loader) | the outlet, deferral type and next run of a removed order, and the new totals | `feature/loader` |
+| `DeliveryOut.review` (store) | the conflict id. `POST /store/reviews/{conflict_id}/answer` is keyed by it; the client reads `review.conflictId` and refuses to send without it | `feature/store-receipt` |
+| `SyncResultOut.serverPayload` | the keys of a conflict's detail. The client reads `serverVersion`, `change`, `changedAt` and `changedBy`, and `exceptionId` on a flag, none of which the contract names | `feature/offline-sync` |
+| `SyncRecordIn.payload` | a schema per record type. It is a free dict; the client sends the payload shapes the mocks already use | `feature/offline-sync` |
+| `LoaderExceptionOut.type` | its vocabulary. The client accepts the six names on the flag sheet and refuses any other as `unexpected_reply` | `feature/loader` |
+
+### Known limits
+
+- **Screens without a read-error state.** The Store's read pages and the driver's run screen render a loading skeleton forever when a read fails (they only handle write errors). Only the loader shows an error with Retry. With the backend at 501 this is what Store and Driver show in `api` mode. Fixing it means an error state on each of those screens.
+- **The loader draws its PIN people from fixtures** (`peopleFor(dockId)`), not from the API, so in `api` mode the people and the ids the server knows do not match. The PIN check only accepts a server id, the offline PIN hashes and the guest PIN are not built, and `LoaderApi` has no `getPeople`.
+- **Time.** The Store and the field apps still run on the app's own scenario clock, not on `GET /clock`.
+- **The driver's run date** is the fixture constant, and the photo-failed notice reads the stop number from the fixture.
+- **Mixed roles in one tab.** The sync engine has one photo uploader. When one tab visits a role on the API and then one on the mock, the provider that mounted last owns it.
+- **A session lasts 12 hours** (`JWT_TTL_HOURS`) and there is no logout endpoint, so sign-out is local. A driver working past 16:45 from a 04:45 sign-in is sent to sign in; the outbox survives it.
+- **Sync at app start.** Records waiting when the app opens online still wait up to 30 s for the first run.
+- **The server-unreachable sign-in notice** reuses the G1.5 offline text, which is not quite true here. No Figma frame draws it (a departure to record).
+
+### Files
+
+- `frontend/src/api/http/`: the typed client, error classes, token handling, config.
+- `frontend/src/api/vocab.ts`, `storeMappers.ts`, `apiStoreApi.ts`: the Store.
+- `frontend/src/field/offline/fetchTransport.ts`, `apiSync.ts`: the field transport, the sync handlers, the photo uploader.
+- `frontend/src/screens/driver/api/apiDriverApi.ts`, `runMapper.ts` and `frontend/src/screens/loader/apiLoaderApi.ts`, `apiLoaderMapper.ts`.
+- `frontend/src/screens/auth/apiAuthApi.ts`, `SessionExpiryListener.tsx`.
+- Edited outside this branch's own files: `App.tsx` (mounts the session-expiry listener), `StoreProvider.tsx`, `DriverProvider.tsx` and `LoaderProvider.tsx` (pick the client by flag), `mockDriverApi.ts` (five helpers exported for reuse), `SignInScreen.tsx` (an optional `serverDown` prop).
 
 ---
 

@@ -1,14 +1,12 @@
 import { authApiMode, type AuthApi } from "./AuthApi";
+import { apiAuthApi } from "./apiAuthApi";
 import { mockAuthApi } from "./mockAuthApi";
 
 /**
  * The AuthApi the screens use, chosen by `VITE_AUTH_API` (PRD v3 section 9 principle 7).
- * Screens call this and never `fetch` or the mock directly. The real client joins here when the
- * backend is wired; its shapes are in `claude/field-build/auth-endpoints.md`.
+ * Screens call this and never `fetch` or the mock directly. `api` is the real backend
+ * (`apiAuthApi`); `mock` stays the default.
  */
 export function getAuthApi(): AuthApi {
-  if (authApiMode() === "api") {
-    throw new Error("VITE_AUTH_API=api needs the real AuthApi client, which is not built yet.");
-  }
-  return mockAuthApi;
+  return authApiMode() === "api" ? apiAuthApi : mockAuthApi;
 }

@@ -1,10 +1,12 @@
 export type { Account, Session, SignInFailureReason, SignInResult } from "./types";
 export { ACCOUNTS, ROLE_HOME, accountFor, authApiMode, type AuthApi } from "./AuthApi";
+export { apiAuthApi, createApiAuthApi } from "./apiAuthApi";
 export { mockAuthApi } from "./mockAuthApi";
 export { ROLES, clearSession, readAllSessions, readAnySession, readSession, sessionKey, writeSession } from "./session";
 export { AuthGallery } from "./gallery/AuthGallery";
 export { RootRedirect } from "./RootRedirect";
 export { RequireSession } from "./RequireSession";
+export { SessionExpiryListener } from "./SessionExpiryListener";
 export { SignInRoute } from "./SignInRoute";
 export { StartRoute } from "./StartRoute";
 export { ShellPlaceholder } from "./ShellPlaceholder";
