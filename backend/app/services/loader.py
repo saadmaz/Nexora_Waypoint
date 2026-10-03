@@ -116,23 +116,27 @@ def _held_vehicles(db: Session, service_date: date) -> set[str]:
     return {vid for vid in rows if vid is not None}
 
 
-def _acknowledged(db: Session, version_id: int, dock: str) -> bool:
-    """Has this dock acknowledged this version?
+def _acknowledgement(db: Session, service_date: date, dock: str) -> tuple[int, str | None, datetime] | None:
+    """The newest released version this dock has acknowledged, who did it and when.
 
-    ``sync._loader_ack`` stores the dock the device named in ``depot_id``, which a device may leave out; the PIN person
-    who acknowledged always belongs to one dock, so that answers it too.
+    It may be older than the current plan: that is exactly L1.5, "Plan changed, review". ``sync._loader_ack`` stores
+    the dock the device named in ``depot_id``, which a device may leave out; the PIN person who acknowledged always
+    belongs to one dock, so that answers it too.
     """
-    row = db.scalars(
-        select(plans.Acknowledgement.id)
+    row = db.execute(
+        select(plans.PlanVersion.number, PinPerson.name, plans.Acknowledgement.acknowledged_at)
+        .join(plans.PlanVersion, plans.PlanVersion.id == plans.Acknowledgement.plan_version_id)
         .outerjoin(PinPerson, PinPerson.id == plans.Acknowledgement.pin_person_id)
         .where(
-            plans.Acknowledgement.plan_version_id == version_id,
+            plans.PlanVersion.service_date == service_date,
+            plans.PlanVersion.state == PlanState.RELEASED,
             plans.Acknowledgement.actor_kind == ActorKind.PIN_PERSON,
             (plans.Acknowledgement.depot_id == dock) | (PinPerson.depot_id == dock),
         )
+        .order_by(plans.PlanVersion.number.desc())
         .limit(1)
     ).first()
-    return row is not None
+    return (row[0], row[1], repo.aware(row[2])) if row is not None else None
 
 
 def dock_view(db: Session, user: CurrentUser, dock: str) -> DockOut:
@@ -184,12 +188,17 @@ def dock_view(db: Session, user: CurrentUser, dock: str) -> DockOut:
                 replaced_by=day.replaced_by if day is not None else None,
             )
         )
+    ack = _acknowledgement(db, service_date, dock)
     return DockOut(
         dock=dock,
         plan_version=latest.number,
-        acknowledged=_acknowledged(db, latest.id, dock),
+        acknowledged=ack is not None and ack[0] == latest.number,
         people=people,
         vehicles=vehicles,
+        plan_released_at=repo.aware(latest.released_at) if latest.released_at is not None else None,
+        acknowledged_version=ack[0] if ack else None,
+        acknowledged_by=ack[1] if ack else None,
+        acknowledged_at=ack[2] if ack else None,
     )
 
 

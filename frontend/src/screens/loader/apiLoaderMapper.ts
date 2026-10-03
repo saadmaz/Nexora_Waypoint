@@ -15,7 +15,6 @@ type Schemas = components["schemas"];
  * CONTRACT GAPS. The loader's replies do not carry everything the screens show. `LOADER_GAPS` lists what is missing and each
  * is filled with a visibly neutral value, never a plausible-looking one:
  *   - a vehicle's kind, temperature class, capacities and kmPerL (so the capacity bar reads 0 of 0)
- *   - when the plan was released, who acknowledged it and when (the tablet's own record of the acknowledgement is used when it has one)
  *   - how far each vehicle's loading has got, and why a vehicle is held
  *   - each load line's brand, temperature, dock type, weight and volume, and its stop number (derived: the reverse of the load order)
  *   - who confirmed a load
@@ -23,7 +22,6 @@ type Schemas = components["schemas"];
  */
 export const LOADER_GAPS = [
   "vehicle: kind, temperature, capacities, kmPerL",
-  "dock: planReleasedAt, who acknowledged and when",
   "vehicle card: loading progress, held reason",
   "load line: brand (read from the outlet name), temperature, dock, weightKg, volumeM3",
   "load: confirmedBy",
@@ -101,18 +99,24 @@ export function mapDock(out: Schemas["DockOut"], dockId: DepotId, local: LocalLo
       ...(trips.some((t) => t.replacedBy) ? { replacedBy: trips.find((t) => t.replacedBy)?.replacedBy ?? "" } : {}),
     };
   });
-  // An acknowledgement the tablet has saved but not yet synced counts at once, for the version it was given for: the server
-  // answers "not acknowledged" until the outbox record has been sent, and the dock must not stay locked meanwhile.
+  // An acknowledgement the tablet has saved but not yet synced counts at once, for the version it was given for: the
+  // server answers "not acknowledged" until the outbox record has been sent, and the dock must not stay locked
+  // meanwhile. An older one never unlocks a newer plan.
+  // Otherwise the server's own record stands, and it carries the version it was given for, which may be older than the
+  // plan now released: that is L1.5, "Plan changed, review", without needing the tablet to still hold the record.
   const pending = local.acknowledgement.get(dockId);
-  const acknowledgement = out.acknowledged
-    ? (pending ?? { version: out.planVersion, personId: "", personName: "", at: "" })
-    : pending && pending.version >= out.planVersion
-      ? pending
+  const fromServer: DockAcknowledgement | undefined =
+    out.acknowledgedVersion != null
+      ? { version: out.acknowledgedVersion, personId: "", personName: out.acknowledgedBy ?? "", at: hhmm(out.acknowledgedAt) }
       : undefined;
+  // The tablet's own record wins when the server has already counted an acknowledgement (it names the person, which the
+  // server's answer alone may not), or when it is for the plan now current and simply has not synced yet. An older
+  // record never unlocks a newer plan; the server's own acknowledgement then stands and says which version it was for.
+  const acknowledgement = pending && (out.acknowledged || pending.version >= out.planVersion) ? pending : fromServer;
   return {
     dockId,
     planVersion: out.planVersion,
-    planReleasedAt: "",
+    planReleasedAt: hhmm(out.planReleasedAt),
     vehicleCount: ids.length,
     orderCount: out.vehicles.reduce((sum, v) => sum + v.orders, 0),
     firstDeparture: out.vehicles.map((v) => hhmm(v.departAt)).sort()[0] ?? "",
