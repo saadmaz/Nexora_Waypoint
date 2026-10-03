@@ -87,6 +87,27 @@ def test_the_draft_explains_the_capacity_deferral(client, auth, reseed):
     assert view["banner"]["title"].startswith("Capacity forces ")
 
 
+def test_the_draft_kumari_releases_is_v3_at_23_30(client, auth, reseed):
+    advance(client, auth, "2026-09-28T23:29:00+05:30")
+    assert [v["number"] for v in get_plan(client, auth)["versions"]] == [1, 2]
+    advance(client, auth, "2026-09-28T23:31:00+05:30")
+    plan = get_plan(client, auth)
+    assert [(v["number"], v["state"]) for v in plan["versions"]] == [(1, "draft"), (2, "draft"), (3, "draft")]
+    assert plan["version"]["number"] == 3 and plan["readyToRelease"] is True
+    released = client.post("/api/v1/dispatcher/plan/release", json={"sendNotices": True}, headers=auth("dispatcher")).json()
+    assert released["version"]["number"] == 3 and released["version"]["state"] == "released"
+    assert released["version"]["note"] == "Peliyagoda + Kandy"
+    assert [v["number"] for v in released["versions"]] == [1, 2, 3]
+
+
+def test_a_released_plan_is_not_overwritten_by_the_scripted_drafts(client, auth, reseed):
+    advance(client, auth, "2026-09-28T16:10:00+05:30")
+    assert client.post("/api/v1/dispatcher/plan/release", json={"sendNotices": True}, headers=auth("dispatcher")).status_code == 200
+    advance(client, auth, "2026-09-28T23:40:00+05:30")  # the 21:15 and 23:30 jobs run, and leave it alone
+    plan = get_plan(client, auth)
+    assert [(v["number"], v["state"]) for v in plan["versions"]] == [(1, "released")]
+
+
 def test_kumaris_evening_adjustments_are_saved_as_v2(client, auth, reseed):
     advance(client, auth, "2026-09-28T21:16:00+05:30")
     plan = get_plan(client, auth)
@@ -164,7 +185,8 @@ def test_release_locks_the_plan_and_tells_the_docks_and_drivers(client, auth, re
     res = client.post("/api/v1/dispatcher/plan/release", json={"sendNotices": True}, headers=auth("dispatcher"))
     assert res.status_code == 200, res.text
     plan = res.json()
-    assert plan["version"]["number"] == before["version"]["number"] + 1  # the draft stays; the release is the next number
+    assert plan["version"]["number"] == before["version"]["number"]  # "Release plan v3" releases v3, in place
+    assert before["version"]["state"] == "draft" and before["version"]["note"] == "Peliyagoda + Kandy · ready to release"
     assert plan["version"]["state"] == "released" and plan["readOnly"] is True
 
     with SessionLocal() as db:

@@ -55,11 +55,12 @@ def seed(db: Session) -> dict[str, int]:
 
     for name, (dock, pin) in PIN_PEOPLE.items():
         person = db.scalar(select(PinPerson).where(PinPerson.name == name))
+        pin_hash = hash_secret(pin)  # once: bcrypt is deliberately slow
         if person is None:
-            person = PinPerson(name=name, dock=dock, pin_hash=hash_secret(pin))
+            person = PinPerson(name=name, dock=dock, pin_hash=pin_hash)
             db.add(person)
         person.dock = dock
-        person.pin_hash = hash_secret(pin)
+        person.pin_hash = pin_hash
         person.loader_user_id = users["loader@waypoint.demo"].id
 
     # Fixed seed so a reset gives the same names (PRD §14: deterministic).
