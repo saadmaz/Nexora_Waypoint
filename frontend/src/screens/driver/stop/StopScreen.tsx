@@ -301,7 +301,7 @@ export function StopScreen({ connectivityOverride, forceSaveError, forceJustSave
             <span className={styles.statValue}>
               {t("stop.windowOpened")} <Mono>{stop.window.open}</Mono>
             </span>
-            <span className={styles.statLabel}>{t("stop.waited", { minutes: minutesBetween(arrivalTime, stop.window.open) })}</span>
+            <span className={styles.statLabel}>{t("stop.waited", { minutes: Math.max(0, minutesBetween(arrivalTime, stop.window.open)) })}</span>
           </div>
         </div>
         {ordersSection}
