@@ -49,6 +49,7 @@ from ..schemas.dispatcher import (
 from ..services import (
     calendar_views,
     conflicts,
+    contact,
     forecast,
     live_repo,
     live_views,
