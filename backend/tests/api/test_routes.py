@@ -72,6 +72,8 @@ SECTION_19 = [
     # Sync
     ("POST", "/sync", "sync"),
     ("POST", "/attachments", "uploadAttachment"),
+    # Added by the security hardening: a POD photo that cannot be read back is not evidence (audit finding 2).
+    ("GET", "/attachments/{}", "getAttachment"),
 ]
 
 
@@ -94,10 +96,14 @@ def test_section_19_route_exists(operations, method, path, operation_id):
 
 
 def test_no_route_outside_section_19(operations):
-    """Anything else in the schema must be deliberate: health is the only extra."""
+    """Anything else in the schema must be deliberate: the probes are the only extras.
+
+    ``/health/live`` and ``/health/ready`` answer different questions, so a deployment can restart a dead process
+    without taking every container out of rotation over a database blip (audit finding 7).
+    """
     expected = {(m, _norm(p)) for m, p, _ in SECTION_19}
     extra = set(operations) - expected
-    assert extra == {("GET", "/health")}
+    assert extra == {("GET", "/health"), ("GET", "/health/live"), ("GET", "/health/ready")}
 
 
 def test_operation_ids_are_unique(operations):

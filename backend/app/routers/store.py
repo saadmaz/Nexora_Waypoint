@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Query, Response
+from fastapi import APIRouter, Header, Query, Response
 
 from ..deps import Db, Store
 from ..schemas.store import (
@@ -41,9 +41,18 @@ def get_order_draft(db: Db, user: Store, date: date | None = None) -> OrderDraft
 
 
 @router.post("/orders", operation_id="placeOrders", response_model=list[OrderOut], status_code=201)
-def place_orders(body: PlaceOrdersIn, db: Db, user: Store) -> list[OrderOut]:
-    """Chilled and dry together: all are received or none is."""
-    out = writes.place(db, user, body)
+def place_orders(
+    body: PlaceOrdersIn,
+    db: Db,
+    user: Store,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", max_length=128)] = None,
+) -> list[OrderOut]:
+    """Chilled and dry together: all are received or none is.
+
+    A store that retries with the same ``Idempotency-Key`` gets the orders the first attempt placed, not a second set
+    and not a 409: placing an order over a patchy connection is the common case, not the exception.
+    """
+    out = writes.place(db, user, body, idempotency_key=idempotency_key)
     db.commit()
     return out
 
