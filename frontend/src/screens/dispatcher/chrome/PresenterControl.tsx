@@ -21,7 +21,7 @@ const STEPS: { time: string; label: string }[] = [
   { time: "05:12", label: "Driver on the road" },
   { time: "05:19", label: "Driver offline" },
   { time: "05:21", label: "Store asks to defer" },
-  { time: "05:30", label: "OUT084 window opens" },
+  { time: "05:30", label: "Fresh store window opens" },
   { time: "06:40", label: "Conflict on sync" },
   { time: "06:46", label: "Waiting for the store" },
   { time: "07:31", label: "Receipt confirmed" },
