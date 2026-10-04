@@ -59,6 +59,7 @@ SECTION_19 = [
     ("GET", "/dispatcher/exceptions/{id}", "getExceptionForReview"),
     ("POST", "/dispatcher/exceptions/{id}/decide", "decideException"),
     ("GET", "/dispatcher/forecast", "getForecast"),
+    ("POST", "/dispatcher/contact", "contact"),
     # LoaderApi
     ("GET", "/loader/docks/{dock}", "getDock"),
     ("POST", "/loader/pins/verify", "verifyPin"),
@@ -174,6 +175,7 @@ DISPATCHER_VIEWS = {
     "getExceptionForReview": "ExceptionView",
     "decideException": "ExceptionView",
     "getForecast": "ForecastView",
+    "contact": "ContactOut",
 }
 
 

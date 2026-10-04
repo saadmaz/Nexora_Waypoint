@@ -57,6 +57,18 @@ export function DeferralsRoute() {
     setOpen(next);
   };
 
+  // D4.2 "Resend notice": that one store notice goes out again through the API.
+  const resend = async () => {
+    if (!detailCard) return;
+    try {
+      await api.notifyDeferrals({ depot, orderId: detailCard.orderId });
+      invalidate();
+      toast.show(`Notice to ${detailCard.outletId} sent again.`, { icon: "check" });
+    } catch (error) {
+      toast.show(error instanceof Error && error.message ? `Couldn't resend: ${error.message}` : "Couldn't resend. Try again.", { icon: "alert-circle" });
+    }
+  };
+
   const notify = async () => {
     try {
       const { sent } = await api.notifyDeferrals({ depot });
@@ -190,7 +202,7 @@ export function DeferralsRoute() {
         card={detailCard}
         readOnly={offline}
         onHistory={() => navigate(withDepot(`${ROUTES.queue}?order=${detailCard?.orderId ?? ""}`, depot))}
-        onResend={() => toast.show(`Notice to ${detailCard?.outletId ?? "the store"} sent again.`)}
+        onResend={() => void resend()}
       />
     </Screen>
   );

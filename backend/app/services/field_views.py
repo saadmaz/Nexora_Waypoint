@@ -104,6 +104,8 @@ def run(db: Session, user: CurrentUser, day: date) -> ds.RunOut:
 
 def _notice_kind(n: Notice) -> str:
     """The kind the phone has a screen for (``DriverNoticeKind``). Dispatch's answer to a review is "resolved"."""
+    if (n.refs or {}).get("kind") == "contact":
+        return "call_request"
     if n.tag is NoticeTag.REVIEW:
         return "resolved" if "resolved" in n.title.lower() else "sent_for_review"
     return "plan_released"

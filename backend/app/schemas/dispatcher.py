@@ -15,7 +15,7 @@ Three conventions, each decided with the screens' owner:
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import Field
@@ -611,6 +611,9 @@ class DeferralsView(ApiModel):
 
 class NotifyDeferralsIn(ApiModel):
     depot: DepotId
+    #: Resend one order's notice (D4.2 "Resend notice"), even if it has gone out before. Without it, every deferral
+    #: at the depot that has not been told yet.
+    order_id: str | None = None
 
 
 class NotifyDeferralsOut(ApiModel):
@@ -1002,3 +1005,27 @@ class ForecastView(ApiModel):
     depot: DepotId
     label: str = "Baseline forecast: Datathon Task 2A model not wired in"
     weeks: list[ForecastWeek]
+
+
+# ---- Contact (D5, D7 "Call") ---------------------------------------------------
+
+
+class ContactIn(ApiModel):
+    """Ask someone to call Dispatch back. The dataset has no phone numbers and none is invented (Contributing §29)."""
+
+    to: Literal["store", "driver", "dock"]
+    #: For ``store``.
+    outlet_id: str | None = None
+    #: For ``driver``: the vehicle the driver is on.
+    vehicle_id: str | None = None
+    #: For ``dock``.
+    depot: DepotId | None = None
+    #: What it is about, in the dispatcher's words: "the delivery under review", "plan v4".
+    about: str | None = Field(default=None, max_length=200)
+
+
+class ContactOut(ApiModel):
+    to: Literal["store", "driver", "dock"]
+    #: "OUT084", "VEH039", "Kandy dock".
+    recipient: str
+    at: datetime

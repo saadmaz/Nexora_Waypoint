@@ -126,7 +126,8 @@ def test_the_dock_waits_for_the_plan_without_failing(client, auth, reseed):
     view = dock(client, auth, "kandy")
     assert view == {"dock": "kandy", "planVersion": 0, "acknowledged": False, "vehicles": [],
                     "people": [{"id": RUWAN, "name": "Ruwan", "dock": "kandy"}],
-                    "planReleasedAt": None, "acknowledgedVersion": None, "acknowledgedBy": None, "acknowledgedAt": None}
+                    "planReleasedAt": None, "acknowledgedVersion": None, "acknowledgedBy": None, "acknowledgedAt": None,
+                    "requests": []}
     assert [p["name"] for p in dock(client, auth, "peliyagoda")["people"]] == ["Priya"]
 
 
