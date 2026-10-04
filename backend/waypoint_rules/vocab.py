@@ -94,6 +94,7 @@ class RuleId(StrEnum):
     BRAND = "R-BRAND"
     DISTRICT = "R-DISTRICT"
     TRIPS = "R-TRIPS"
+    TURN = "R-TURN"
     BUDGET_FRESH = "R-BUDGET-F"
     BUDGET_STYLE_TECH = "R-BUDGET-ST"
     AVAIL = "R-AVAIL"

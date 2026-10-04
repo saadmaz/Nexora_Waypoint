@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 
 from . import messages as msg
 from .calc import hhmm, planned_clock, planned_fuel, trip_load, trip_minutes
-from .constraints import Violation, check_trip, check_vehicle_day, legal_vehicles, vehicle_day_totals
+from .constraints import STRUCTURAL, Violation, check_trip, check_vehicle_day, legal_vehicles, vehicle_day_totals
 from .model import Order, Plan, RefData, Trip, VehicleDay
 from .vocab import RuleId, Temp
 
@@ -125,6 +125,10 @@ def validate_move(
     if source is not None:
         result.source_after = summarize(after, after.trips[source.key], orders, ref, vehicle_days)
 
+    # Like the window rules in check_trip, turnaround is a schedule rule: a trip that breaks a structural rule cannot
+    # run at all, so when it would return is not a reason worth listing.
+    if any(v.rule in STRUCTURAL for v in violations):
+        violations = [v for v in violations if v.rule is not RuleId.TURN]
     result.violations = _unique(violations)
     result.ok = not result.violations
     return result
