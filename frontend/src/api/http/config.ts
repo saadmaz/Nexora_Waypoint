@@ -1,4 +1,5 @@
 import type { Role } from "../../domain/status";
+import { modeFor, type ApiMode } from "../dataSource";
 import { createHttpClient, type HttpClient } from "./client";
 import { sessionTokens } from "./tokens";
 
@@ -12,17 +13,12 @@ export function apiBase(): string {
   return base.replace(/\/+$/, "");
 }
 
-/**
- * The per-role switch, from `VITE_<ROLE>_API=mock|api` (PRD v3 section 9 principle 7). Mock is the default in development.
- * A production build is always `api`: no flag can switch it to mocks (DP-26).
- */
-export type ApiMode = "mock" | "api";
+export type { ApiMode } from "../dataSource";
 
+/** Whether `role` runs on the API or its mock: `VITE_DATA_SOURCE` (live or mock, mock by default), unless `VITE_<ROLE>_API` overrides it. */
 export function roleApiMode(role: Role): ApiMode {
-  if (!import.meta.env.DEV) return "api";
   const env = import.meta.env;
-  const value = { store: env.VITE_STORE_API, dispatcher: env.VITE_DISPATCHER_API, loader: env.VITE_LOADER_API, driver: env.VITE_DRIVER_API }[role];
-  return value === "api" ? "api" : "mock";
+  return modeFor({ store: env.VITE_STORE_API, dispatcher: env.VITE_DISPATCHER_API, loader: env.VITE_LOADER_API, driver: env.VITE_DRIVER_API }[role]);
 }
 
 /** A client that makes every request as `role`, with that role's own token. */
