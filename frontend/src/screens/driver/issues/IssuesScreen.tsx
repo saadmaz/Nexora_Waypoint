@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useNow } from "../../../field/clock/useClock";
 import { PinnedActionBar } from "../../../field/components";
 import { Button } from "../../../shared/ui/Button";
@@ -12,6 +12,9 @@ import { DriverShell } from "../shell/DriverShell";
 import type { ProblemThread } from "../types";
 import styles from "./Issues.module.css";
 
+/** What the problem form hands the list when it has just saved a record (R6.3): which one, and the stop to go on to. */
+export type JustSavedProblem = { clientId: string; goOn: string | null };
+
 /**
  * R6.4 the Issues tab (PRD v3 section 3 R6, V40, G-14): one thread per problem recorded on the road, newest first, with
  * whether it has reached Dispatch and an Update that adds to the same thread. Read from the phone, so it works offline.
@@ -20,8 +23,16 @@ export function IssuesScreen() {
   const t = useT();
   const api = useDriverApi();
   const navigate = useNavigate();
+  const location = useLocation();
   const now = useNow();
   const [threads, setThreads] = useState<ProblemThread[] | null>(null);
+  // R6.3: read once from the navigation, then cleared, so going Back to this page later does not say "saved" again.
+  const [justSaved] = useState<JustSavedProblem | null>(() => (location.state as { justSaved?: JustSavedProblem } | null)?.justSaved ?? null);
+  useEffect(() => {
+    if (justSaved) navigate(location.pathname, { replace: true, state: null });
+    // Only on arrival.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -45,6 +56,18 @@ export function IssuesScreen() {
         </PinnedActionBar>
       }
     >
+      {justSaved && (
+        <div className={styles.savedBanner} role="status">
+          <span className={styles.savedBannerIcon}>
+            <Icon name="circle-check" size={20} />
+          </span>
+          <span className={styles.stack}>
+            <span className={styles.rowTitle}>{t("issues.savedTitle")}</span>
+            <span className={styles.rowBody}>{t("issues.savedBody")}</span>
+            {justSaved.goOn && <span className={styles.rowBody}>{t("issues.goOn", { outletId: justSaved.goOn })}</span>}
+          </span>
+        </div>
+      )}
       {threads !== null && threads.length === 0 ? (
         <div className={styles.empty}>
           <span className={styles.emptyTile}>

@@ -25,6 +25,9 @@ import { StopOrdersSummary, StopSchedule } from "../stopComponents";
 import { isChilled, openMapsFor, primaryStopIndex, stopDone, stopPlace, willWaitMinutes } from "../stopFormat";
 import styles from "./RunScreen.module.css";
 
+/** The server's no-run reasons (`NoRunReason` in the API schema) that have their own copy in the dictionary. */
+const NO_RUN_REASONS: ReadonlySet<string> = new Set(["not_released", "no_trip", "sunday", "holiday"]);
+
 function depotLabel(depot: string): string {
   return depot.charAt(0).toUpperCase() + depot.slice(1);
 }
@@ -58,7 +61,7 @@ export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadE
   const liveConnectivity = useConnectivity();
   const connectivity = connectivityOverride ?? liveConnectivity;
   const now = useNow();
-  const { run, refresh } = useDriverRun(runDate());
+  const { run, noRun, failed, refresh } = useDriverRun(runDate());
   const outbox = useOutboxOpen();
   const livePhotos = usePhotoState(run);
   const photos = photoStateOverride ?? livePhotos;
@@ -66,6 +69,10 @@ export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadE
   const [downloading, setDownloading] = useState(Boolean(forcedProgress));
   const [progress, setProgress] = useState(forcedProgress ?? { done: 0, total: 0 });
   const [downloadError, setDownloadError] = useState(Boolean(forceDownloadError));
+  // R1.1 "Check again": in flight, when the server last answered, and whether the last try failed to reach it.
+  const [checking, setChecking] = useState(false);
+  const [checkedAt, setCheckedAt] = useState<number | null>(null);
+  const [checkFailed, setCheckFailed] = useState(false);
 
   const version = run?.currentVersion?.v;
   const downloaded = run !== null && version !== undefined && run?.downloadedVersion === version;
@@ -120,6 +127,20 @@ export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadE
     }
   }
 
+  async function handleCheckAgain() {
+    setChecking(true);
+    setCheckFailed(false);
+    try {
+      await api.refreshRun(runDate());
+      setCheckedAt(now);
+    } catch {
+      setCheckFailed(true);
+    } finally {
+      setChecking(false);
+      refresh();
+    }
+  }
+
   async function handleStartRoute() {
     await api.startRoute(runDate());
     refresh();
@@ -129,6 +150,61 @@ export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadE
     await api.recordArrival(runDate(), outletId);
     refresh();
     navigate(`/driver/stops/${outletId}`);
+  }
+
+  // R1.1 on the real API: the server has no run for this driver and date yet (or at all that day).
+  if (!run && noRun) {
+    // A reason this build does not know reads as "not released yet", never as a raw dictionary key.
+    const reason = NO_RUN_REASONS.has(noRun.reason) ? noRun.reason : "not_released";
+    const closed = reason === "sunday" || reason === "holiday";
+    const nextPlanMs = noRun.nextPlanAt ? Date.parse(noRun.nextPlanAt) : NaN;
+    return (
+      <DriverShell title={t("tab.run")} connectivityOverride={connectivityOverride} outboxPreview={outboxPreview}>
+        <div className={styles.centered}>
+          <StateScreen
+            icon={closed ? "calendar" : "route"}
+            bg="route-soft"
+            fg="route"
+            title={t(`run.noRun.${reason}.title`)}
+            body={t(`run.noRun.${reason}.body`)}
+            facts={[
+              // Noon in Colombo, so the date never slips a day whatever the phone's own time zone.
+              { key: t("run.dateFact"), value: formatDate(Date.parse(`${runDate()}T12:00:00+05:30`)) },
+              ...(Number.isFinite(nextPlanMs)
+                ? [{ key: t("run.nextPlanFact"), value: <>{formatDate(nextPlanMs)} <Mono>{formatTime(nextPlanMs)}</Mono></> }]
+                : []),
+              ...(checkedAt !== null ? [{ key: t("run.lastCheckedFact"), value: <Mono>{formatTime(checkedAt)}</Mono> }] : []),
+            ]}
+            actions={
+              <>
+                <Button variant="secondary" icon="refresh-cw" busy={checking} onClick={() => void handleCheckAgain()}>
+                  {checking ? t("action.checking") : t("action.checkAgain")}
+                </Button>
+                {checkFailed && <p className={styles.caption} role="alert">{t("run.checkFailed")}</p>}
+              </>
+            }
+          />
+        </div>
+      </DriverShell>
+    );
+  }
+
+  // The run could not be read and there is no copy on this phone.
+  if (!run && failed) {
+    return (
+      <DriverShell title={t("tab.run")} connectivityOverride={connectivityOverride} outboxPreview={outboxPreview}>
+        <div className={styles.centered}>
+          <StateScreen
+            icon="alert-triangle"
+            bg="danger-soft"
+            fg="danger"
+            title={t("run.loadFailedTitle")}
+            body={t("run.loadFailedBody")}
+            actions={<Button onClick={refresh}>{t("action.tryAgain")}</Button>}
+          />
+        </div>
+      </DriverShell>
+    );
   }
 
   if (!run) {

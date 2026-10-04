@@ -12,14 +12,15 @@ import { runDate } from "../../../field/clock/runDate";
 import { CameraCapture } from "../outcome/CameraCapture";
 import { DriverShell } from "../shell/DriverShell";
 import { PROBLEM_TYPES, type ProblemRecord, type ProblemType } from "../types";
+import type { JustSavedProblem } from "./IssuesScreen";
 import styles from "./Issues.module.css";
 
-type Step = "choose" | "record" | "photo" | "saved";
+type Step = "choose" | "record" | "photo";
 
 /**
  * R6 Problem (PRD v3 section 3 R6, V30, V40): R6.1 choose what happened, R6.2 record it (stop, orders, note, optional photo),
- * R6.3 saved on the phone and back on the run. `?updates=<clientId>` adds an update to that problem's thread instead. A
- * problem is a fact: it saves offline at once and Dispatch decides what happens next.
+ * R6.3 saved on the phone, shown as a banner on the Issues list (R6.4) above the new record. `?updates=<clientId>` adds an
+ * update to that problem's thread instead. A problem is a fact: it saves offline at once and Dispatch decides what happens next.
  */
 export function ProblemScreen() {
   const t = useT();
@@ -36,7 +37,6 @@ export function ProblemScreen() {
   const [note, setNote] = useState("");
   const [photo, setPhoto] = useState<{ blobId: string; time: string } | null>(null);
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState<ProblemRecord | null>(null);
 
   // An update keeps the thread's type, stop and orders; only the note and photo are new.
   useEffect(() => {
@@ -58,7 +58,7 @@ export function ProblemScreen() {
   const stops = useMemo(() => run?.stops ?? [], [run]);
   const stop = stops.find((s) => s.outletId === stopId);
   // The stop the driver can go on to: the first one not yet done, other than the one with the problem (R6.3).
-  const nextStop = stops.find((s) => s.outletId !== (saved?.stopId ?? stopId) && !s.orders.every((o) => s.outcomes[o.id]));
+  const nextStop = stops.find((s) => s.outletId !== stopId && !s.orders.every((o) => s.outcomes[o.id]));
 
   function chooseStop(next: string) {
     setStopId(next);
@@ -81,8 +81,9 @@ export function ProblemScreen() {
         ...(photo ? { photoBlobId: photo.blobId } : {}),
         ...(updatesClientId ? { updatesClientId } : {}),
       });
-      setSaved(record);
-      setStep("saved");
+      // Replace the form in history, so Back from the list never reopens a problem that is already saved.
+      const justSaved: JustSavedProblem = { clientId: record.clientId, goOn: nextStop?.outletId ?? null };
+      navigate("/driver/issues", { replace: true, state: { justSaved } });
     } finally {
       setSaving(false);
     }
@@ -102,30 +103,6 @@ export function ProblemScreen() {
           });
         }}
       />
-    );
-  }
-
-  if (step === "saved") {
-    return (
-      <DriverShell
-        title={t("issues.title")}
-        pinned={
-          <PinnedActionBar>
-            <Button icon="route" onClick={() => navigate("/driver/run")}>
-              {t("issues.backToRun")}
-            </Button>
-          </PinnedActionBar>
-        }
-      >
-        <div className={styles.saved} role="status">
-          <span className={styles.savedTile}>
-            <Icon name="circle-check" size={28} />
-          </span>
-          <h2 className={styles.emptyTitle}>{t("issues.savedTitle")}</h2>
-          <p className={styles.emptyBody}>{t("issues.savedBody")}</p>
-          {nextStop && <p className={styles.emptyBody}>{t("issues.goOn", { outletId: nextStop.outletId })}</p>}
-        </div>
-      </DriverShell>
     );
   }
 

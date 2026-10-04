@@ -339,6 +339,8 @@ export function createMockDriverApi(now: () => number, options: MockDriverApiOpt
 
   return {
     getRun,
+    // The mock's run is built from the clock on every read; there is nothing newer to fetch.
+    refreshRun: async () => undefined,
     downloadRun,
     acknowledgePlan: device.acknowledgePlan,
     startRoute: device.startRoute,

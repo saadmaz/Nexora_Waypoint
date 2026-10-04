@@ -143,3 +143,11 @@
   text-align: left;
   cursor: pointer;
 }
+
+/* A no-run or load-failed state on its own: fills the shell's body and sits in the middle of it. */
+.centered {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}

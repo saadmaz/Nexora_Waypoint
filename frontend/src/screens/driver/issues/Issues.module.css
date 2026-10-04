@@ -235,3 +235,19 @@
   background: var(--route-soft);
   color: var(--route);
 }
+
+/* R6.3 on the Issues list: the problem just saved on the phone, above its new row. */
+.savedBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--route-soft);
+}
+
+.savedBannerIcon {
+  display: inline-flex;
+  flex: none;
+  color: var(--route);
+}

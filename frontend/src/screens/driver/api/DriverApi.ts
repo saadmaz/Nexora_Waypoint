@@ -9,6 +9,9 @@ export type DriverApi = {
   /** Today's run: plan state, loader confirmation, departure and every stop's progress. Reads the
    * phone's own cache, so it never throws offline. */
   getRun(date: string): Promise<DriverRun>;
+  /** Asks the server for the run now, past the phone's copy (R1.1 "Check again"). The next `getRun`
+   * answers from what came back. Throws NetworkError if the device cannot reach the server. */
+  refreshRun(date: string): Promise<void>;
   /** Caches the route for offline use. Throws NetworkError if the device cannot reach the server;
    * `onProgress(done, total)` drives R1.2 A's bar. */
   downloadRun(date: string, version: number, onProgress?: (done: number, total: number) => void): Promise<void>;
