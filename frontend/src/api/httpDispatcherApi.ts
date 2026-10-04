@@ -31,6 +31,14 @@ export const DEFAULT_VIEW_DEPOT: DepotId = "peliyagoda";
 const PLAN_EDITS: ReadonlySet<string> = new Set(["redraftPlan", "saveMoves", "releasePlan"]);
 
 /**
+ * Drafting runs the planner over the whole fleet, which on a full seeded day takes longer than the client's
+ * 15 s default: measured 11 s to 19 s for one depot. Past the default the request is aborted and the screen
+ * says "No connection", which is wrong twice, because the server is answering and the draft is saved. These
+ * routes get their own budget instead.
+ */
+const PLANNER_TIMEOUT_MS = 120_000;
+
+/**
  * Turns whatever the HTTP layer threw into the errors the dispatcher screens already catch (`DispatcherApi.ts`): its own
  * `ApiError(code, message)` and `NetworkError`. The message is always the server's, because the screens print it.
  *
@@ -111,12 +119,21 @@ export function createHttpDispatcherApi(getClient: () => HttpClient = () => apiC
     },
 
     redraftPlan() {
-      return call("redraftPlan", async () => planViewFromApi(await client().post("/api/v1/dispatcher/plan/redraft", { query: { depot: viewing } })));
+      return call("redraftPlan", async () =>
+        planViewFromApi(
+          await client().post("/api/v1/dispatcher/plan/redraft", { query: { depot: viewing }, timeoutMs: PLANNER_TIMEOUT_MS }),
+        ),
+      );
     },
 
     validateMove(request) {
       return call("validateMove", async () =>
-        moveResultFromApi(await client().post("/api/v1/dispatcher/plan/validate-move", { body: moveRequestToApi(request) })),
+        moveResultFromApi(
+          await client().post("/api/v1/dispatcher/plan/validate-move", {
+            body: moveRequestToApi(request),
+            timeoutMs: PLANNER_TIMEOUT_MS,
+          }),
+        ),
       );
     },
 
@@ -126,6 +143,7 @@ export function createHttpDispatcherApi(getClient: () => HttpClient = () => apiC
           await client().post("/api/v1/dispatcher/plan/moves", {
             query: { depot: viewing },
             body: { moves: moves.map(moveRequestToApi), ...(note !== undefined ? { note } : {}) },
+            timeoutMs: PLANNER_TIMEOUT_MS,
           }),
         ),
       );
@@ -144,7 +162,13 @@ export function createHttpDispatcherApi(getClient: () => HttpClient = () => apiC
 
     releasePlan({ sendNotices }) {
       return call("releasePlan", async () =>
-        planViewFromApi(await client().post("/api/v1/dispatcher/plan/release", { query: { depot: viewing }, body: { sendNotices } })),
+        planViewFromApi(
+          await client().post("/api/v1/dispatcher/plan/release", {
+            query: { depot: viewing },
+            body: { sendNotices },
+            timeoutMs: PLANNER_TIMEOUT_MS,
+          }),
+        ),
       );
     },
 

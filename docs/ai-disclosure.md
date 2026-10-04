@@ -1,190 +1,591 @@
-# AI disclosure
+# AI Disclosure
 
-Waypoint was built with the help of AI coding tools, mainly **Claude** and **Claude Code** (with the Claude Sonnet 5.5,
-Claude Opus 5 and Claude Opus 5.5 models). This file is the single place we say where and how, as the Challenge Booklet
-asks and as `Contributing.md` §29 requires. There are no AI badges or "Mock data" chips on any screen; the disclosure
-lives here, on the Figma AI disclosure page (F17), in the README and in the submission video.
+**Last updated: 5 October 2026**
 
-**In short:** AI sped up the work, and the team stayed responsible for it. People decided what to build, set the rules
-and the scope of each change, reviewed what the tools produced, and approved every merge. The [build log](#build-log-what-ai-did-and-what-a-person-checked)
-below records, change by change, what a tool produced and what a person checked, including the checks a tool could not
-run.
+## 1. Overview
 
----
+Nexora — Waypoint was developed with the assistance of AI tools throughout the Designathon and Hackathon stages of Tech-Triathlon 2026.
 
-## How we used AI
+We used AI as an **engineering and productivity tool**, not as an autonomous developer. Different tools were used for different stages of the project, including requirements analysis, research, architecture, UI exploration, implementation, debugging, testing, security review, documentation and presentation preparation.
 
-We used AI to speed up development, not to replace engineering judgement. The tools helped us explore implementation
-options, write and refactor code, write tests, review parts of the codebase, track down bugs and improve the
-documentation.
+The team remained responsible for the product requirements, architecture, business rules, implementation decisions, validation and final submission.
 
-The architecture, the product decisions, the business rules, the user flows, the reading of the competition
-requirements and every final implementation decision stayed with the team. We treated what a tool produced as a first
-draft: it was reviewed, tested and changed where needed before it was merged.
-
-## Where AI helped
-
-| Area | How AI was used |
-|---|---|
-| **Frontend** | React and TypeScript screens for the four roles, typed API clients, state handling and responsive layouts |
-| **Backend** | FastAPI routes and services, database models, migrations, validation and supporting code |
-| **Offline** | The field apps' local storage, the outbox and the sync logic for the driver and the loader |
-| **Testing** | Unit and API tests, finding missing cases, and investigating failing tests |
-| **Debugging** | Reading errors, tracing a fault across the frontend and backend, and proposing fixes |
-| **Code review** | Reviewing existing code for inconsistencies, edge cases, dead buttons and security issues |
-| **Security** | Reviewing authentication, route protection, token handling and input validation, and hardening them |
-| **Documentation** | Structuring the README, the technical docs, the build notes and the API reference |
-| **Submission review** | Auditing the build against the competition requirements and listing the gaps a person then decided on |
-
-AI was most useful for repetitive implementation work and for reading large parts of the codebase quickly. Deciding
-**what** to build, **why**, and **whether the result was good enough** stayed with the team.
-
-## How AI output was reviewed
-
-Nothing a tool produced went in automatically. For each meaningful change, a team member:
-
-1. defined the problem or requirement;
-2. gave the tool the context and constraints (the PRD, the Booklet rules, `Contributing.md`);
-3. reviewed what it produced;
-4. tested the behaviour;
-5. checked it against the PRD, the Challenge Booklet and how the app already behaved;
-6. changed or rejected the output where needed; and
-7. approved the change before it was merged (both `develop` and `main` accept changes only through a pull request with
-   one approval, and CI runs on every pull request).
-
-Where a tool could not run a check itself, for example because there was no PostgreSQL or Docker on the machine, the
-build log says so. CI runs the full set on every pull request: lint, type checks, unit tests, the backend tests on
-PostgreSQL, migrations, a clean `docker compose up` and the Playwright walkthrough.
-
-Review was strictest where a mistake costs the most:
-
-- the allocation and planning rules, and the vehicle and capacity constraints;
-- the order and delivery workflows;
-- authentication and authorisation;
-- offline sync and conflict handling;
-- security controls; and
-- anything the competition requirements name.
-
-## What stayed with the team
-
-There is a difference between help with **implementation** and making **product decisions**.
-
-| A tool could suggest | A tool did not decide |
-|---|---|
-| how to structure a service | what Waypoint should do |
-| how to implement a route | which competition requirements mattered |
-| how to handle an error | what the operational rules are |
-| how to write a test | which trade-offs to accept |
-| how to remove duplicated code | what to submit |
-| how to investigate a bug | whether an implementation was correct |
-
-### An example: the turnaround rule (R-TURN)
-
-During the submission audit on 4 October, Claude Code found that a dispatcher's hand move could send a vehicle out on
-its second trip before its first trip was back at the depot, and reproduced it with a script over the reference plan.
-The team reviewed the finding, decided the rule was right, and adopted it: it now lives in `backend/waypoint_rules`
-and is recorded in the PRD as rule R-TURN and departure DP-31. It is the only rule a tool proposed.
-
-That is how we worked with AI throughout: **a tool could find or propose something; the team decided whether it was
-valid and whether it became part of the product.**
-
-## Competition data and Figma
-
-- **The competition CSVs** stay on each developer's machine under `data/`. They are git-ignored, never committed, and
-  never pasted into an AI tool. The seed reads them at runtime. When a tool needed a column name, a person typed the
-  header.
-- **The business rules** come from the Challenge Booklet and the PRD. Where the demonstration needed assumptions or
-  extra scenario data, it is recorded as invented (see [Invented data](#invented-data)) and never presented as official
-  competition data.
-- **The Figma file** was used as a reference only. Nothing in it was created, moved, renamed or edited by a tool or by
-  hand, and it is read-only now that the Designathon is judged.
-
-## How it was verified
-
-Depending on the change: unit tests, API tests on PostgreSQL, type checks, linting, static analysis (ruff and mypy),
-migration checks (one Alembic head, `alembic check`), production builds with a check that no mock ships, browser
-testing at phone and laptop widths, offline testing, testing against the real API, security checks such as token
-forgery and cross-role access, and the end-to-end judge walkthrough in Playwright on a clean `docker compose up`.
-
-When AI-assisted code failed a check or behaved differently from the requirements, the code was changed. A tool's
-output was never assumed correct because a tool wrote it.
-
-## Why we used AI
-
-Waypoint covers four roles, a frontend and a backend, offline field apps, sync, a planner, an API, tests and two
-deployments, in a few days. AI let us move faster when exploring an unfamiliar approach, writing repetitive code,
-reviewing a lot of code, adding test coverage, chasing bugs and documenting decisions.
-
-The value was not only in generating code. It was in using AI as an engineering tool: giving it clear requirements,
-challenging what it produced, checking the result, and keeping only what made sense.
+AI-generated output was treated as a starting point. It was reviewed, tested, modified or rejected before being accepted into the project.
 
 ---
 
-## Build log: what AI did, and what a person checked
+# 2. Our AI-assisted development workflow
 
-The rows are a dated log, oldest first. A row describes the code on its date: where an early row says a route was still
-501 or a client was proven against a stub, a later row records that it was built and checked. Read them in order.
+Our general workflow was:
 
-**Adding to it:** add a row when an AI tool does a meaningful part of your pull request. One row per branch; add to your
-own row, never replace someone else's. Keep it factual: what the tool produced, and what you checked.
+```text
+Challenge Requirements
+        ↓
+Research & Understanding
+        ↓
+Architecture & Product Decisions
+        ↓
+UX / UI Exploration
+        ↓
+AI-Assisted Implementation
+        ↓
+Testing & Debugging
+        ↓
+Security & Code Review
+        ↓
+Human Validation
+        ↓
+Final Integration
+```
 
-| Date | Area | Tool | What the tool produced | What a person checked |
-|---|---|---|---|---|
-| 29 Sep to 1 Oct | Store manager screens (S1 to S4) | Claude | Screen components, fixtures and the `StoreApi` mock from the Figma frames and PRD §3 | Frames compared side by side, copy read against Figma, lint, typecheck and build |
-| 1 Oct | Field apps foundation (`frontend/src/field/**`, shared field components, offline core, scenario clock, state gallery harness, PWA setup) | Claude | The shared base the loader and driver sit on: themes, components, Dexie outbox and sync engine, clock, gallery, compare script | 21 unit tests written and run; the production build opened offline after one visit; lint, typecheck and build clean. The components were not yet compared pixel by pixel with Figma, which the role branches do per screen |
-| 1 Oct | Backend foundation (`feature/backend-foundation`, PR #5) | Claude Code (Claude Sonnet 5.5) | The FastAPI app core, SQLAlchemy models, the initial Alembic migration, the section 19 route contract, the seed, Docker and CI files, and the API tests | The brief was set by a person, who reviewed the generated migration and owns the merge |
-| 1 to 2 Oct | Loader screens (L1 to L4) | Claude | Screens, states, `LoaderApi` and fixtures from the Figma frames | See the loader PR |
-| 1 to 2 Oct | Driver screens (R1 to R3 so far) | Claude Code | Types, fixtures, `DriverApi` and mock, sync handlers, the shell and Me tab, Route, Stop detail and Record outcome, state gallery and a Playwright hero-path walkthrough, built against `claude/field-build/03-driver-core.md` and the field conventions | HH reviewed and directed each phase; lint, typecheck and build run on every commit |
-| 2 to 3 Oct | Driver offline and recovery (R4 Outbox, R5 Sync result, R8 Notifications, the conflict and its resolution) | Claude Code | The mock server's v5 conflict rule and resolution, the Outbox sheet, the sync result states, photo upload ordering and the WP-SYNC-409 branch, the notifications list, unit tests and the Playwright walkthrough, built against `claude/field-build/04-driver-offline.md` | HH directed each phase. 55 unit tests, a 64-check Playwright run of the hero path (and a partial-resolution variant), an offline production-build check, and a side-by-side comparison with Figma for the R4, R5, R8 and touched R1 and R3 frames. The real-device check (a phone in airplane mode) was not done by the tool |
-| 2 Oct | PRD v3.1 and central context (`waypoint-prd-v3.md`, `waypoint-central-context-v3.md`) | Claude | Changes V32 to V42: the planned-distance basis, the dock setting, PIN rules, R10 in API mode, the mock-to-real switch, Dispatch handling of non-vehicle flags, R6 problem threads, assumptions A55 to A58, departures DP-17 to DP-23, open decisions O-8 to O-11 | Register numbering checked against the existing rows so nothing was overwritten; A55 on frame L1.2 A is still to be confirmed against Figma and says so in the row |
-| 2 Oct | App shell (`frontend/src/screens/auth`, `frontend/src/app/App.tsx`): sign-in, role picker, per-role sessions, presenter control | Claude | `AuthApi` and its mock, per-role sessions, the router change, the sign-in screen for frames G1.1 to G1.5 and its state gallery | Sessions and the mock covered by 18 unit tests; sign-in driven in a real browser (retry, offline, four roles in one browser); frames diffed against Figma at 1x. Role picker, presenter control and avatar menu follow in later phases and will be added to this row |
-| 3 Oct | API wiring (`feature/api-wiring`): the typed HTTP client, real auth, store, driver and loader clients, the field fetch transport, the demo password change | Claude Code | `frontend/src/api/http/`, `apiAuthApi`, `apiStoreApi`, `apiDriverApi`, `apiLoaderApi`, their mappers, the fetch transport and sync handlers, two live Playwright scripts, the README "API mode" section | A person directed each phase. 202 unit tests on a stubbed `fetch`, 32 live sign-in checks and a live roles check against the real API in Docker, the 64-check mock hero path and the offline production-build check re-run. Only auth, `/me` and the clock exist on the backend, so every other client is proven against a stub and the live 501 only. Where the backend replies lack fields the screens need, the client fills a neutral value and lists the gap in the README; those were not checked against a real reply |
-| 3 Oct | Dispatcher API wiring (`feature/api-wiring-dispatcher`): the real `DispatcherApi` client, its mappers and the live check | Claude Code (Claude Sonnet 5.5) | `httpDispatcherApi.ts`, `dispatcherMappers.ts`, the provider's api mode (server clock, presenter control, offline), 42 stubbed-`fetch` tests and `scripts/api-dispatcher-check.ts` | Lint, typecheck (including `dispatcherContract.ts`), build, `npm test`, the live check against the Docker API (all 20 routes at 401, 403 and the typed 501, the nine screens' error states, the presenter control against `/demo/advance` and `/demo/reset`), and the mock path with `test:hero` and a dispatcher smoke run. No dispatcher route is built, so the conversions have not seen a real reply |
-| 3 to 4 Oct | Dispatcher (`feature/dispatcher`): the planner, plan versions and release, the scenario-clock jobs, queue, live board, conflicts, exceptions and forecast services, the 20 dispatcher routes, the generated day and the dispatcher README | Claude Code (Claude Sonnet 5.5) | `waypoint_rules/planner.py`, `app/services/*` for planning, queue, live, conflicts, exceptions and forecast, `app/jobs.py`, `seed/generated.py`, the tests and the docs | A person set each phase and merged each PR. Rules tests and ruff and mypy run each phase; the API tests were run on an in-memory SQLite stand-in because PostgreSQL was not available, so the PostgreSQL run is still to do. The real screens were driven against the API in Chrome. The planner's 17 deferrals against the PRD's 19 are recorded as DP-01 |
-| 3 Oct | Offline sync (`feature/offline-sync`): `POST /sync`, `POST /attachments`, their tests and the live check | Claude Code (Claude Opus 5.5) | `backend/app/services/sync.py`, `services/attachments.py`, the two route bodies in `routers/sync.py`, `tests/api/test_sync.py` (13 tests) and `frontend/scripts/api-sync-check.ts` | A person set the scope, the order of work and the trip lookup by the device's plan version, and reviewed each step. ruff, mypy, `alembic heads` and the full backend suite (349 tests) on PostgreSQL 16; frontend lint, typecheck, build and `npm test`; `npm run test:api-sync` against the API in Docker. The hero orders can't be placed over HTTP yet, so the live check deferred OUT087 instead and skipped the board checks; the pytest replay covers the hero stop and the board |
-| 3 to 4 Oct | Real data for the store, driver and loader (`feature/api-wiring` follow-up): the 14 store routes, the driver's three reads, the loader's five reads, the store's updates notices, the production build flags | Claude Code (Claude Sonnet 5.5) | `backend/app/services/store_views.py`, `store_writes.py`, `store_notices.py`, `field_views.py`, the route bodies in `routers/store.py`, `driver.py` and `loader.py`, `tests/api/test_store_field.py` (8 tests), `frontend/.env.production`, `LoaderApi.getPeople`, the `FieldRuntime` transport fix and the README "API mode" updates | A person set the goal (no mock data in a deployed build). The full backend suite and ruff on PostgreSQL 17 (a local test database), frontend lint, typecheck, 252 unit tests and the production build; the built app driven in Chrome as the store, driver and loader against the real API and a freshly seeded database; the loader's walkthrough re-run in mock mode. The README lists what is still fixture-backed. The `api-dispatcher-check` script has 9 failing checks that fail identically on the code before this change |
-| 4 Oct | UX and cross-flow review and fixes (`feature/ux-cross-flow-fixes`): `docs/ux-fix-plan.md`, the README corrections, the live-ETA anchor, the D6 driver-problem item, the loader shortfall handoff, the store's release and cutoff times, server-side order weights | Claude Code (Claude Opus 5) | `docs/ux-fix-plan.md`, `README.md`, `live_views.py`, `store_views.py`, `store_notices.py`, `driver_views.py`, `sync.py`, `exceptions.py`, `exception_logic.py`, `waypoint_rules/units.py`, `store_writes.py`, `ReceivedView.tsx`, `DockContainer.tsx`, `domain/schedule.ts`, and six new tests | A person asked for the review, chose the scope and owns the merge. The findings are evidence-led: all 19 walkthrough steps driven through the real API on a migrated and seeded PostgreSQL database, plus the branches the README names, before any code changed. Each fix has a test proven to fail without it. ruff, mypy, 519 backend tests, one Alembic head, oxlint, `tsc -b`, 405 frontend tests, the production build and `check:bundle`. The review first ran against `main` and was re-checked against `develop`, which had already fixed one finding. Not done by the tool: `docker compose up`, the Playwright suite and the judge walkthrough in a browser, because no Docker daemon was available; the PostgreSQL 18.6 version assertion fails on the local 16 |
-| 3 Oct | Auth audit and fixes (`feature/auth`): `docs/auth-audit.md`, route guarding, the JWT secret guard, dev-gallery gating, the clock guard, sign-in rate limiting, security headers | Claude Code (Claude Opus 5) | `docs/auth-audit.md`, `App.tsx`, `LoaderApp.tsx`, `DriverApp.tsx`, `apiAuthApi.ts`, `app/config.py`, `routers/auth.py`, `routers/shared.py`, `deploy/web/nginx.conf`, `docker-compose.yml`, `.env.example`, three new test files | A person asked for the audit and approved the fix list before any code changed. The audit was evidence-led: the symptom reproduced in a browser, a cross-role matrix over the live API, and token forgery (wrong secret, `alg:none`, expired, tampered `role` claim) run against the running container. Every fix re-verified on a rebuilt stack against the production bundle, including a driver taken fully offline to prove the guard does not strand the outbox. 271 frontend tests, backend pytest exit 0, ruff, mypy, `tsc -b`, oxlint, one Alembic head. The backend guards were already correct; the audit says so rather than padding the list |
-| 3 Oct | Store ordering backend (`feature/order-management`): the S1 order form, placing, editing and cancelling | Claude Code (Claude Opus 5) | `app/services/store_repo.py`, `app/services/store_orders.py` (later folded into `store_views.py` / `store_writes.py` by the real-data follow-up above), the four order bodies in `routers/store.py` and `tests/api/test_store_orders.py` (20 tests) | A person set the contract from the already built `apiStoreApi` client and the PRD, and reviewed each file. ruff, mypy, one Alembic head and the full backend suite (396 tests) on PostgreSQL 16. The deliveries, receipt, issues and updates routes are still 501; they are Phase 2 on `feature/store-receipt` |
-| 3 Oct | Frontend audit fixes (`fix/frontend-audit`): driver R6 Issues, R7 History, R9 Finish run, Call store, Me identity; the store's offline queue kept on the device; the `/start` role picker; driver problem and finish records on the real API | Claude Code (Claude Opus 5.5) | The screens, their data on the phone and the mock, the API client methods, unit tests and a backend test, from PRD v3 section 3 (R6, R7, R9, G2), V30, V40, A24 and A34 | A person chose the scope from the audit, approved editing files changed on develop that day, and reviewed each step. Lint, typecheck, build, 288 unit tests, the full backend suite (397), `test:hero` and `test:offline` (mock) and `test:api-sync` (API), and each screen in the browser at 390 px and 1280 px. The Figma frames could not be opened (no file access), so the new screens follow the PRD rows and the existing field components, not a frame comparison |
-| 3 to 4 Oct | Ticking scenario clock (`fix/realtime-data`): clock anchor and rate, pause and resume, the job loop and `job_runs`, DP-26 | Claude Code (Claude Sonnet 5.5) | `app/clock.py`, `app/jobs.py`, the 0004 migration, `/demo/pause` and `/demo/resume`, `tests/api/test_clock_rate.py` | A person reviews each commit; lint, mypy, alembic check and the backend tests were run against a real PostgreSQL |
-| 3 Oct | Store live checks (`feature/store-live-checks`): the two scripts that prove the store role against the real API, and the README section for API mode | Claude Code (Claude Opus 5) | `frontend/scripts/api-store-check.ts` (drives the app's own `createApiStoreApi` through the hero day) and `frontend/scripts/store-live-walkthrough.ts` (plays PRD §16 through the rendered screens, including the API container stopped and restarted), their `package.json` entries and the README section "The store against the real API" | A person set the scope and reviewed each step. Run against the API in Docker on the fallback seed: `test:api-store` reports 10 failures and `test:store-live` 1, all differences between `develop`'s backend and the contract the mock and the PRD set, listed in the PR (offset timestamps against §19, a shortfall accepted with no reason against A50, the review question shown before Dispatch asks against A51, an inconsistent journey). Frontend lint, typecheck, build and the unit tests pass. The store backend these scripts check was built on `develop`, not here; the scripts are the part that was missing, and finding those three is what they are for |
-| 4 Oct | Offline sync hardening (`fix/offline-sync-clock`): a race when one phone syncs from two tabs at once, `test:offline` against the real API | Claude Code (Claude Opus 5.5) | The fix in `backend/app/services/sync.py`, `tests/api/test_sync_resilience.py` (5 tests), the rewritten `scripts/driver-offline-shell.ts` and README rows | A person set the goal and reviewed the result. The full backend suite (493) and frontend checks (307 unit tests), `test:hero` (mock), `test:offline` and `test:api-sync` against the API in Docker, and the offline record reaching the server in the browser in API mode |
-| 4 Oct | Store contract fixes (`feature/store-live-checks`): the four breaks the live scripts found, and the tests that hold them | Claude Code (Claude Opus 5) | `waypoint_rules/receipts.py` (new, the A50 shortfall rule), `ReviewOut` with `asked` in `schemas/store.py`, `services/store_views.py` (`stamp()` with the Colombo offset, the A51 gate, the run and driver found by the vehicle on the driver's record), `services/store_writes.py` (the receipt refusals), the `asked` flag through `domain/delivery.ts`, `storeMappers.ts`, `mockDeliveries.ts`, `DeliveriesPage.tsx` and `ReceiptPage.tsx`, a regenerated `schema.ts`, and `tests/api/test_store_contract.py` (13 tests) plus `tests/rules/test_receipts.py` (5) | A person set the scope from the live-script failures and reviewed each step. The fix for `askedAt` changed an existing assertion in `test_store_field.py` from 06:40 to 05:21: PRD Q2, H10 and the "Why you're seeing this" copy all make it the store's own call to hold the delivery, so the old value was the bug, not the new one. ruff, mypy, one Alembic head, the full backend suite, frontend lint, typecheck, build and 293 unit tests all pass |
-| 4 Oct | Security hardening (`feature/security-hardening`): the seven P0 findings of the architecture audit, and the roadmap for the rest | Claude Code (Claude Opus 5) | `services/sync.py` (the delivery scope guard), `GET /attachments/{id}` with byte-level type checks in `services/attachments.py`, the gated demo router in `routers/shared.py` and `main.py`, migration `0005` (order id sequence, partial unique index) with `services/store_writes.py` (sequence ids, 409 on conflict, `Idempotency-Key`), the catch-all handler and request id in `errors.py`, `app/logs.py` (new), split `/health/live` and `/health/ready`, a regenerated `schema.ts`, `tests/api/test_p0_hardening.py` (21 tests) and `docs/security-hardening.md` | A person supplied the audit, chose the scope and settled the one real conflict it raised: the audit asked for a unique index on live orders, which the generated day (A41) deliberately breaks by giving an outlet about four, so the index covers store-placed orders only and the migration says why. Three existing tests changed: the queue test moved off OUT001 (ORD1020-R, the policy deferral re-run, already holds OUT001 chilled on 30 Sep, and `place()` refuses that order for the same reason), the empty-attachment test now expects 415 rather than 422, and the route contract gained the three new routes. EXIF stripping and S3 signed URLs were left out on purpose, with the reason in the document. ruff, mypy, one Alembic head, the full backend suite, frontend lint, typecheck and build all pass |
-| 4 Oct | Dead buttons (`fix/dead-buttons`): every "Call" and "Call Dispatch" button, and D4's "Resend notice" | Claude Code (Claude Opus 5.5) | An AST scan of every `.tsx` for buttons with no handler or a no-op one, and every `toast.show`; then the fixes: driver and loader "Ask Dispatch to call" through the existing problem and flag records, "Can't reach the store", `POST /dispatcher/contact` (notices to the store, driver and dock, no migration), the per-order resend on `/deferrals/notify`, the `call_request` driver notice and the L1 dock banner, a regenerated `schema.ts`, and tests | A person asked for the sweep and approved the plan. Frontend lint, `tsc -b`, 421 unit tests, build and `check:bundle`; backend ruff, mypy, the rules tests and `test_routes.py`. Not run by the tool: the backend API tests (`test_contact.py` and the rest need PostgreSQL), `docker compose up` and the Playwright suite |
-| 4 Oct | Submission audit and fixes (`fix/submission-audit`, `docs/ai-disclosure`) | Claude Code (Claude Opus 5.5) | A readiness audit of the repository and the hosted demo against the competition requirements. It found that the hosted API had no presenter routes, and that a hand move could send a vehicle on trip 2 before trip 1 had returned (reproduced with a script over plan v3: ten such moves were accepted). The fixes: rule R-TURN in `waypoint_rules/constraints.py` with its message and rule id, and in `moves.py` the rule left off a move that already breaks a structural rule; three tests in `tests/rules/test_golden.py`; PRD rows R-TURN and DP-31; the README restructured for judges, with the hosted-demo step (`DEMO_MODE=true`) and the loader-flag gap; and this disclosure rewritten from the team's draft | A person chose which findings to fix before the deadline, made the R-TURN decision, set `DEMO_MODE` on the host, and ran every commit, push and merge. The tool ran ruff, mypy, the rules tests, `alembic heads`, frontend typecheck and unit tests, and re-ran its scripts (no overlapping move accepted, no structural refusal that also lists R-TURN). The first CI run caught a refusal listing a third, meaningless rule at walkthrough step 4; that was fixed, and CI (backend tests on PostgreSQL, compose and the Playwright walkthrough) passed before the merge |
-
-## Invented data
-
-PRD §4d is the full register. Every figure, time and name the Day 5 design did not give us was invented or inferred and
-is listed there (A1 to A58). The competition CSVs supply the real reference data: outlets, vehicles, the calendar,
-district travel, service allowances and traffic speeds.
-
-Invented or inferred, and registered in §4d:
-
-- The hero-day orders, times, history, plan versions and live-board rows.
-- The four demo accounts, the loader PINs (Priya 1234, Ruwan 5678) and all driver names other than those named in the PRD.
-- The scripted background events (`backend/seed/scenario_events.yaml`), which the README says are simulated.
-- The fallback reference set in `backend/seed/` used when `data/*.csv` is absent (PRD §4c figures and a generated calendar).
-- Generated orders (A41): `backend/seed/generated.py` makes the 60-vehicle fleet, the extra outlets and ORD3001 upward
-  from a fixed seed, only when `data/*.csv` is absent.
-
-## Machine-translated strings
-
-The driver app offers Sinhala and Tamil (R1.9). Those strings are a machine draft and have not been reviewed by a native
-speaker. Open decision O-8 tracks who reviews them, and the README lists it under known gaps.
-
-## What AI did not do
-
-- It did not define the product requirements or the user experience.
-- It did not invent the business rules. They come from the Challenge Booklet and live in `backend/waypoint_rules`. The
-  one exception is R-TURN, which Claude Code proposed and a person decided to adopt (see the example above and DP-31).
-- It did not approve its own work, and it could not merge: every change went through a pull request a person approved.
-- It never saw the competition data: no CSV row was pasted into an AI tool (`Contributing.md` §29).
-- It did not touch the Figma file.
-- Its output was never treated as correct just because a tool produced it.
+AI was therefore involved at multiple stages, rather than being used simply to generate source code.
 
 ---
 
-**AI accelerated the work. The team remained responsible for it.**
+# 3. AI tools used
+
+The following tools were used or incorporated into our development workflow where appropriate.
+
+| Tool | Area | How it supported Waypoint |
+|---|---|---|
+| **Claude / Claude Code** | Engineering | Codebase analysis, implementation, refactoring, debugging, tests and technical reviews |
+| **ChatGPT / Codex** | Engineering & reasoning | Requirements analysis, architecture, implementation assistance, debugging, testing and repository reviews |
+| **Kimi / Kimi Code** | Long-context development | Repository analysis, implementation assistance, refactoring and documentation |
+| **Perplexity** | Research | Technical research, external verification and investigation of logistics, optimisation and software approaches |
+| **Figma AI / FigJam AI** | Product & UX | User-flow exploration, interface concepts, design iteration and product mapping |
+| **GitHub Copilot** | Development | Code completion, boilerplate, test assistance and development productivity |
+| **Gemini / Gemini Code Assist** | Technical analysis | Technical reasoning, multimodal analysis and implementation exploration |
+| **NotebookLM** | Requirements | Working with challenge documents, PRDs and project material to extract and cross-check requirements |
+| **v0** | UI exploration | Rapid exploration of dashboard and application interface concepts |
+| **Lovable / Bolt** | Prototyping | Rapid exploration of application concepts and workflows |
+| **Snyk** | Security | Dependency and security analysis |
+| **SonarQube** | Code quality | Code-quality, maintainability and static-analysis support |
+| **Harness AI** | Engineering operations | CI/CD and deployment workflow analysis |
+| **Gamma / Canva AI** | Presentation | Presentation structure, visual assets and communication material |
+| **ElevenLabs / Whisper** | Media | Voiceover, transcription and supporting demo-video workflows |
+
+> **Disclosure note:** this table describes the AI tooling used or evaluated as part of the team's workflow. Tools that were not actually used in the final development process should be removed rather than presented as having contributed to the codebase.
+
+---
+
+# 4. Claude and Claude Code
+
+Claude and Claude Code were the most significant AI tools used during the implementation of Waypoint.
+
+They assisted with substantial portions of the frontend, backend and testing work.
+
+Examples include:
+
+- Store Manager screens
+- Loader screens
+- Driver screens
+- Dispatcher functionality
+- FastAPI backend foundations
+- API clients and mappers
+- Offline functionality
+- Synchronisation
+- Scenario clock
+- Database services
+- Testing
+- Security audits
+- UX reviews
+- Documentation
+- Submission audits
+
+Claude Code was also used to inspect the repository, reason across multiple files, implement changes and run development commands.
+
+For example, AI-assisted development was used to implement and investigate:
+
+```text
+Frontend
+├── React / TypeScript components
+├── Role-specific interfaces
+├── API clients
+├── Offline field experience
+└── State handling
+
+Backend
+├── FastAPI routes
+├── Services
+├── Database models
+├── Migrations
+└── Business logic
+
+Engineering
+├── Tests
+├── Debugging
+├── Security reviews
+├── API validation
+└── Submission audits
+```
+
+The existing AI build log records the individual areas in which Claude and Claude Code contributed and what was subsequently checked by a person.
+
+---
+
+# 5. ChatGPT / Codex
+
+ChatGPT and Codex were used for higher-level reasoning and repository-oriented engineering tasks.
+
+Potential and actual uses included:
+
+### Requirements analysis
+
+Converting challenge requirements into implementation checklists, acceptance criteria and traceability items.
+
+### Architecture
+
+Exploring:
+
+- frontend/backend boundaries;
+- API structures;
+- offline-first architecture;
+- authentication;
+- synchronisation;
+- database design; and
+- service boundaries.
+
+### Engineering
+
+Assisting with:
+
+- implementation;
+- refactoring;
+- debugging;
+- test generation;
+- API design; and
+- repository audits.
+
+### Final review
+
+Using AI to challenge the implementation with questions such as:
+
+> What requirements from the Challenge Booklet are not currently represented in the implementation?
+
+The team then verified those findings against the actual project rather than accepting the AI response automatically.
+
+---
+
+# 6. Kimi / Kimi Code
+
+Kimi was useful for long-context reasoning and repository-level analysis.
+
+Its use cases included:
+
+- understanding larger portions of the repository;
+- analysing relationships between frontend and backend components;
+- reviewing implementation consistency;
+- exploring refactoring approaches;
+- generating documentation; and
+- investigating complex implementation questions.
+
+For a project with multiple roles and interconnected services, long-context analysis was particularly useful when a change affected several parts of the system.
+
+Where agent-style workflows were used, tasks could also be separated into areas such as:
+
+```text
+Frontend audit
+Backend audit
+Database audit
+Testing audit
+Security audit
+Documentation audit
+```
+
+The output from these analyses was still reviewed by the team before being used.
+
+---
+
+# 7. Perplexity and AI-assisted research
+
+Perplexity was used primarily as a **research and verification tool**, rather than as a code generator.
+
+Research areas included:
+
+- logistics optimisation;
+- vehicle routing;
+- delivery-window planning;
+- offline-first applications;
+- Progressive Web Apps;
+- synchronisation strategies;
+- forecasting approaches;
+- software architecture; and
+- technical implementation patterns.
+
+AI research was used to help the team understand possible approaches.
+
+External research was not treated as a substitute for the requirements defined by the Challenge Booklet.
+
+---
+
+# 8. Figma AI and UI exploration
+
+AI-assisted design tools were used during the product-design process to explore:
+
+- user journeys;
+- dashboard layouts;
+- mobile workflows;
+- Driver interfaces;
+- Loader interfaces;
+- Dispatcher interfaces;
+- Store Manager flows; and
+- alternative interaction patterns.
+
+AI could suggest an interface or interaction, but the final design decisions were made by the team and aligned with the project's Figma work and requirements.
+
+The Figma source itself was not automatically modified by AI. The current project disclosure explicitly records that the Figma file was treated as read-only.
+
+---
+
+# 9. GitHub Copilot and coding assistance
+
+Where used, GitHub Copilot supported day-to-day development through:
+
+- code completion;
+- boilerplate generation;
+- type definitions;
+- API clients;
+- test generation;
+- SQL;
+- React/TypeScript development; and
+- development documentation.
+
+Copilot-style assistance was treated differently from repository-level agents: it was primarily used to accelerate individual development tasks rather than make architectural decisions.
+
+---
+
+# 10. NotebookLM and challenge-document analysis
+
+NotebookLM-style document analysis was useful for working with large project documents such as:
+
+- the Challenge Booklet;
+- the PRD;
+- Designathon documentation;
+- technical specifications; and
+- team documentation.
+
+Example questions included:
+
+> What are all the requirements that the Hackathon submission must satisfy?
+
+and:
+
+> Create a traceability matrix between the challenge requirements and the implemented features.
+
+This helped reduce the chance of overlooking requirements during a short development cycle.
+
+---
+
+# 11. AI-assisted testing
+
+AI was also used to help create and expand test coverage.
+
+This included:
+
+- unit tests;
+- API tests;
+- integration tests;
+- Playwright scenarios;
+- edge cases;
+- authentication tests;
+- offline/synchronisation tests;
+- security tests; and
+- regression tests.
+
+AI was particularly useful for suggesting cases that developers might otherwise overlook.
+
+However, a generated test was not considered evidence that the feature worked. The tests themselves had to run successfully and, where relevant, the underlying behaviour had to be manually inspected.
+
+The existing development record contains examples of AI-assisted test generation followed by unit, API, browser and offline verification.
+
+---
+
+# 12. AI-assisted security review
+
+AI was also used to identify potential security weaknesses.
+
+Areas reviewed included:
+
+- authentication;
+- authorisation;
+- JWT handling;
+- route protection;
+- input validation;
+- attachment handling;
+- synchronisation;
+- demo-mode controls;
+- security headers;
+- request handling; and
+- API exposure.
+
+One security review reproduced potential issues before changes were made, after which the team selected the findings that were applicable and implemented fixes.
+
+The resulting changes were then tested independently.
+
+This distinction was important:
+
+**AI identified possible vulnerabilities. Humans decided which findings were valid and how they should be addressed.**
+
+The project disclosure records an example of this process during the authentication audit.
+
+---
+
+# 13. AI-assisted debugging
+
+AI was frequently used as a debugging partner.
+
+Rather than simply asking AI to "fix the error", the team used it to:
+
+1. interpret the error;
+2. identify possible causes;
+3. trace the relevant code;
+4. suggest multiple approaches;
+5. implement or test a proposed fix; and
+6. verify whether the underlying issue was actually resolved.
+
+This was particularly useful for issues involving:
+
+- frontend/backend contracts;
+- API responses;
+- offline synchronisation;
+- database behaviour;
+- state management;
+- authentication;
+- role-based access; and
+- cross-flow behaviour.
+
+---
+
+# 14. AI-assisted code review
+
+AI was also used as an additional reviewer.
+
+Examples included asking AI to look for:
+
+- duplicated logic;
+- inconsistent patterns;
+- dead buttons;
+- missing handlers;
+- missing states;
+- security weaknesses;
+- edge cases;
+- API inconsistencies;
+- potential race conditions;
+- maintainability issues; and
+- differences between documented and implemented behaviour.
+
+One example was the submission audit, where AI-assisted analysis identified a vehicle-trip sequencing issue. The team reviewed the finding and decided to adopt the resulting `R-TURN` constraint.
+
+This is an important example of our approach:
+
+**AI proposed the finding; the team made the engineering decision.**
+
+---
+
+# 15. Human verification
+
+AI output was never considered automatically correct.
+
+For meaningful changes, the workflow was:
+
+```text
+Human defines problem
+        ↓
+AI investigates / proposes solution
+        ↓
+Human reviews proposal
+        ↓
+AI-assisted implementation
+        ↓
+Automated tests
+        ↓
+Manual / browser validation
+        ↓
+Human review
+        ↓
+Merge
+```
+
+Depending on the change, verification included:
+
+- linting;
+- type checking;
+- unit tests;
+- backend tests;
+- API tests;
+- browser testing;
+- Playwright;
+- production builds;
+- database migration checks;
+- security testing;
+- offline testing; and
+- comparison against the PRD and Figma designs.
+
+The build log records numerous examples where AI-generated work was followed by explicit human validation.
+
+---
+
+# 16. What AI did not decide
+
+AI did not independently decide:
+
+- the overall Waypoint product;
+- the four-role operating model;
+- the core business workflow;
+- the competition requirements;
+- the final architecture;
+- the final user experience;
+- which trade-offs the team should make;
+- which features should be submitted; or
+- whether the final system was ready for submission.
+
+These remained team decisions.
+
+---
+
+# 17. Competition data and AI
+
+The competition data was treated separately from AI-assisted development.
+
+The competition CSVs were not pasted into an AI tool for the purpose of generating the solution.
+
+The project's invented and inferred demonstration data is separately documented, including hero-day orders, demo accounts, scripted events and generated fallback data.
+
+This distinction allowed the team to use AI for engineering assistance without treating generated information as official competition data.
+
+---
+
+# 18. AI and generated content
+
+AI was also used where appropriate for supporting project communication, including:
+
+- technical documentation;
+- README content;
+- presentation structure;
+- demo narration;
+- explanatory diagrams;
+- project descriptions; and
+- submission material.
+
+AI-generated content was reviewed and edited by the team before publication.
+
+The same principle applied to media: AI could assist with production, but the final content and message remained team-controlled.
+
+---
+
+# 19. Invented and inferred data
+
+Not all information displayed by Waypoint originates from the competition datasets.
+
+The project contains explicitly documented invented or inferred information used to create a complete demonstration environment.
+
+This includes:
+
+- hero-day orders;
+- generated operational events;
+- demo accounts;
+- loader PINs;
+- additional driver names;
+- generated orders;
+- fallback reference data; and
+- scripted scenario events.
+
+These are documented separately in the project's PRD and are not presented as official competition data.
+
+---
+
+# 20. Machine-translated content
+
+The Driver application includes Sinhala and Tamil content.
+
+Some of these strings were produced as machine-assisted translations and are explicitly identified as requiring native-speaker review.
+
+They should therefore not be interpreted as professionally certified translations.
+
+---
+
+# 21. What AI did not do with project data
+
+We deliberately maintained boundaries around project information.
+
+In particular:
+
+- Competition CSV rows were not pasted into AI tools for solution generation.
+- AI did not receive unrestricted control over the repository.
+- AI did not have authority to approve or merge its own work.
+- AI did not independently define competition rules.
+- AI did not independently determine the final product architecture.
+- The Figma source was not automatically edited by AI.
+- Generated assumptions were documented separately from official competition data.
+
+The project records these boundaries explicitly.
+
+---
+
+# 22. Why we used AI
+
+Waypoint has a relatively large scope for a competition project:
+
+- four operational roles;
+- frontend and backend applications;
+- API infrastructure;
+- database models;
+- allocation and planning logic;
+- offline field operations;
+- synchronisation;
+- authentication;
+- testing;
+- security;
+- deployment; and
+- a scenario-driven demonstration environment.
+
+AI allowed the team to move faster across these areas while still maintaining engineering review.
+
+The biggest benefit was not simply generating code.
+
+It was being able to use AI as a **development partner**:
+
+> **Ask → Challenge → Generate → Test → Review → Improve**
+
+The team had to understand the system well enough to give AI useful context, recognise incorrect assumptions, validate its output and decide what should actually become part of Waypoint.
+
+---
+
+# 23. Our position on AI-assisted development
+
+We do not consider AI assistance to be a substitute for engineering.
+
+The project demonstrates how AI can be incorporated into a real development workflow while keeping human accountability.
+
+AI helped us:
+
+**Research faster.  
+Explore more alternatives.  
+Write and refactor code faster.  
+Find bugs earlier.  
+Expand test coverage.  
+Review security.  
+Document the system.**
+
+The team remained responsible for:
+
+**What we built.  
+Why we built it.  
+How it should behave.  
+Whether it was correct.  
+Whether it met the challenge.**
+
+---
+
+# 24. Final statement
+
+Waypoint was not produced by asking an AI to build an application from a single prompt.
+
+It was developed through an iterative process involving people, AI tools, engineering practices, testing and continuous review.
+
+We are therefore transparent that AI made a **meaningful contribution to the development of Waypoint**, while also making clear that the team remained responsible for the product and the decisions behind it.
+
+### In short:
+
+> **AI accelerated our development.  
+> Humans directed, tested and owned the result.**

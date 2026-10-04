@@ -130,6 +130,11 @@ jobs:
           COMPOSE_PROJECT_NAME: waypoint-e2e-${{ github.run_id }}-${{ github.run_attempt }}
           # The steps move the scenario clock themselves; real time passing between them would make them flaky.
           CLOCK_RATE: "0"
+          # The walkthrough is the PRD section 16 scenario, written against the pinned orders: VEH039 carries three
+          # orders, its run calls at OUT084, VEH037 has a trip 2. The generated day (A41) is a larger world in which
+          # the planner builds another plan and those references stop existing, so the suite pins it off rather than
+          # inheriting whatever Compose defaults to.
+          SEED_GENERATED_ORDERS: "false"
         run: docker compose up --build --wait --wait-timeout 240
       - run: npm ci
         working-directory: e2e
