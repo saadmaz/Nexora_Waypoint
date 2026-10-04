@@ -75,6 +75,8 @@ export function mapOrderDraft(out: Schemas["OrderDraftOut"]): OrderDraft {
     afterCutoff: out.afterCutoff,
     window: { start: out.window.start, end: out.window.end },
     dock: out.dock,
+    cutoffAt: out.cutoffAt,
+    ...(out.editableUntil != null ? { editableUntil: out.editableUntil } : {}),
     unitFactors,
     defaultUnits: { chilled: units("chilled"), dry: units("ambient") },
     orders: out.orders.map(mapOrder),

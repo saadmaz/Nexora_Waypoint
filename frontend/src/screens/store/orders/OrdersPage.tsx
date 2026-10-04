@@ -435,7 +435,14 @@ export function OrdersPage({ preview }: OrdersPageProps) {
     ) : (
       <>
         {closed}
-        <ReceivedView orders={orders} now={currentTime} onEdit={startEdit} onSeeDeliveries={seeDeliveries} />
+        <ReceivedView
+          orders={orders}
+          now={currentTime}
+          cutoffAt={current?.cutoffAt ?? ""}
+          {...(current?.editableUntil ? { editableUntil: current.editableUntil } : {})}
+          onEdit={startEdit}
+          onSeeDeliveries={seeDeliveries}
+        />
       </>
     )
   ) : showDraftAfterCutoff ? (
