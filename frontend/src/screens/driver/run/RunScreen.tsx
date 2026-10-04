@@ -16,6 +16,7 @@ import { useDriverApi, useOutboxOpen, useT } from "../context/DriverContext";
 import { useDriverRun } from "../context/useDriverRun";
 import { runDate } from "../../../field/clock/runDate";
 import { buildOfflineBanner } from "../offlineBanner";
+import { askDispatchHref } from "../issues/problemLinks";
 import { DriverShell, type DriverShellProps } from "../shell/DriverShell";
 import { RecordPill } from "../outbox/RecordPill";
 import { usePhotoState, type PhotoState } from "../sync/usePhotoState";
@@ -284,7 +285,7 @@ export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadE
           actions={
             <>
               <Button onClick={handlePlanAction}>{t("action.tryAgain")}</Button>
-              <Button variant="secondary" icon="phone">
+              <Button variant="secondary" icon="phone" onClick={() => navigate(askDispatchHref(t("run.callDispatchRoute")))}>
                 {t("run.callDispatch")}
               </Button>
               <p className={styles.caption}>
