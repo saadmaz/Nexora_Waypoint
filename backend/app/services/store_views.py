@@ -50,7 +50,6 @@ _ACTOR = {
 
 _OS = OrderStatus
 LOADED_OR_LATER = {_OS.LOADED, _OS.DEPARTED, _OS.DELIVERED, _OS.PARTIAL, _OS.ISSUE, _OS.CONFLICT}
-DEPARTED_OR_LATER = {_OS.DEPARTED, _OS.DELIVERED, _OS.PARTIAL, _OS.ISSUE, _OS.CONFLICT}
 DELIVERED_LIKE = {_OS.DELIVERED, _OS.PARTIAL, _OS.ISSUE}
 _ADVANCE = [_OS.ORDERED, _OS.CONFIRMED, _OS.PLANNED, _OS.LOADED, _OS.DEPARTED, _OS.DELIVERED]
 
@@ -354,19 +353,31 @@ def _answered(c: f.Conflict | None) -> bool:
     return c is not None and isinstance((c.server_snapshot or {}).get("storeReport"), dict)
 
 
+def _vehicles_that_served(outcome: f.DeviceRecord | None, placement: Placement | None) -> list[str]:
+    """The vehicle on the driver's record first, then the planned one: who actually served the stop."""
+    return [v for v in (outcome.vehicle_id if outcome else None, placement.vehicle_id if placement else None) if v]
+
+
 def _run_that_drove(facts: Facts, day: date, outcome: f.DeviceRecord | None, placement: Placement | None) -> f.Run | None:
-    """The run that actually carried the stop: the vehicle on the driver's record first, then the planned one.
+    """The run that actually carried the stop.
 
     ``facts.runs`` is keyed by the plan's ``(service_date, vehicle_id, trip_no)``. When the plan has moved on
-    (a deferral withdrawn, a reefer swapped at the dock) that key names a trip nobody drove, so fall back to
-    whichever run of the day belongs to the vehicle the delivery came from.
+    (the order deferred off it, a deferral withdrawn, a reefer swapped at the dock) that key names a trip
+    nobody drove, so fall back to whichever run of the day belongs to the vehicle that served the stop.
     """
-    for vehicle_id in [outcome.vehicle_id if outcome else None, placement.vehicle_id if placement else None]:
-        if vehicle_id is None:
-            continue
+    for vehicle_id in _vehicles_that_served(outcome, placement):
         runs = [run for (d, v, _), run in facts.runs.items() if d == day and v == vehicle_id and run.departed_at]
         if runs:
             return min(runs, key=lambda r: r.departed_at)  # type: ignore[arg-type,return-value]
+    return None
+
+
+def _gate_that_loaded(facts: Facts, day: date, outcome: f.DeviceRecord | None, placement: Placement | None) -> plans.LoadGate | None:
+    """The load gate the dock actually confirmed, found the same way as the run that drove."""
+    for vehicle_id in _vehicles_that_served(outcome, placement):
+        gates = [g for (d, v, _), g in facts.gates.items() if d == day and v == vehicle_id and g.confirmed_at]
+        if gates:
+            return min(gates, key=lambda g: g.confirmed_at)  # type: ignore[arg-type,return-value]
     return None
 
 
@@ -440,22 +451,26 @@ def _delivery(db: Session, facts: Facts, day: date, orders: list[om.Order], now:
     release = facts.first_release.get(day)
     if release and (placements or deferral or any(shown[o.id] not in (_OS.ORDERED, _OS.CONFIRMED) for o in orders)):
         times["Planned"] = hm(release) or ""
-    if placement and any(shown[o.id] in LOADED_OR_LATER for o in orders):
-        gate = facts.gates.get((placement.service_date, placement.vehicle_id, placement.trip_no))
-        if gate:
-            times["Loaded"] = hm(gate.confirmed_at) or ""
     outcome = next((facts.outcomes[o.id] for o in orders if o.id in facts.outcomes), None)
-    # The run that carried the order, which is not always the one the latest plan names: after a deferral and a
-    # re-release the placement points at a fresh trip with no run, while the vehicle that drove is on the record.
+    # What happened stays on the journey even when the plan has moved on under it. A deferral sends the order
+    # back to Deferred and takes it off the newest plan, and a re-release puts it on a trip nobody drove;
+    # neither undoes the load at 04:50 or the departure at 05:10 that the dock and the phone recorded.
+    reached = any(shown[o.id] in LOADED_OR_LATER for o in orders) or deferral is not None
+    gate = facts.gates.get((placement.service_date, placement.vehicle_id, placement.trip_no)) if placement else None
+    if gate is None or gate.confirmed_at is None:
+        gate = _gate_that_loaded(facts, day, outcome, placement) or gate
+    if gate and gate.confirmed_at and reached:
+        times["Loaded"] = hm(gate.confirmed_at) or ""
     run = facts.runs.get((placement.service_date, placement.vehicle_id, placement.trip_no)) if placement else None
     if run is None or run.departed_at is None:
         run = _run_that_drove(facts, day, outcome, placement) or run
-    if run and run.departed_at and any(shown[o.id] in DEPARTED_OR_LATER for o in orders):
+    if run and run.departed_at and reached:
         times["Departed"] = hm(run.departed_at) or ""
     if outcome and any(shown[o.id] in DELIVERED_LIKE for o in orders):
         times["Delivered"] = hm(outcome.device_time or outcome.received_at) or ""
-        # A delivery proves the departure, even when the run row that recorded it has been planned away.
+        # A delivery proves the load and the departure, whatever the plan says about them now.
         times.setdefault("Departed", times["Delivered"])
+        times.setdefault("Loaded", times["Departed"])
     receipts = [facts.receipts[o.id] for o in orders if o.id in facts.receipts]
     if receipts:
         times["Receipt confirmed"] = hm(max(r.confirmed_at for r in receipts)) or ""

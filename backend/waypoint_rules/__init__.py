@@ -35,6 +35,15 @@ from .lifecycle import IllegalTransition, OrderEvent, allowed_events, transition
 from .model import District, Order, Outlet, Plan, RefData, Trip, Vehicle, VehicleDay
 from .moves import CheckItem, Move, MoveResult, TripSummary, validate_move, why_this_vehicle
 from .planner import DraftDeferral, DraftStop, DraftTrip, OutletHistory, PlanDraft, draft_plan
+from .receipts import (
+    SHORTFALL_REASONS,
+    ShortfallReason,
+    is_short,
+    needs_reason,
+    reason_missing,
+    receipt_line,
+    unknown_reason,
+)
 from .reconcile import (
     DeviceRecord,
     Outcome,
@@ -45,15 +54,6 @@ from .reconcile import (
     SyncResult,
     reconcile,
     reconcile_store_answer,
-)
-from .receipts import (
-    SHORTFALL_REASONS,
-    ShortfallReason,
-    is_short,
-    needs_reason,
-    reason_missing,
-    receipt_line,
-    unknown_reason,
 )
 from .schedule import (
     OFFLINE_AFTER_MINUTES,

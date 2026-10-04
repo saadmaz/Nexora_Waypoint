@@ -191,7 +191,8 @@ export function DeliveriesPage({ outletId = OUTLET.id, date, preview }: Deliveri
         <DeliveryCard delivery={delivery} offline={!online} />
       </>
     );
-    if (delivery.review) {
+    if (delivery.review?.asked) {
+      // A51: only once Dispatch has asked. Until then the explanation above stands on its own.
       actions = (
         <ReceiptQuestion
           delivery={delivery}

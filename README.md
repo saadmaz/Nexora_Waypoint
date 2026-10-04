@@ -392,20 +392,38 @@ start and the end, so run them on a database you do not mind re-seeding:
 
 Pass `--base` when the app is not on `:5173`, and add that origin to `CORS_ORIGINS`.
 
-**Both scripts currently report failures against `develop`** (10 from `test:api-store`, 1 from
-`test:store-live`). They are differences between the backend and the contract the mock and the PRD set, not
-faults in the scripts, and they are listed in the pull request. The four that matter:
+**The four contract breaks the scripts caught are fixed.** They were differences between the backend and the
+contract the mock and the PRD set, not faults in the scripts. What changed:
 
-- **Timestamps carry an offset.** `receivedAt` and `updatedAt` come back as `2026-09-28T15:40:00+05:30`; §19
+- **Timestamps carried an offset.** `receivedAt` and `updatedAt` came back as `2026-09-28T15:40:00+05:30`; §19
   and the mock both say naive local ISO with no offset. `clockTime()` renders with `getHours()`, so the store
-  shows the right time only in Asia/Colombo: in Europe/London the same reply reads `11:10` instead of `15:40`.
-- **A shortfall is accepted with no reason.** PRD A50 says "Confirm with a shortfall" asks for a reason before
-  it sends. The sheet does ask, but `POST /store/receipts` takes a 9 of 12 with no reason and returns Partial,
-  so the rule lives only in the screen (§19: the frontend never re-implements a rule).
-- **The review question appears before Dispatch asks.** PRD A51 says the explanation ("Why you're seeing this")
-  shows on its own, and the question ("Did you receive this delivery?" with its two buttons) only once Dispatch
-  has asked. At 06:41, before any ask, the reply carries the `review` block and S2.7 draws the question.
-- **The journey can read Departed pending while Delivered is done**, and the proof's `driver` comes back empty.
+  showed the right time only in Asia/Colombo: in Europe/London the same reply read `11:10` instead of `15:40`.
+  `store_views.stamp()` now emits naive local ISO, covered by `test_store_contract.py`.
+- **A shortfall was accepted with no reason.** PRD A50 says "Confirm with a shortfall" asks for a reason before
+  it sends. The sheet asked, but `POST /store/receipts` took a 9 of 12 with no reason and returned Partial, so
+  the rule lived only in the screen (§19: the frontend never re-implements a rule). The rule now lives in
+  `waypoint_rules/receipts.py`; the route refuses a short count with no reason (`reason_required`) or one the
+  sheet does not offer (`unknown_reason`), and both say which four words are allowed.
+- **The review question appeared before Dispatch asked.** PRD A51 says the explanation ("Why you're seeing
+  this") shows on its own, and the question ("Did you receive this delivery?" with its two buttons) only once
+  Dispatch has asked. `DeliveryOut.review` is now a typed `ReviewOut` carrying `asked`, true only while the
+  conflict is `awaiting_store` (D7.2). S2.7 and S3.5 read it. Its `askedAt` is the store's own 05:21 call to
+  hold the delivery, which is what "Why you're seeing this" quotes back, not the 06:40 sync.
+
+  Two assertions in `api-store-check.ts` were corrected with this fix, because they read A51 as hiding the
+  whole `review` block until Dispatch asks. A51 says the opposite in its own second clause ("Without an ask,
+  the receipt under review is S3.1 with 'Why you're seeing this'"), and PRD §3 lists S2.7 at 06:41 with the
+  explanation already on screen. So the block is sent from 06:40 and only `asked` waits for D7.2.
+
+`npm run test:api-store` now reports **no failures** on the fallback seed (109 checks). The S2.4 and S2.5
+departure checks are still skipped there, for the reason under "What differs from the mock" below: the
+fallback planner puts OUT084 on VEH040 while the demo phone is VEH039, so no departure is ever recorded and
+the journey's Departed step correctly stays pending. The backend tests cover that step on the small world,
+where the stop does ride VEH039.
+- **The journey could read Departed pending while Delivered was done**, and the proof's `driver` came back
+  empty. Both came from keying off the latest released plan: after the deferral releases v5, the order's
+  placement names a trip nobody drove. The run is now found by the vehicle on the driver's record, and the
+  proof falls back to the name on the record when no driver row is bound to that vehicle (a dock swap).
 
 **What differs from the mock.**
 
@@ -433,6 +451,16 @@ faults in the scripts, and they are listed in the pull request. The four that ma
   temperatures would collapse to one factor. A `feature/backend-foundation` question.
 - `outlets.name` is NULL in the fallback seed, so `outletName` is the outlet id there (see above).
 - "A store account with no outlet is 403" is implemented but untested, because the seed has no such account.
+
+### The store's backend tests
+
+Three files cover the store surface. They need the test database (`backend/tests/api/conftest.py`).
+
+| File | Covers |
+|---|---|
+| `backend/tests/api/test_store_field.py` | The hero day end to end, as the store, the dock and the driver each see it: place, edit, cancel, the cutoff, the released plan, loading and leaving, the deferral, the review, the receipt and the issue |
+| `backend/tests/api/test_store_contract.py` | What one run through the hero day does not pin down: the wire shape of a timestamp (§19), the A50 shortfall rule, the A51 review gate, the journey when the plan has moved on under the delivery, and the read routes (deliveries range, history, issues, feed) at their edges, including the 403 for an account with no outlet |
+| `backend/tests/rules/test_receipts.py` | `waypoint_rules.receipts` on its own: what counts as short, when a reason is required, the four words the sheet offers and the refusals that name them |
 
 ### Checks run (phase 8)
 

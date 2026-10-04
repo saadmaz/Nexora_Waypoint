@@ -268,9 +268,9 @@ def test_the_hero_degradation_as_the_store_sees_it(client, auth, reseed):
     assert d["review"] == {"askedAt": "05:21", "deliveredAt": "05:42", "receivedBy": "S. Fernando", "conflictId": str(cid), "asked": False}
     assert d["proof"]["receivedBy"] == "S. Fernando" and d["proof"]["at"] == "05:42" and d["proof"]["units"] == [12, 8]
     assert (d["proof"]["driver"], d["proof"]["vehicle"]) == ("Nimal", "VEH039") and d["receivedAnswered"] is False
-    # A51: the explanation shows, but the question waits for Dispatch. The journey already has the
-    # delivery, so Departed cannot still be pending behind it.
-    assert [s["state"] for s in d["journey"][4:6]] == ["done", "done"] and d["journey"][4]["at"] == "05:10"
+    # Departed keeps its 05:10 time even though v5 moved the orders off the trip that drove: the run is
+    # found by the vehicle on the driver's record. Delivered waits, because under review nothing is settled.
+    assert d["journey"][4]["at"] == "05:10" and [s["state"] for s in d["journey"][4:6]] == ["current", "pending"]
     review = get(client, auth, "store", f"{STORE}/updates")["updates"][0]
     assert review["tag"] == "Review" and review["resolvedAt"] is None
 
@@ -293,16 +293,28 @@ def test_the_hero_degradation_as_the_store_sees_it(client, auth, reseed):
     assert d["deferral"] is None and d["review"] is None and d["journey"][5]["at"] == "05:42" and d["journey"][6]["state"] == "current"
     assert get(client, auth, "store", f"{STORE}/updates")["updates"][0]["title"] == "Deliveries updated"
 
-    # S3: confirm receipt with a shortfall, then report a problem.
+    # S3: confirm receipt with a shortfall, then report a problem. A50: a short count has to say why,
+    # in one of the four words the sheet offers, and the API refuses it without one.
+    no_reason = client.post(f"{STORE}/receipts", headers=auth("store"), json={
+        "date": DAY, "lines": [{"orderId": "ORD2001", "received": 11}, {"orderId": "ORD2002", "received": 8}]})
+    assert no_reason.status_code == 422 and no_reason.json()["code"] == "reason_required"
+    assert no_reason.json()["details"]["reasons"] == ["Missing", "Damaged", "Wrong item", "Other"]
+    prose = client.post(f"{STORE}/receipts", headers=auth("store"), json={
+        "date": DAY, "lines": [{"orderId": "ORD2001", "received": 11}], "reason": "One carton was crushed"})
+    assert prose.status_code == 422 and prose.json()["code"] == "unknown_reason"
+
     short = post(
         client, auth, "store", f"{STORE}/receipts",
-        {"date": DAY, "lines": [{"orderId": "ORD2001", "received": 11}, {"orderId": "ORD2002", "received": 8}], "reason": "One carton was crushed", "deviceTime": "07:30"},
+        {"date": DAY, "lines": [{"orderId": "ORD2001", "received": 11}, {"orderId": "ORD2002", "received": 8}], "reason": "Damaged", "deviceTime": "07:30"},
         status=201,
     )
     assert short["status"] == "partial" and "Receipt confirmed" in short["tags"] and short["receiptConfirmedAt"] == "07:30"
-    assert short["receiptBy"] == "Anusha" and short["shortfallReason"] == "One carton was crushed"
+    assert short["receiptBy"] == "Anusha" and short["shortfallReason"] == "Damaged"
     assert [(o["id"], o["status"], o["received"]) for o in short["orders"]] == [("ORD2001", "partial", 11), ("ORD2002", "delivered", None)]
     assert short["journey"][6]["at"] == "07:30" and short["journey"][6]["state"] == "done"
+    # A full count needs no reason at all.
+    full = post(client, auth, "store", f"{STORE}/receipts", {"date": DAY, "lines": [{"orderId": "ORD2002", "received": 8}]}, status=201)
+    assert full["receiptConfirmedAt"] is not None
     too_many = client.post(f"{STORE}/receipts", headers=auth("store"), json={"date": DAY, "lines": [{"orderId": "ORD2002", "received": 9}]})
     assert too_many.status_code == 422
 

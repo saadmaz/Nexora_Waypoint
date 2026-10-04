@@ -169,7 +169,7 @@ type Delivery = {
   lastUpdate?: string;
   receiversCue: boolean;
   deferral?: { type: string; headline: string; subline?: string; reason: string; decidedBy: string; decidedAt: string; nextRunLabel: string; nextRun: string; nextRunShort: string; acknowledged: boolean };
-  review?: { askedAt: string; deliveredAt: string; receivedBy: string };
+  review?: { askedAt: string; deliveredAt: string; receivedBy: string; asked: boolean };
   proof?: { receivedBy: string; at: string; driver: string; vehicle: string; units: number[] };
   tags: string[];
   withdrawnNote?: string;
@@ -435,9 +435,15 @@ async function main() {
   check(review.receivedAnswered === false, "the store has not answered yet");
   check(review.proof?.receivedBy === "S. Fernando" && review.proof?.at === "05:42", "the proof says the goods are at the store", review.proof);
   check(review.proof?.units.join() === "12,8" && review.proof?.driver === "Nimal" && review.proof?.vehicle === "VEH039", "the proof names the units, the driver and the vehicle", review.proof);
-  check(stepAt(review, "Delivered")?.at === "05:42", "the Delivered step is stamped 05:42");
-  check(currentStep(review) === "Receipt confirmed", "the step waiting on the store is the current one (A45)", currentStep(review));
-  check(review.review === undefined, "no question is shown until Dispatch asks (A51)");
+  // Under review nothing is settled, so Delivered waits on Dispatch; what did happen keeps its times.
+  check(stepAt(review, "Loaded")?.at === "04:50", "a deferral does not undo the morning: the truck was still loaded at 04:50", review.journey);
+  // Only when a departure was recorded at all: on the fallback seed the stop rides a vehicle the demo phone is
+  // not bound to, so `driver.startRoute` never ran and there is no departure to keep (see S2.4 above).
+  if (phoneDrivesTheStop) check(stepAt(review, "Departed")?.at === "05:10", "nor that it left at 05:10", stepAt(review, "Departed"));
+  check(stepAt(review, "Delivered")?.state === "pending", "Delivered waits while Dispatch chooses which record to keep", stepAt(review, "Delivered"));
+  // A51 and PRD §3 S2.7: the explanation shows from 06:41; only the question waits for "Review with store first".
+  check(review.review !== undefined && review.review.asked === false, "the store is told why, but is not asked yet (A51)", review.review);
+  check(review.review?.askedAt === "05:21", "the explanation quotes the store's own 05:21 call to hold the delivery", review.review?.askedAt);
 
   // ---- 6. the store answers the review question -------------------------------------------------------------------------
   const conflictId = ((await ok("dispatcher", "GET", "/dispatcher/inbox")) as { items: { id: string }[] }).items.map((i) => i.id).find((id) => id.startsWith("c"));
@@ -446,6 +452,7 @@ async function main() {
   await ok("dispatcher", "POST", `/dispatcher/conflicts/${cid}/ask-store`);
   const asked = await theDay(page);
   check(asked.review?.receivedBy === "S. Fernando" && asked.review?.deliveredAt === "05:42" && HHMM.test(asked.review?.askedAt ?? ""), "S2.7 asks the store about the record it has", asked.review);
+  check(asked.review?.asked === true, "now Dispatch has asked, S3.5 draws the question (A51)", asked.review?.asked);
 
   const answered = await store(page, "answerReceivedQuestion", { outletId: OUTLET, date: DAY, answer: "received" });
   // The route is keyed by the review's conflictId, which the client reads out of the reply. Reaching the server at all
