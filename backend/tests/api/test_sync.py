@@ -526,3 +526,33 @@ def test_a_late_departure_moves_every_remaining_eta(client, auth, reseed):
     for stop in run["stops"]:
         if stop["plannedArrival"]:
             assert stop["plannedArrival"][11:16] >= "05:10", stop
+
+
+def test_a_driver_problem_reaches_d6_as_news_not_a_held_vehicle(client, auth, reseed):
+    """PRD v3.1: a driver's problem is listed in D6; only "Vehicle check failed" has a Dispatch screen (D8).
+
+    Before this it was rendered with the held-vehicle shape: "VEH039 held: road blocked", a countdown to a
+    departure the truck had already made, and a Review link into the swap screen, whose only action answered
+    409 no_replacement so the item could never be cleared.
+    """
+    version = on_the_road(client, auth)
+    advance(client, auth, "2026-09-29T06:05:00+05:30")
+    answers = results(
+        sync(client, auth, [record("driver.problem", {"date": DAY, "type": "Road blocked", "note": "Tree down on the B-road"}, "05:55", version)])
+    )
+    assert [r["result"] for r in answers] == ["accepted"]
+
+    item = next(i for i in board(client, auth)["decisions"] if i["id"].startswith("x"))
+    assert item["kind"] == "info" and item["infoOnly"] is True, item
+    assert "held" not in item["title"].lower(), item["title"]
+    assert item["title"] == "VEH039: Road blocked", item["title"]
+    assert item["countdown"] is None and item["action"] is None, item
+    assert "Tree down on the B-road" in item["text"], item["text"]
+    assert "05:55" in item["text"], f"the driver's own time, not the sync time: {item['text']}"
+
+    # D8 is for a swap, and there is none: it refuses rather than offering an empty screen.
+    eid = int(item["id"][1:])
+    res = client.get(f"/api/v1/dispatcher/exceptions/{eid}", headers=auth("dispatcher"))
+    assert res.status_code == 409 and res.json()["code"] == "not_a_vehicle_flag", res.text
+    decided = client.post(f"/api/v1/dispatcher/exceptions/{eid}/decide", json={"decision": "swap_vehicle", "deferOrderIds": []}, headers=auth("dispatcher"))
+    assert decided.status_code == 409 and decided.json()["code"] == "not_a_vehicle_flag", decided.text
