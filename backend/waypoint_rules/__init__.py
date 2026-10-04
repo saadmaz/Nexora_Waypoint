@@ -35,6 +35,15 @@ from .lifecycle import IllegalTransition, OrderEvent, allowed_events, transition
 from .model import District, Order, Outlet, Plan, RefData, Trip, Vehicle, VehicleDay
 from .moves import CheckItem, Move, MoveResult, TripSummary, validate_move, why_this_vehicle
 from .planner import DraftDeferral, DraftStop, DraftTrip, OutletHistory, PlanDraft, draft_plan
+from .receipts import (
+    SHORTFALL_REASONS,
+    ShortfallReason,
+    is_short,
+    needs_reason,
+    reason_missing,
+    receipt_line,
+    unknown_reason,
+)
 from .reconcile import (
     DeviceRecord,
     Outcome,
@@ -107,8 +116,10 @@ __all__ = [
     "RemainingStop",
     "Role",
     "RuleId",
+    "SHORTFALL_REASONS",
     "ServerOrderState",
     "ServiceDay",
+    "ShortfallReason",
     "StopTiming",
     "SwapRecommendation",
     "SyncResult",
@@ -133,14 +144,18 @@ __all__ = [
     "headline",
     "hhmm",
     "is_offline",
+    "is_short",
     "impact_on_store",
     "lateness_risk",
     "legal_vehicles",
     "minutes_pools",
+    "needs_reason",
     "next_plan_at",
     "order_vehicle_violations",
     "planned_clock",
     "planned_fuel",
+    "reason_missing",
+    "receipt_line",
     "reconcile",
     "reconcile_store_answer",
     "recommend_swap",
@@ -151,6 +166,7 @@ __all__ = [
     "transition",
     "trip_load",
     "trip_minutes",
+    "unknown_reason",
     "validate_move",
     "vehicle_day_totals",
     "why_this_vehicle",
