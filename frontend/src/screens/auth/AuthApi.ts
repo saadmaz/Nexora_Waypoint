@@ -1,5 +1,6 @@
 import type { Role } from "../../domain/status";
 import type { Account, Session, SignInResult } from "./types";
+import { modeFor } from "../../api/dataSource";
 
 /**
  * The sign-in interface (PRD v3 section 9 Auth, prompt 06 section 8).
@@ -57,14 +58,9 @@ export function accountFor(email: string): Account | undefined {
 }
 
 /**
- * Which implementation the app uses, from `VITE_AUTH_API=mock|api`.
- *
- * PRD v3 section 9 principle 7 names the pattern `VITE_<ROLE>_API` for the four roles.
- * Auth is not one of the four, so this is a small extension of that principle rather
- * than something the PRD already spells out. Recorded in the README.
+ * Which implementation sign-in uses: `VITE_DATA_SOURCE` (live or mock, mock by default), unless `VITE_AUTH_API=mock|api`
+ * overrides it. Auth is not one of the four roles of PRD v3 section 9 principle 7; recorded in the README.
  */
 export function authApiMode(): "mock" | "api" {
-  // A production build is always on the API: no flag can switch it to the mock (DP-26).
-  if (!import.meta.env.DEV) return "api";
-  return import.meta.env.VITE_AUTH_API === "api" ? "api" : "mock";
+  return modeFor(import.meta.env.VITE_AUTH_API);
 }
