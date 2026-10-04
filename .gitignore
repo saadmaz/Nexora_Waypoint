@@ -54,3 +54,7 @@ __pycache__/
 
 # POD photos and signatures uploaded to a local API
 backend/uploads/
+
+# Playwright
+e2e/test-results/
+e2e/playwright-report/

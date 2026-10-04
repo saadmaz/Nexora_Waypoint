@@ -192,6 +192,13 @@ have to wait: open the presenter control from the dispatcher's avatar menu (or a
 a minute a second, or `0` to hold still. `SCENARIO_SERVICE_DATE` picks the delivery day (it must be an operating day). See
 departure DP-26 in `waypoint-prd-v3.md`.
 
+**Play it automatically.** `e2e/` plays this walkthrough in a real browser, including a driver who loses the network, records two deliveries with photos, reloads the page offline and syncs when the network returns:
+
+```bash
+CLOCK_RATE=0 docker compose up --build -d
+cd e2e && npm ci && npx playwright install chromium && npm test
+```
+
 ---
 
 ## 🛠️ Tech Stack
@@ -1372,7 +1379,7 @@ All 20 dispatcher routes answer from the database. Nothing a dispatcher sees in 
 - **The scenario clock drives the day.** `app/jobs.py` runs inside `POST /demo/advance`, in the same transaction: cutoff (Ordered to Confirmed, notices to stores), the draft, the scripted events in `backend/seed/scenario_events.yaml`.
 - **Every move is checked by the rules package.** `validate-move` returns the refusal text from `waypoint_rules`; the screens show it and never re-derive it.
 - **Every state change writes an `audit_events` row** in the same transaction.
-- **The day.** With no `data/*.csv` the seed generates the rest of the day (`backend/seed/generated.py`, A41): 60 vehicles, Peliyagoda 212 orders and Kandy 62 for Tue 29 Sep, the same on every run. `SEED_GENERATED_ORDERS=false` keeps only the small story world, which the API tests use.
+- **The day.** With no `data/*.csv` the seed generates the rest of the day (`backend/seed/generated.py`, A41): 60 vehicles, Peliyagoda 212 orders and Kandy 62 for Tue 29 Sep, the same on every run. That full-size day is opt-in (`SEED_GENERATED_ORDERS=true`); the default is the small story world the walkthrough and the API tests use, because the walkthrough names pinned orders and vehicles that the planner places differently once 274 more orders compete for the same trips (DP-29).
 
 ### Run it
 
