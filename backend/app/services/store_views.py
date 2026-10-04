@@ -357,10 +357,15 @@ def order_draft(db: Session, user: CurrentUser, day: date | None) -> s.OrderDraf
             defaults[temp] = _DEFAULT_UNITS[temp]
     placed = sorted(orders_of(db, outlet.id, on=delivery_date), key=kind_order)
     facts = load_facts(db, outlet, placed)
+    # The cutoff is the server's, and it names its day when it is not today: at 16:20 on Monday a Wednesday
+    # order is editable until Tuesday 16:00, and a bare "16:00" reads as already gone.
+    closes = repo.cutoff_at(delivery_date, repo.operating_days(db))
     return s.OrderDraftOut(
         outlet_id=outlet.id, delivery_date=delivery_date, after_cutoff=service.after_cutoff if delivery_date == service.service_date else False,
         window=window_of(outlet), dock=dock_label(outlet.dock_type), unit_factors=factors, default_units=defaults,
         orders=[order_out(o, facts) for o in placed],
+        cutoff_at=f"{closes:%H:%M}",
+        editable_until=(f"{closes:%a %H:%M}" if closes.date() != now.date() else f"{closes:%H:%M}") if now < closes else None,
     )
 
 

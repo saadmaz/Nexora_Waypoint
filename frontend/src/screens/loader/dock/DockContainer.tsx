@@ -78,7 +78,6 @@ export function DockContainer({
         connectivity={chip}
         embedded={embedded}
         state="empty"
-        emptyReleaseLabel="23:40"
         emptyCheckedLabel={formatTime(query.updatedAt)}
       />
     );

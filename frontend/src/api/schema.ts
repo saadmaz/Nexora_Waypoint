@@ -2574,6 +2574,10 @@ export interface components {
             };
             /** Orders */
             orders: components["schemas"]["OrderOut"][];
+            /** Cutoffat */
+            cutoffAt: string;
+            /** Editableuntil */
+            editableUntil?: string | null;
         };
         /** OrderHistory */
         OrderHistory: {

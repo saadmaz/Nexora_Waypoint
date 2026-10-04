@@ -86,6 +86,8 @@ describe("requests", () => {
         unitFactors: { chilled: { kg: 12, m3: 0.1 }, ambient: { kg: 10, m3: 0.09 } },
         defaultUnits: { chilled: 12, ambient: 8 },
         orders: [orderOut],
+        cutoffAt: "16:00",
+        editableUntil: "Tue 16:00",
       }),
     );
 
@@ -97,6 +99,32 @@ describe("requests", () => {
     expect(draft.unitFactors).toEqual({ chilled: { kg: 12, m3: 0.1 }, dry: { kg: 10, m3: 0.09 } });
     expect(draft.defaultUnits).toEqual({ chilled: 12, dry: 8 });
     expect(draft.orders[0].line.kind).toBe("dry");
+    // The cutoff is the server's: the screens never write their own 16:00, and a deadline on another
+    // day carries that day, because a bare time reads as already gone.
+    expect(draft.cutoffAt).toBe("16:00");
+    expect(draft.editableUntil).toBe("Tue 16:00");
+  });
+
+  it("leaves editableUntil off once the cutoff has passed", async () => {
+    const { api } = stub(
+      json({
+        outletId: "OUT084",
+        deliveryDate: "2026-09-29",
+        afterCutoff: true,
+        window: { start: "05:30", end: "08:00" },
+        dock: "rear_dock",
+        unitFactors: { chilled: { kg: 12, m3: 0.1 }, ambient: { kg: 10, m3: 0.09 } },
+        defaultUnits: { chilled: 12, ambient: 8 },
+        orders: [],
+        cutoffAt: "16:00",
+        editableUntil: null,
+      }),
+    );
+
+    const draft = await api.getOrderDraft("OUT084", "2026-09-29");
+
+    expect(draft.cutoffAt).toBe("16:00");
+    expect(draft.editableUntil).toBeUndefined();
   });
 
   it("places chilled and dry together, sending dry as ambient", async () => {

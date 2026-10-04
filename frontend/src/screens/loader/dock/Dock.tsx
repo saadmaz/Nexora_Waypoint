@@ -98,7 +98,13 @@ export function Dock({
             body={
               <>
                 <p>
-                  Tonight&rsquo;s plan releases around <Mono>{emptyReleaseLabel}</Mono>.
+                  {emptyReleaseLabel ? (
+                    <>
+                      Tonight&rsquo;s plan releases around <Mono>{emptyReleaseLabel}</Mono>.
+                    </>
+                  ) : (
+                    <>Tonight&rsquo;s plan has not been released yet.</>
+                  )}
                 </p>
                 <p className={styles.lastChecked}>
                   Last checked <Mono>{emptyCheckedLabel}</Mono>
