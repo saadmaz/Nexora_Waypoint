@@ -51,45 +51,31 @@ test("3. the cutoff closes the queue and plan v1 is drafted, with no call to /de
   expect(JSON.stringify(deliveries)).toMatch(/Confirmed/);
 });
 
-/** One planned trip, as the dispatcher's plan lists it. */
-type PlanTrip = { vehicleId: string; trip: number; stops: { orderIds: string[]; protected: boolean }[] };
 type Verdict = { ok: boolean; violations: { rule: string; text: string }[] };
 
-test("4. the dispatcher can reproduce a window refusal, a reefer plus another rule, and the continuity guard", async ({ request }) => {
-  test.setTimeout(240_000); // it tries real moves against the planner until it finds each kind
-  const plan = await call(request, "dispatcher", "GET", "/dispatcher/plan?depot=peliyagoda");
-  const trips: PlanTrip[] = plan.lanes.flatMap((lane: { trips: PlanTrip[] }) => lane.trips);
-  const orders = trips.flatMap((t) => t.stops.map((s) => ({ id: s.orderIds[0]!, from: `${t.vehicleId}/${t.trip}` })));
+test("4. three moves are refused, each naming every rule it breaks (the README's moves)", async ({ request }) => {
   const check = (orderId: string, to: unknown): Promise<Verdict> =>
     call(request, "dispatcher", "POST", "/dispatcher/plan/validate-move", { data: { orderId, to } });
+  const rules = (verdict: Verdict) => verdict.violations.map((v) => v.rule).sort();
+  const words = (verdict: Verdict) => verdict.violations.map((v) => v.text).join(" | ");
 
-  let window: Verdict | undefined;
-  let reefer: Verdict | undefined;
-  // Every order against every other trip, in batches: the first window refusal and the first reefer refusal are enough.
-  const moves = orders.flatMap((order) =>
-    trips.filter((t) => `${t.vehicleId}/${t.trip}` !== order.from).map((t) => ({ order: order.id, to: { vehicleId: t.vehicleId, trip: t.trip } })),
-  );
-  for (let at = 0; at < Math.min(moves.length, 1200) && !(window && reefer); at += 12) {
-    const batch = await Promise.all(moves.slice(at, at + 12).map((m) => check(m.order, m.to)));
-    for (const verdict of batch) {
-      const rules = verdict.violations.map((v) => v.rule);
-      if (!window && rules.includes("R-WINDOW")) window = verdict;
-      if (!reefer && rules.includes("R-TEMP") && rules.length >= 2) reefer = verdict;
-    }
-  }
-  // A refusal names every rule it breaks, in words a dispatcher can read (D3.4).
-  expect(window, "a move that breaks a delivery window").toBeDefined();
-  expect(reefer, "a reefer order moved to an ambient vehicle, which breaks a second rule too").toBeDefined();
-  for (const verdict of [window!, reefer!]) {
-    expect(verdict.ok).toBe(false);
-    for (const v of verdict.violations) expect(v.text.length).toBeGreaterThan(10);
-  }
+  // A window, and the volume it would also break (D3.4 shows every broken rule, not the first).
+  const window = await check("ORD1007", { vehicleId: "VEH037", trip: 2 });
+  expect(window.ok).toBe(false);
+  expect(rules(window)).toEqual(["R-M3", "R-WINDOW"]);
+  expect(words(window)).toMatch(/after OUT015 closes at 11:00/);
 
-  const protectedOrder = trips.flatMap((t) => t.stops).find((s) => s.protected);
-  expect(protectedOrder, "an order deferred yesterday is protected").toBeDefined();
-  const guard = await check(protectedOrder!.orderIds[0]!, { deferred: true });
+  // A chilled order on an ambient vehicle, carrying a second brand.
+  const reefer = await check("ORD1016", { vehicleId: "VEH037", trip: 1 });
+  expect(reefer.ok).toBe(false);
+  expect(rules(reefer)).toEqual(["R-BRAND", "R-TEMP"]);
+  expect(words(reefer)).toMatch(/Needs a reefer/);
+
+  // The continuity guard: an outlet deferred yesterday cannot be left out again.
+  const guard = await check("ORD1001", { deferred: true });
   expect(guard.ok).toBe(false);
-  expect(guard.violations.map((v) => v.rule)).toContain("R-CONT");
+  expect(rules(guard)).toEqual(["R-CONT"]);
+  expect(words(guard)).toMatch(/OUT012 was deferred yesterday/);
 });
 
 test("5. deferrals are typed: capacity and policy, each with a reason", async ({ request }) => {

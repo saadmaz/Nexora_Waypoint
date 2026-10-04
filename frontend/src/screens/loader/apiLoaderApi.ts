@@ -1,7 +1,19 @@
 import { ApiError, isNetworkUnavailable } from "../../api/http/errors";
 import type { DepotId } from "../../domain/field";
 import type { components } from "../../api/schema";
-import { attachBlob, enqueue, listRecords, NetworkError, request, getRecord, registerApiBlobUploader, registerApiSyncHandlers } from "../../field/offline";
+import {
+  attachBlob,
+  enqueue,
+  getCache,
+  getRecord,
+  listRecords,
+  NetworkError,
+  nowMs,
+  putCache,
+  registerApiBlobUploader,
+  registerApiSyncHandlers,
+  request,
+} from "../../field/offline";
 import { formatTime } from "../../field/clock/clock";
 import { mapDock, mapException, mapLoadPlan, mapPlanDiff, readLocalState } from "./apiLoaderMapper";
 import type { LoaderApi } from "./LoaderApi";
@@ -26,7 +38,8 @@ const isNumeric = (value: string) => /^\d+$/.test(value);
  * The loader's real API (field conventions section 10), over `/api/v1/loader/*` and `POST /sync`. Same interface as the mock.
  *
  * - **Reads** go to the server, then the tablet's own unsent work is laid over them (see `apiLoaderMapper.ts`), so a count just
- *   recorded shows at once. Reads need a connection; offline they throw `NetworkError` and the screens show their offline state.
+ *   recorded shows at once. The dock board and a load list are kept on the tablet as they last arrived; with no connection that copy
+ *   stands in, and the unsent work is still laid over it, so counts taken offline show. Other reads need a connection.
  * - **Writes** (acknowledge, count, confirm loaded, flag) are saved in the outbox first and sent through `/sync`, as in the mock.
  * - **Flags** get their id from the server only once the record has synced. Until then the id is the record's own `clientId`,
  *   and `getException` answers from the tablet's copy of what was flagged.
@@ -39,8 +52,22 @@ export function createApiLoaderApi(): LoaderApi {
   let lastDock: DepotId = "peliyagoda";
   let dockVehicleIds: string[] = [];
 
+  /** Reads from the server and keeps the answer. With no connection the last answer stands in; with none kept, the failure stands. */
+  async function readKept<T>(key: string, load: () => Promise<T>): Promise<T> {
+    try {
+      const fresh = await load();
+      await putCache(key, fresh, nowMs());
+      return fresh;
+    } catch (error) {
+      if (!(error instanceof NetworkError) && !isNetworkUnavailable(error)) throw error;
+      const kept = await getCache<T>(key);
+      if (!kept) throw error;
+      return kept.value;
+    }
+  }
+
   async function readDock(dockId: DepotId): Promise<Schemas["DockOut"]> {
-    return request<Schemas["DockOut"]>("loader.getDock", { dock: dockId });
+    return readKept(`loader:dock:${dockId}`, () => request<Schemas["DockOut"]>("loader.getDock", { dock: dockId }));
   }
 
   async function getException(id: string): Promise<ExceptionView> {
@@ -98,7 +125,7 @@ export function createApiLoaderApi(): LoaderApi {
     },
 
     async getLoadPlan(vehicleId, trip) {
-      const out = await request<Schemas["LoadPlanOut"]>("loader.getLoadPlan", { vehicleId, trip });
+      const out = await readKept(`loader:plan:${vehicleId}:${trip}`, () => request<Schemas["LoadPlanOut"]>("loader.getLoadPlan", { vehicleId, trip }));
       return mapLoadPlan(out, lastDock, readLocalState(await listRecords()));
     },
 

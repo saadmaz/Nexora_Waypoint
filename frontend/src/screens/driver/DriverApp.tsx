@@ -1,3 +1,4 @@
+import { roleApiMode } from "../../api/http/config";
 import type { ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { ClockProvider } from "../../field/clock/ClockContext";
@@ -29,7 +30,7 @@ import { SyncResultScreen } from "./sync/SyncResultScreen";
  */
 export function DriverApp() {
   // Where the mock clock starts. On the real API the clock is the server's and this is never read.
-  const start = import.meta.env.DEV ? devMocks().fieldClock.DRIVER_START : undefined;
+  const start = roleApiMode("driver") === "mock" ? devMocks().fieldClock.DRIVER_START : undefined;
   return (
     <Routes>
       {import.meta.env.DEV && <Route path="_states" element={<DriverGallery />} />}

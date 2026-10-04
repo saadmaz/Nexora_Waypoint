@@ -27,7 +27,7 @@ export function Meter({ value, max, height = 10, tone, label }: MeterProps) {
       aria-valuenow={value}
       aria-valuemin={0}
       aria-valuemax={max}
-      aria-label={label}
+      aria-label={label ?? `${value} of ${max}`}
     >
       <div className={cx(styles.fill, styles[shown])} style={{ width: `${width}%` }} />
       {over && <div className={styles.over} />}

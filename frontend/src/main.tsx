@@ -21,8 +21,17 @@ const root = document.getElementById("root");
 if (!root) throw new Error("Root element #root is missing from index.html");
 
 async function start(target: HTMLElement) {
-  // The mocks exist only in development. In a production build this import() is dead code, so they are not shipped.
-  if (import.meta.env.DEV) {
+  // The mocks load only when VITE_DATA_SOURCE is not "live" (or a role is set to mock). In a live build this import() is dead
+  // code, so they are not shipped.
+  // Written out here, not imported, so Vite's literal replacement folds it to a constant (see api/dataSource.ts).
+  if (
+    import.meta.env.VITE_DATA_SOURCE !== "live" ||
+    import.meta.env.VITE_AUTH_API === "mock" ||
+    import.meta.env.VITE_STORE_API === "mock" ||
+    import.meta.env.VITE_DISPATCHER_API === "mock" ||
+    import.meta.env.VITE_LOADER_API === "mock" ||
+    import.meta.env.VITE_DRIVER_API === "mock"
+  ) {
     const { installDevMocks } = await import("./devMocks/install");
     installDevMocks();
   }

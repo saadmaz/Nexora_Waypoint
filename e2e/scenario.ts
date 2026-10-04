@@ -10,9 +10,9 @@ export type Morning = { service: string; version: number };
  * Plays the walkthrough up to the moment the driver is on the road (step 11): the store orders, the cutoff and draft, the
  * release, the loaders' acknowledgements, the swap, and the driver's acknowledgement and departure. The store's order goes
  * through the real screen; the rest goes through the same API calls the other roles' screens make. Returns the delivery day
- * and the plan version the driver holds.
+ * and the plan version the driver holds. With `until` "kandyDock" it stops after the swap, before the Kandy dock acknowledges or loads.
  */
-export async function playToDeparture(page: Page, request: APIRequestContext): Promise<Morning> {
+export async function playToDeparture(page: Page, request: APIRequestContext, until: "departure" | "kandyDock" = "departure"): Promise<Morning> {
   await reset(request);
   await goTo(request, "planning", "15:40");
   await signIn(page, "store");
@@ -42,6 +42,7 @@ export async function playToDeparture(page: Page, request: APIRequestContext): P
   await call(request, "dispatcher", "POST", `/dispatcher/exceptions/${exceptionId}/decide`, { data: { decision: "swap_vehicle", deferOrderIds: [] } });
   const version = (await call(request, "loader", "GET", "/loader/docks/kandy")).planVersion as number;
 
+  if (until === "kandyDock") return { service, version }; // the Kandy dock has not acted yet
   await goTo(request, "service", "04:15");
   await sync(request, "loader", "tablet-kandy", [
     record(service, "loader.ack", { date: service, version, dockId: "kandy", personId: ruwan.id, personName: ruwan.name }, "04:15", version, ruwan.name),

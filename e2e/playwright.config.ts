@@ -22,9 +22,11 @@ export default defineConfig({
   reporter: [["list"]],
   use: {
     baseURL: process.env.E2E_BASE_URL ?? "http://localhost:8080",
-    // The walkthrough reads wall-clock times off the screen ("Received 15:40"), so the browser is pinned to the
-    // scenario's own zone. Without this it inherits the runner's: CI is UTC, and every such assertion shifts 5h30.
-    timezoneId: "Asia/Colombo",
+    // The walkthrough reads wall-clock times off the screen ("Received 15:40"), and each must read the same wherever
+    // the judge's laptop is. So the browser is deliberately not Asia/Colombo: a timestamp that forgot to say which
+    // zone it meant shows up here instead of in front of a judge. The frontend unit tests do the same by running
+    // twice (ci.yml, "wherever the judge's laptop is"). E2E_TZ overrides it.
+    timezoneId: process.env.E2E_TZ ?? "America/New_York",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },

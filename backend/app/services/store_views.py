@@ -75,7 +75,7 @@ def stamp(value: datetime) -> str:
     moment everywhere. A naive string would instead be read as the browser's own wall clock: the same reply
     said 15:40 from Colombo and 21:10 from a UTC runner.
     """
-    return repo.naive(value).replace(microsecond=0, tzinfo=COLOMBO).isoformat()  # type: ignore[union-attr]
+    return value.astimezone(COLOMBO).replace(microsecond=0).isoformat()
 
 
 def dock_label(dock_type: Any) -> str:
@@ -219,8 +219,9 @@ def load_facts(db: Session, outlet: reference.Outlet, orders: list[om.Order]) ->
         for a in db.scalars(select(AuditEvent).where(AuditEvent.entity_type == "exception", AuditEvent.type == AuditType.ISSUE_REPORTED, AuditEvent.entity_id.in_([str(e.id) for e in facts.issues]))):
             facts.issue_photo[int(a.entity_id)] = bool((a.payload or {}).get("photo"))
 
-    # The planned vehicles, plus whichever one actually delivered: after a dock swap (VEH003 → VEH036) the
-    # proof names the vehicle on the driver's record, so its driver has to be in the map too.
+    # The vehicles carrying the orders, plus the ones that actually delivered them. Either can leave the latest plan: a
+    # stop deferred after the truck left is on no trip, and a dock swap (VEH003 → VEH036) moves it to another vehicle.
+    # The proof still names that driver (S3.1), so its driver has to be in the map too.
     vehicles = {p.vehicle_id for p in facts.placed.values()} | {r.vehicle_id for r in facts.outcomes.values() if r.vehicle_id}
     if vehicles:
         facts.drivers = {d.vehicle_id: d.name for d in db.scalars(select(people.Driver).where(people.Driver.vehicle_id.in_(vehicles)))}
