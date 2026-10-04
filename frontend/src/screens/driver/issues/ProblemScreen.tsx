@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { PinnedActionBar } from "../../../field/components";
-import { saveBlob } from "../../../field/offline";
+import { db, saveBlob } from "../../../field/offline";
 import { Button } from "../../../shared/ui/Button";
 import { Card } from "../../../shared/ui/Card";
 import { Icon } from "../../../shared/ui/Icon";
@@ -11,7 +11,8 @@ import { useDriverRun } from "../context/useDriverRun";
 import { runDate } from "../../../field/clock/runDate";
 import { CameraCapture } from "../outcome/CameraCapture";
 import { DriverShell } from "../shell/DriverShell";
-import { PROBLEM_TYPES, type ProblemRecord, type ProblemType } from "../types";
+import { PROBLEM_TYPES, problemPhotoIds, type ProblemRecord, type ProblemType } from "../types";
+import { ProblemPhotos } from "./ProblemPhotos";
 import type { JustSavedProblem } from "./IssuesScreen";
 import styles from "./Issues.module.css";
 
@@ -35,7 +36,12 @@ export function ProblemScreen() {
   const [stopId, setStopId] = useState<string>("");
   const [orderIds, setOrderIds] = useState<string[]>([]);
   const [note, setNote] = useState("");
-  const [photo, setPhoto] = useState<{ blobId: string; time: string } | null>(null);
+  const [photos, setPhotos] = useState<string[]>([]);
+  // An update's earlier photos (the thread's records): shown, never removed, since they are part of what was saved.
+  const [earlierPhotos, setEarlierPhotos] = useState<string[]>([]);
+  // Photos taken on this form and not yet saved with a record. They are deleted from the phone if the driver removes
+  // them or leaves without saving, so a discarded photo never uploads on its own.
+  const unsaved = useRef(new Set<string>());
   const [saving, setSaving] = useState(false);
 
   // An update keeps the thread's type, stop and orders; only the note and photo are new.
@@ -49,11 +55,20 @@ export function ProblemScreen() {
       setType(thread.parent.type);
       setStopId(thread.parent.stopId ?? "");
       setOrderIds(thread.parent.orderIds);
+      setEarlierPhotos([thread.parent, ...thread.updates].flatMap(problemPhotoIds));
     });
     return () => {
       active = false;
     };
   }, [api, updatesClientId]);
+
+  useEffect(() => {
+    const pending = unsaved.current;
+    return () => {
+      for (const id of pending) void discardPhoto(id);
+      pending.clear();
+    };
+  }, []);
 
   const stops = useMemo(() => run?.stops ?? [], [run]);
   const stop = stops.find((s) => s.outletId === stopId);
@@ -69,6 +84,12 @@ export function ProblemScreen() {
     setOrderIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
   }
 
+  function removePhoto(blobId: string) {
+    setPhotos((ids) => ids.filter((id) => id !== blobId));
+    unsaved.current.delete(blobId);
+    void discardPhoto(blobId);
+  }
+
   async function save() {
     if (!type) return;
     setSaving(true);
@@ -78,9 +99,10 @@ export function ProblemScreen() {
         ...(stopId ? { stopId } : {}),
         orderIds: stopId ? orderIds : [],
         note: note.trim(),
-        ...(photo ? { photoBlobId: photo.blobId } : {}),
+        ...(photos.length > 0 ? { photoBlobIds: photos } : {}),
         ...(updatesClientId ? { updatesClientId } : {}),
       });
+      unsaved.current.clear();
       // Replace the form in history, so Back from the list never reopens a problem that is already saved.
       const justSaved: JustSavedProblem = { clientId: record.clientId, goOn: nextStop?.outletId ?? null };
       navigate("/driver/issues", { replace: true, state: { justSaved } });
@@ -96,9 +118,10 @@ export function ProblemScreen() {
         subtitle={stopId || t("issues.stopNone")}
         helper={t("issues.photoHelper")}
         onCancel={() => setStep("record")}
-        onCapture={(blob, capturedAt) => {
+        onCapture={(blob) => {
           void saveBlob({ kind: "photo", blob }).then((blobId) => {
-            setPhoto({ blobId, time: capturedAt });
+            unsaved.current.add(blobId);
+            setPhotos((ids) => [...ids, blobId]);
             setStep("record");
           });
         }}
@@ -131,7 +154,7 @@ export function ProblemScreen() {
     );
   }
 
-  const canSave = Boolean(type) && !saving && (!updatesClientId || note.trim().length > 0 || photo !== null);
+  const canSave = Boolean(type) && !saving && (!updatesClientId || note.trim().length > 0 || photos.length > 0);
   return (
     <DriverShell
       title={updatesClientId ? t("issues.updateTitle") : t("issues.recordTitle")}
@@ -194,9 +217,27 @@ export function ProblemScreen() {
         </label>
       </Card>
 
-      <Button variant="secondary" icon="camera" onClick={() => setStep("photo")}>
-        {photo ? t("issues.photoAdded", { time: photo.time }) : t("issues.photo")}
-      </Button>
+      {earlierPhotos.length > 0 && (
+        <Card padded>
+          <div className={styles.field}>
+            <span className={styles.label}>{t("issues.photosEarlier")}</span>
+            <ProblemPhotos blobIds={earlierPhotos} />
+          </div>
+        </Card>
+      )}
+
+      <Card padded>
+        <div className={styles.field}>
+          <span className={styles.label}>{updatesClientId ? t("issues.photosThisUpdate") : t("issues.photos")}</span>
+          <ProblemPhotos blobIds={photos} onRemove={removePhoto} onAdd={() => setStep("photo")} />
+        </div>
+      </Card>
     </DriverShell>
   );
+}
+
+/** Deletes a photo from the phone, but only one no record has claimed: a saved record's photo is never touched. */
+async function discardPhoto(blobId: string): Promise<void> {
+  const blob = await db.blobs.get(blobId);
+  if (blob && !blob.recordClientId) await db.blobs.delete(blobId);
 }

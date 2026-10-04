@@ -148,6 +148,9 @@ export type ProblemInput = {
   stopId?: string;
   orderIds: string[];
   note: string;
+  /** The photos saved with this record, in the order they were taken. */
+  photoBlobIds?: string[];
+  /** One photo, as records saved before `photoBlobIds` hold it. Read through `problemPhotoIds`, never written. */
   photoBlobId?: string;
   /** Set when this record updates an earlier problem (V40): the thread's first record. */
   updatesClientId?: string;
@@ -159,6 +162,11 @@ export type ProblemRecord = ProblemInput & {
   /** "HH:MM", device time it was saved. */
   savedAt: string;
 };
+
+/** Every photo on a problem record, whether it was saved with `photoBlobIds` or the older single `photoBlobId`. */
+export function problemPhotoIds(record: Pick<ProblemInput, "photoBlobIds" | "photoBlobId">): string[] {
+  return record.photoBlobIds ?? (record.photoBlobId ? [record.photoBlobId] : []);
+}
 
 /** R6.4: one thread per first problem record, with the updates that followed it (V40). */
 export type ProblemThread = {

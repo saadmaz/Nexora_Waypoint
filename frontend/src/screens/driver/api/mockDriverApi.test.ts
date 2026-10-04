@@ -8,7 +8,7 @@ import { clearSyncHandlers, registerBlobUploader, runSync } from "../../../field
 import { setTimeSource } from "../../../field/offline/time";
 import { RUN_DATE } from "../fixtures";
 import type { DriverApi } from "./DriverApi";
-import type { DriverNotice } from "../types";
+import { problemPhotoIds, type DriverNotice } from "../types";
 import { createMockDriverApi, registerDeviceNoticeSync, registerDriverHandlers, resolveConflictNow, setFailNextUpload, sortNotices } from "./mockDriverApi";
 
 function at(time: string): number {
@@ -219,6 +219,37 @@ describe("photos (driver prompt 4 section 4)", () => {
     expect(failures[0].body).toBe("Couldn't send photo of stop 1. Kept on phone. Retrying.");
     expect(failures[0].outletId).toBe("OUT084");
     expect(failures[0].reference).toBe("WP-SYNC-409");
+  });
+});
+
+describe("problem photos (R6.2)", () => {
+  const photo = () => saveBlob({ kind: "photo", blob: new Blob(["jpeg"], { type: "image/jpeg" }) });
+
+  it("queues every photo of a problem with its record and ties each one to it", async () => {
+    const api = createMockDriverApi(now);
+    const [first, second] = [await photo(), await photo()];
+    const saved = await api.recordProblem(RUN_DATE, { type: "Vehicle problem", orderIds: [], note: "", photoBlobIds: [first, second] });
+
+    const record = (await listRecords()).find((r) => r.clientId === saved.clientId);
+    expect(record?.blobIds).toEqual([first, second]);
+    expect((await getBlob(first))?.recordClientId).toBe(saved.clientId);
+    expect((await getBlob(second))?.recordClientId).toBe(saved.clientId);
+  });
+
+  it("keeps an update's photos on its own record, so the thread lists the first record's photos and the update's apart", async () => {
+    const api = createMockDriverApi(now);
+    const [first, added] = [await photo(), await photo()];
+    const parent = await api.recordProblem(RUN_DATE, { type: "Vehicle problem", orderIds: [], note: "", photoBlobIds: [first] });
+    await api.recordProblem(RUN_DATE, { type: "Vehicle problem", orderIds: [], note: "", photoBlobIds: [added], updatesClientId: parent.clientId });
+
+    const [thread] = await api.listProblems(RUN_DATE);
+    expect(problemPhotoIds(thread.parent)).toEqual([first]);
+    expect(thread.updates.map(problemPhotoIds)).toEqual([[added]]);
+  });
+
+  it("still reads the one photo of a record saved before photoBlobIds", () => {
+    expect(problemPhotoIds({ photoBlobId: "old" })).toEqual(["old"]);
+    expect(problemPhotoIds({})).toEqual([]);
   });
 });
 
