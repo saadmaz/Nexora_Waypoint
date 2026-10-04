@@ -298,6 +298,7 @@ const en: Dict = {
   "signature.clear": "Clear",
   "signature.save": "Save signature",
   "signature.stamp": "{name} · device time {time}",
+  "signature.noName": "Receiver not named",
 
   "me.title": "Me",
   "me.sunlight": "Screen for bright sunlight",
