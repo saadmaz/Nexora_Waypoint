@@ -253,6 +253,23 @@ def arrival_range(predicted: datetime | None, outlet: reference.Outlet) -> s.Arr
     return s.ArrivalRange(from_=opens, may_arrive_at=arrives) if arrives < opens else s.ArrivalRange(from_=arrives)
 
 
+def actual_arrival(placement: Placement, run: f.Run | None) -> datetime | None:
+    """The planned arrival, shifted by how late the truck actually left (A27).
+
+    The plan's arrival is what the store was promised and what ``order_out`` keeps showing. Once the run has
+    departed, the live line ("arrives about") has to move with it: a truck that left 100 minutes after its
+    planned departure cannot still be arriving at the planned minute. An early departure keeps the plan's
+    times, because the driver waits for the window either way.
+    """
+    if placement.planned_arrival is None:
+        return None
+    departed = repo.naive(run.departed_at) if run is not None and run.departed_at is not None else None
+    planned = repo.naive(placement.depart_at)
+    if departed is None or planned is None or departed <= planned:
+        return placement.planned_arrival
+    return placement.planned_arrival + (departed - planned)
+
+
 def _deferral_notice(d: om.Deferral) -> s.DeferralNoticeOut:
     return s.DeferralNoticeOut(
         type=d.type, reason=d.reason_text, decided_by=(d.decided_by or "Dispatch").split(" · ")[0],
@@ -478,10 +495,11 @@ def _delivery(db: Session, facts: Facts, day: date, orders: list[om.Order], now:
     if receipts:
         times["Receipt confirmed"] = hm(max(r.confirmed_at for r in receipts)) or ""
 
-    # arrival, on the way, loaded
+    # arrival, on the way, loaded. Once the truck has left, both lines move with the real departure (A27).
     released = bool(placements)
-    arrival = arrival_range(placement.planned_arrival, outlet) if released and deferral is None and placement else None
-    predicted = hm(placement.planned_arrival) if placement and placement.planned_arrival else f"{outlet.window_open:%H:%M}"
+    expected = actual_arrival(placement, run) if placement else None
+    arrival = arrival_range(expected, outlet) if released and deferral is None and placement else None
+    predicted = hm(expected) if expected else f"{outlet.window_open:%H:%M}"
     loaded = on_the_way = last_update = None
     if status is _OS.LOADED and "Loaded" in times and placement:
         depot = facts.depots.get(placement.vehicle_id)
