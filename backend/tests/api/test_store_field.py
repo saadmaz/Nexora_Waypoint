@@ -351,3 +351,47 @@ def test_a_store_sees_only_its_own_outlet(client, auth, reseed):
     # The dispatcher account has no outlet, so the store's reads refuse it before anything is read.
     assert client.get(f"{STORE}/deliveries", headers=auth("dispatcher")).status_code == 403
     assert client.get(f"{STORE}/deliveries/2026-09-30", headers=auth("store")).json() == []
+
+
+def test_the_server_sets_the_weight_not_the_client(client, auth, reseed):
+    """A49/§19: units are the store's, kilograms and cubic metres are the server's.
+
+    The request still carries the screen's estimate, but it is only compared. Before this the figure was
+    stored as sent, so 500 chilled units declared as 0.1 kg reached the planner weighing 0.1 kg and R-KG
+    and R-M3 would have packed it onto anything.
+    """
+    advance(client, auth, "2026-09-28T15:40:00+05:30")
+    form = get(client, auth, "store", f"{STORE}/order-form")
+    factor = form["unitFactors"]["chilled"]
+
+    placed = post(
+        client, auth, "store", f"{STORE}/orders",
+        {"orders": [{"outletId": "OUT084", "deliveryDate": DAY, "line": {"kind": "chilled", "units": 12, "estimatedKg": 0.1, "estimatedM3": 0.001}}]},
+        status=201,
+    )
+    line = placed[0]["line"]
+    assert line["units"] == 12
+    assert line["estimatedKg"] == round(12 * factor["kg"], 3), line
+    assert line["estimatedM3"] == round(12 * factor["m3"], 3), line
+
+    # The dispatcher's queue reads the stored figure, which is what the planner packs.
+    groups = get(client, auth, "dispatcher", "/api/v1/dispatcher/queue", depot="kandy")["groups"]
+    row = next(o for g in groups for o in g["orders"] if o["id"] == placed[0]["id"])
+    assert row["kg"] == round(12 * factor["kg"], 3) and row["m3"] == round(12 * factor["m3"], 3), row
+
+    # An edit is held to the same rule.
+    res = client.patch(
+        f"/api/v1/store/orders/{placed[0]['id']}",
+        json={"units": 14, "estimatedKg": 0.2, "estimatedM3": 0.002},
+        headers=auth("store"),
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["line"]["estimatedKg"] == round(14 * factor["kg"], 3), res.json()["line"]
+
+
+def test_the_reference_days_figures_are_unchanged(client, auth, reseed):
+    """The walkthrough's two orders still weigh what PRD 4c says: 12 chilled is 70 kg / 0.7 m3, 8 dry is 45 / 0.6."""
+    placed = place(client, auth)
+    lines = {o["id"]: o["line"] for o in placed}
+    assert lines["ORD2001"]["estimatedKg"] == 70.0 and lines["ORD2001"]["estimatedM3"] == 0.7, lines
+    assert lines["ORD2002"]["estimatedKg"] == 45.0 and lines["ORD2002"]["estimatedM3"] == 0.6, lines

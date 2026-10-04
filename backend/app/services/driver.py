@@ -50,6 +50,7 @@ def run(db: Session, user: CurrentUser, day: date, trip: int | None) -> s.RunOut
         trips=tuple(sorted(trips)), driver=repo.driver_name(db, vehicle_id), vehicle=repo.vehicle(db, day, vehicle_id),
         depart_at=t.depart_at, planned_km=t.planned_km, stops=tuple(repo.stops(db, day, version, t)),
         acknowledged=repo.acknowledged(db, version, vehicle_id), confirmation=repo.confirmation(db, day, vehicle_id, chosen),
+        departed_at=repo.departed_at(db, day, vehicle_id, chosen),
     )
     return views.run_view(facts, monsoon=cal.monsoon if cal else None, now=now)
 

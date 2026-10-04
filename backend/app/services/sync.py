@@ -623,8 +623,16 @@ def _confirm_loaded(db: Session, b: Batch, rec: SyncRecordIn, row: f.DeviceRecor
             order_service.apply(db, order, OrderEvent.LOAD, actor=actor, commit=False, payload={"vehicleId": vehicle, "trip": trip.trip_no})
             loaded.append(order)
     depot = db.get(reference.Depot, db.get(reference.Vehicle, vehicle).depot_id) if db.get(reference.Vehicle, vehicle) else None
-    store_notices.loaded(db, loaded, vehicle, f"{depot.name} dock" if depot else "the dock", b.now)
+    store_notices.loaded(db, loaded, vehicle, f"{depot.name} dock" if depot else "the dock", b.now, short=_short_loaded(db, trip))
     return Answer(SyncResultKind.ACCEPTED)
+
+
+def _short_loaded(db: Session, trip: plans.Trip) -> dict[str, int]:
+    """What the dock counted short on this trip, by order. The latest check of an order wins."""
+    short: dict[str, int] = {}
+    for check in db.scalars(select(plans.LoadCheck).where(plans.LoadCheck.trip_id == trip.id).order_by(plans.LoadCheck.checked_at)):
+        short[check.order_id] = max(check.units_expected - check.units_loaded, 0)
+    return {oid: n for oid, n in short.items() if n > 0}
 
 
 def _loader_exception(db: Session, b: Batch, rec: SyncRecordIn, row: f.DeviceRecord) -> Answer:

@@ -77,6 +77,8 @@ class RunFacts:
     stops: tuple[StopRow, ...]
     acknowledged: bool
     confirmation: ConfirmationRow | None
+    #: When the run actually left, if it has. The planned arrivals shift with it (A27).
+    departed_at: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)

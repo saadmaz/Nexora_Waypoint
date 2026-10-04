@@ -7,7 +7,7 @@ notice kind) is decided here so the phone never re-derives it.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from typing import Any
 
 from ..config import COLOMBO
@@ -84,7 +84,18 @@ def _hm(value: time) -> str:
     return value.strftime("%H:%M")
 
 
-def _stop(row: StopRow) -> s.RunStopOut:
+def _departure_shift(facts: RunFacts) -> timedelta:
+    """How late the run left. The planned arrivals move by the same amount once it has (A27).
+
+    An early departure keeps the plan's times: the windows are what the stores were promised, and the driver
+    waits for them anyway.
+    """
+    if facts.departed_at is None:
+        return timedelta(0)
+    return max(timedelta(0), facts.departed_at - facts.depart_at)
+
+
+def _stop(row: StopRow, shift: timedelta = timedelta(0)) -> s.RunStopOut:
     return s.RunStopOut(
         order_id=row.order_id,
         outlet_id=row.outlet_id,
@@ -93,7 +104,7 @@ def _stop(row: StopRow) -> s.RunStopOut:
         temp=row.temp,
         units=row.units,
         window=Window(start=_hm(row.window_open), end=_hm(row.window_close)),
-        planned_arrival=local(row.planned_arrival),
+        planned_arrival=local(row.planned_arrival + shift if row.planned_arrival else None),
         status=row.status,
         tags=list(row.tags),
         brand=row.brand,
@@ -129,7 +140,7 @@ def run_view(facts: RunFacts, *, monsoon: bool | None, now: datetime) -> s.RunOu
         ),
         depart_at=local(facts.depart_at),
         planned_km=facts.planned_km,
-        stops=[_stop(row) for row in sorted(facts.stops, key=lambda r: (r.seq, r.order_id))],
+        stops=[_stop(row, _departure_shift(facts)) for row in sorted(facts.stops, key=lambda r: (r.seq, r.order_id))],
         acknowledged=facts.acknowledged,
         loader_confirmation=(
             s.LoaderConfirmationOut(

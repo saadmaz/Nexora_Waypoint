@@ -65,6 +65,7 @@ from .schedule import (
     service_day_for,
     store_arrival,
 )
+from .units import Estimate, UnitFactor, disagrees, estimate
 from .vocab import (
     Binding,
     Brand,
@@ -117,6 +118,8 @@ __all__ = [
     "Role",
     "RuleId",
     "SHORTFALL_REASONS",
+    "Estimate",
+    "UnitFactor",
     "ServerOrderState",
     "ServiceDay",
     "ShortfallReason",
@@ -144,6 +147,8 @@ __all__ = [
     "headline",
     "hhmm",
     "is_offline",
+    "disagrees",
+    "estimate",
     "is_short",
     "impact_on_store",
     "lateness_risk",

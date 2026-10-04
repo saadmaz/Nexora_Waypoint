@@ -51,7 +51,7 @@ export type Order = {
    * have counted for, so it rolled to the following run and is tagged "After cutoff".
    */
   afterCutoff: boolean;
-  /** Window-aware arrival range, only present once the plan is released (23:40 the day before). */
+  /** Window-aware arrival range, only present once Dispatch has released the plan. */
   arrival?: { start: string; end: string };
   deferral?: DeferralNotice;
 };
@@ -117,4 +117,8 @@ export type OrderDraft = {
   defaultUnits: Record<OrderKind, number>;
   /** Orders already placed for `deliveryDate`, chilled first. */
   orders: Order[];
+  /** `HH:MM` the queue for `deliveryDate` closes, from the server. The screen never writes its own 16:00. */
+  cutoffAt: string;
+  /** When those orders can still be edited (`Tue 16:00` when it is not today). Absent once it has passed. */
+  editableUntil?: string;
 };

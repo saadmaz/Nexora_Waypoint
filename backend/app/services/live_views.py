@@ -16,7 +16,7 @@ from ..models.enums import ConflictStatus, ExceptionStatus, PlanState
 from ..schemas import dispatcher as s
 from .dispatch_model import TripRow
 from .dispatcher_views import day_label, hm
-from .exception_logic import ExceptionRow
+from .exception_logic import ExceptionRow, holds_the_vehicle
 from .live_model import ConflictRow, LiveDay, RunRow
 
 #: Rows shown without "Show all": those needing attention first, up to this many in all.
@@ -38,10 +38,6 @@ def _ago(now: datetime, then: datetime) -> str:
     return f"{total // 60} h {total % 60} min" if total >= 60 else f"{total} min"
 
 
-def _rules_trip(t: TripRow) -> Trip:
-    return Trip(t.vehicle_id, t.trip_no, t.depart_at, list(t.order_ids))
-
-
 @dataclass(slots=True)
 class _Facts:
     """What the board works out once per vehicle."""
@@ -59,6 +55,20 @@ class _Facts:
     held: bool
     all_done: bool
     pending_stop: str | None
+
+
+def _driven_trip(f: _Facts) -> Trip:
+    """The trip as it is actually being driven: the planned legs re-anchored on the real departure (A27).
+
+    ``planned_clock`` measures every arrival from ``trip.depart_at``, the plan's commitment, so on its own the
+    board keeps reporting the planned ETA however late the truck left. A run that departed after its planned
+    time shifts every remaining leg by the same amount. One that left early keeps the plan's times: the outlet
+    windows are what the stores were promised, and the driver waits for them anyway.
+    """
+    t = f.trip
+    departed = f.run.departed_at if f.run is not None else None
+    depart_at = max(t.depart_at, departed) if departed is not None else t.depart_at
+    return Trip(t.vehicle_id, t.trip_no, depart_at, list(t.order_ids))
 
 
 def _statuses(live: LiveDay, ids: tuple[str, ...] | list[str]) -> list[OrderStatus]:
@@ -162,7 +172,7 @@ def _resolved_tooltip(live: LiveDay, ids: list[str]) -> str | None:
 
 def _live_stops(live: LiveDay, f: _Facts) -> list[s.LiveStop]:
     day = live.day
-    clock = planned_clock(_rules_trip(f.trip), day.orders, day.ref)
+    clock = planned_clock(_driven_trip(f), day.orders, day.ref)
     arrival = {st.outlet_id: st for st in clock.stops}
     latest_deferred = {d.order_id: d for d in day.deferrals}
     out: list[s.LiveStop] = []
@@ -207,7 +217,7 @@ def _live_stops(live: LiveDay, f: _Facts) -> list[s.LiveStop]:
 
 def _next_stop(live: LiveDay, f: _Facts) -> str:
     day = live.day
-    clock = planned_clock(_rules_trip(f.trip), day.orders, day.ref)
+    clock = planned_clock(_driven_trip(f), day.orders, day.ref)
     if not f.departed:
         return f"Loading · departs {hm(f.trip.depart_at)}"
     if f.pending_stop is None:
@@ -222,7 +232,7 @@ def _next_stop(live: LiveDay, f: _Facts) -> str:
 
 def _risk(live: LiveDay, f: _Facts) -> str:
     day = live.day
-    clock = planned_clock(_rules_trip(f.trip), day.orders, day.ref)
+    clock = planned_clock(_driven_trip(f), day.orders, day.ref)
     remaining = [
         RemainingStop(st.outlet_id, st.arrival, st.window_close)
         for st in clock.stops
@@ -320,6 +330,8 @@ def _conflict_decision(live: LiveDay, c: ConflictRow) -> s.Decision:
 
 def _exception_decision(live: LiveDay, e: ExceptionRow) -> s.Decision:
     day = live.day
+    if not holds_the_vehicle(e):
+        return _reported_decision(live, e)
     trips = [t for t in day.trips if t.vehicle_id == e.vehicle_id]
     first = min((t.depart_at for t in trips), default=None)
     n = sum(len(t.order_ids) for t in trips)
@@ -335,6 +347,25 @@ def _exception_decision(live: LiveDay, e: ExceptionRow) -> s.Decision:
     )
 
 
+def _reported_decision(live: LiveDay, e: ExceptionRow) -> s.Decision:
+    """A problem reported from the road, or a dock flag that is not a failed vehicle check.
+
+    Nothing is held and there is no swap to review, so this is news, not a decision: no "held", no countdown to
+    a departure the truck has already made, and no link to D8, which only handles a vehicle swap (PRD v3.1).
+    The time is the reporter's own, since a problem recorded offline can sync hours later.
+    """
+    at = hm(e.device_time or e.raised_at)
+    orders = f" · {' + '.join(e.order_ids)}" if e.order_ids else ""
+    return s.Decision(
+        id=f"x{e.id}",
+        kind="info",
+        title=f"{e.vehicle_id}: {e.type}" if e.vehicle_id else e.type,
+        text=f"{e.detail or e.type} · reported by {e.raised_by or 'the driver'} {at}{orders}",
+        at=at,
+        info_only=True,
+    )
+
+
 def decision_entries(live: LiveDay) -> list[tuple[str, s.Decision]]:
     """What needs the dispatcher, each with the depot it belongs to: conflicts first, then held vehicles, then the information that explains them."""
     day = live.day
@@ -346,7 +377,8 @@ def decision_entries(live: LiveDay) -> list[tuple[str, s.Decision]]:
     for e in open_exc:
         out.append((day.ref.vehicles[str(e.vehicle_id)].depot, _exception_decision(live, e)))
 
-    if open_exc:
+    # A free vehicle is only worth offering when one is actually held and needs replacing.
+    if any(holds_the_vehicle(e) for e in open_exc):
         used = {t.vehicle_id for t in day.trips}
         for vid in sorted(day.ref.vehicles):
             a = day.availability.get(vid)
@@ -362,6 +394,25 @@ def decision_entries(live: LiveDay) -> list[tuple[str, s.Decision]]:
                         ),
                     )
                 )
+
+    # A short load is news Dispatch needs before the truck arrives: the dock and the driver both know, D6 did not.
+    for (vid, trip_no), counts in sorted(live.short_loaded.items()):
+        if not counts or not any(t.vehicle_id == vid for t in day.trips):
+            continue
+        short = ", ".join(f"{oid} short {n}" for oid, n in sorted(counts.items()))
+        outlets = sorted({day.orders[oid].outlet_id for oid in counts if oid in day.orders})
+        out.append(
+            (
+                day.ref.vehicles[vid].depot,
+                s.Decision(
+                    id=f"short-{vid}-{trip_no}",
+                    kind="info",
+                    title=f"{vid} trip {trip_no} loaded short",
+                    text=f"{short}. {' + '.join(outlets)} told." if outlets else f"{short}.",
+                    info_only=True,
+                ),
+            )
+        )
 
     for vid in sorted({t.vehicle_id for t in day.trips}):
         f = _facts(live, vid)

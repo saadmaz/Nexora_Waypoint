@@ -34,6 +34,7 @@ from .exception_logic import (
     deferral_binding,
     deferral_reason,
     exception_view,
+    holds_the_vehicle,
     trip_of_order,
 )
 from .planning import DeferralSpec, spec_of
@@ -44,6 +45,7 @@ def row_of(e: field.FieldException) -> ExceptionRow:
     return ExceptionRow(
         e.id, e.kind.value, e.type, e.vehicle_id, e.trip_id, tuple(e.order_ids or ()), e.detail, e.raised_by,
         repo.naive(e.raised_at) or e.raised_at, e.status, dict(e.decision) if e.decision else None, e.decided_by, repo.naive(e.decided_at),
+        repo.naive(e.device_time),
     )
 
 
@@ -72,8 +74,8 @@ def _next_run(db: Session, service_date: date) -> date | None:
 def review(db: Session, exception_id: int) -> s.ExceptionView:
     """D8: the exception, the recommended swap and what it costs. Once decided, the figures are those of the decision."""
     e, row = _load(db, exception_id)
-    if row.vehicle_id is None:
-        raise ApiError(409, "not_a_vehicle_flag", "This exception is not about a vehicle, so there is no swap to review.")
+    if not holds_the_vehicle(row):
+        raise ApiError(409, "not_a_vehicle_flag", "This exception does not hold a vehicle, so there is no swap to review.")
     now = clock.now(db).replace(tzinfo=None)
     service_date = _service_date(db, e, now)
     version = int(row.decision["fromPlan"]) if row.decision and row.decision.get("fromPlan") else None  # type: ignore[call-overload]
@@ -118,8 +120,8 @@ def decide(db: Session, exception_id: int, defer_order_ids: list[str], *, actor:
     e, row = _load(db, exception_id)
     if row.status is ExceptionStatus.DECIDED:
         raise ApiError(409, "already_decided", "This exception has already been decided.")
-    if row.vehicle_id is None:
-        raise ApiError(409, "not_a_vehicle_flag", "This exception is not about a vehicle, so there is no swap to decide.")
+    if not holds_the_vehicle(row):
+        raise ApiError(409, "not_a_vehicle_flag", "This exception does not hold a vehicle, so there is no swap to decide.")
     now = clock.now(db).replace(tzinfo=None)
     service_date = _service_date(db, e, now)
     day = repo.load_day(db, service_date, now)

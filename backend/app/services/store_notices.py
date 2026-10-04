@@ -60,9 +60,16 @@ def arrival_set(db: Session, version: plans.PlanVersion, at: datetime) -> None:
         tell(db, outlet_id, NoticeTag.PLAN, "Arrival time set", body, day=version.service_date, order_ids=sorted(ids), at=at)
 
 
-def loaded(db: Session, orders: list[om.Order], vehicle_id: str, place: str, at: datetime) -> None:
+def loaded(db: Session, orders: list[om.Order], vehicle_id: str, place: str, at: datetime, short: dict[str, int] | None = None) -> None:
+    """"Your orders are loaded", naming anything the dock counted short so the store can staff for what is coming."""
+    short = short or {}
     for outlet_id, rows in _by_outlet(orders).items():
-        tell(db, outlet_id, NoticeTag.DELIVERY, "Loaded", f"Your orders are loaded on {vehicle_id} at {place}.", day=rows[0].service_date, order_ids=[o.id for o in rows], at=at)
+        body = f"Your orders are loaded on {vehicle_id} at {place}."
+        missing = [(o, short[o.id]) for o in rows if short.get(o.id)]
+        if missing:
+            counts = " ".join(f"{o.id} is short {n} of {o.units} units." for o, n in missing)
+            body = f"{body} {counts} Dispatch has been told."
+        tell(db, outlet_id, NoticeTag.DELIVERY, "Loaded", body, day=rows[0].service_date, order_ids=[o.id for o in rows], at=at)
 
 
 def departed(db: Session, orders: list[om.Order], vehicle_id: str, left_at: datetime, at: datetime) -> None:
