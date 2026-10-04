@@ -19,9 +19,13 @@ function chipStatus(status: ConnectivityStatus): ChipStatus {
   return status === "online" ? "synced" : status;
 }
 
-/** Only Peliyagoda's vehicles actually changed between v3 and v4 (the VEH003 → VEH036 swap). */
-function hasDiff(dockId: DepotId): boolean {
-  return dockId === "peliyagoda";
+/**
+ * Whether the new version changed anything at this dock, so L1.4 asks for a review rather than a plain
+ * acknowledgement. The same test the vehicle cards' "Changed" tag uses: a vehicle held, replaced, or
+ * standing in for another is what a loader has to look at.
+ */
+function hasDiff(vehicles: DockViewModel["vehicles"]): boolean {
+  return vehicles.some((v) => v.status === "held" || v.status === "replaced" || v.replaces);
 }
 
 /**
@@ -85,7 +89,7 @@ export function DockContainer({
 
   const ack = view.acknowledgement;
   const changed = view.newerVersionExists;
-  const diffMatters = hasDiff(dockId);
+  const diffMatters = hasDiff(view.vehicles);
   const locked = changed || !ack;
 
   let alert: DockAlertModel;
@@ -107,7 +111,7 @@ export function DockContainer({
       orderCount: view.orderCount,
       firstDeparture: view.firstDeparture,
     };
-  } else if (ack.version >= 4 && !diffMatters) {
+  } else if (!diffMatters) {
     alert = { kind: "noChangeAcknowledged", version: ack.version, by: ack.personName, at: ack.at };
   } else {
     alert = { kind: "acknowledgedCompact", version: ack.version, by: ack.personName, at: ack.at };
