@@ -1,0 +1,10 @@
+{
+  // Cloudflare Workers Builds runs `npm run build`, then `npx wrangler versions upload`, from the frontend/ folder.
+  // This file tells wrangler what to upload: the built app, served as a single-page app so a reload on /store/orders works.
+  "name": "nexora-waypoint",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}
