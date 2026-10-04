@@ -1189,8 +1189,8 @@ npm run compare -- driver R1.1 R3.1   # frame screenshots beside Figma (needs th
 npm run test:hero        # the hero path end to end against a running dev server (see "Checks run")
 npm run test:hero -- --partial   # the same, ending with the presenter's "Keep as Partial (10 of 12)"
 npm test                 # vitest, 55 tests
-npm run build && npm run preview   # then, in another terminal:
-npm run test:offline -- --base http://localhost:4173   # the production build opens with no network
+VITE_API_BASE=http://localhost:8000 npm run build && npm run preview   # then, in another terminal (the API on :8000, :4173 in CORS_ORIGINS):
+npm run test:offline -- --base http://localhost:4173   # the production build works with no network, then syncs
 ```
 
 Add `?presenter=1` to any driver URL to get the presenter controls in the Outbox sheet (see "The Outbox").
@@ -1272,7 +1272,7 @@ R8.1 (`notices/NotificationsScreen.tsx`, route `/driver/notifications`) lists on
 
 ### Real devices, the service worker and the iOS note (driver prompt 4, O6)
 
-- **Offline after one visit.** The production build registers a service worker (`vite-plugin-pwa`). `npm run test:offline` checks it: after one visit it sets the browser offline, reloads, and checks that the cached run is on screen, that a departure recorded offline survives a reload, and that the Me tab shows storage used. This passes on desktop Chromium.
+- **Offline after one visit.** The production build registers a service worker (`vite-plugin-pwa`). `npm run test:offline` checks it against the real API (a production build runs nothing else): after one visit it sets the browser offline, reloads, and checks that the cached run is on screen, that a departure recorded offline survives a reload and has not reached the server, that the Me tab shows storage used, and that once the network returns the departure reaches the server. It resets the demo first. This passes on desktop Chromium.
 - **Storage.** `startFieldRuntime` asks `navigator.storage.persist()` at first run; the browser decides, and desktop Chromium usually says no for a new origin. The Me tab shows "N MB used" from `navigator.storage.estimate()`.
 - **iOS has no Background Sync API.** Safari on iPhone will not wake the app to send records. Syncing happens only while the app is open: on the `online` event, on the 30 s timer, and on "Send now". A driver who records a stop in a dead zone and closes the app sends nothing until the app is opened again with coverage. The app does not register a background sync on Android either, so it behaves the same way there.
 - **The physical-phone check has not been done.** It needs a person with a phone. Checklist, on a production build served over HTTPS (`npm run build`, then any HTTPS host):
@@ -1483,7 +1483,8 @@ CORS_ORIGINS='["http://localhost:8080","http://localhost:5173","http://localhost
 | `npm run test:api-roles -- --base http://localhost:5192` | the API (with `:5192` in `CORS_ORIGINS`), the app with all four flags | Each role's first screen read goes to the real route with that role's own token; the transport gets a live 200 from `/me`, the server's own 404 from `driver.getRun` while no plan is released, hands a record to `/sync`, and makes no request offline (run it on a freshly seeded database) |
 | `npm run test:api-dispatcher -- --base http://localhost:5173` | the API, the app with `VITE_AUTH_API=api VITE_DISPATCHER_API=api` | All 20 dispatcher operations: 401 with no token, 403 with a driver token, the typed 501 with a dispatcher token (or the real answer, compared with the mock's view, for a route that has landed); the same 20 through the app's client; the 501 on each of the nine screens' own error states; offline and recovery on the live board; the presenter control against `/demo/advance` and `/demo/reset`; a rejected token. It resets the demo at the end |
 | `npm run test:api-sync` | the API (`docker compose up -d --build db api`); no app | The offline path over HTTP: the gate confirmation, the phone's start, a store-request deferral at 05:21, then a 06:40 sync on the old plan that comes back accepted plus one conflict per deferred stop; the same batch again is all duplicate; the photo uploads once; D7 recommends and keeps the delivery; a dock acknowledgement of the replaced plan is a conflict. ORD2001 + ORD2002 are placed by the store, so until `POST /store/orders` lands it defers the first stop of VEH039 trip 1 instead and skips the board checks. It resets the demo at the start and the end |
-| `npm run test:hero`, `npm run test:offline` | the app in mock mode | The mock path is unchanged |
+| `npm run test:hero` | the app in mock mode (`npm run dev`) | The mock path is unchanged |
+| `npm run test:offline -- --base http://localhost:4173` | the API, and a production build with `VITE_API_BASE=http://localhost:8000` in `npm run preview` | The shipped build works offline after one visit and its offline record reaches the server once back online. It resets the demo first |
 
 ### What the backend answers today (3 Oct)
 
