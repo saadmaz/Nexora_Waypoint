@@ -178,9 +178,10 @@ export function DispatcherProvider({ children }: { children: ReactNode }) {
   const advanceTo = useMemo(() => {
     const demo = base.demo;
     if (demo) {
-      // The presenter control moves the server's clock. A refusal (it never goes backwards) or a failure leaves the clock where it was.
-      return (to: Date) => {
-        demo.advance(to).then(syncClock, () => undefined);
+      // The presenter control moves the server's clock. A refusal (it never goes backwards) or a failure leaves the clock
+      // where it was, and the error reaches the control so it can print the server's reason instead of looking dead.
+      return async (to: Date) => {
+        syncClock(await demo.advance(to));
       };
     }
     return base.advanceTo

@@ -1,6 +1,6 @@
 # Testing the live stack
 
-What to click to see the system do real work, on branch `fix/live-build-and-seed`.
+What to click to see the system do real work.
 
 The app now runs on the database, not on fixtures. Every number you see is computed by the backend.
 
@@ -35,33 +35,17 @@ SEED_GENERATED_ORDERS=true docker compose up --build   # full-size day
 docker compose up --build                              # the walkthrough's day
 ```
 
-## Pause the clock first
+## The clock holds still
 
-**Do this before anything else.** `CLOCK_RATE` is 1, so scenario time runs at real time and the demo
-walks off the end of the day while you are using it.
+`CLOCK_RATE` defaults to 0, so scenario time moves only when the presenter control moves it ("Go to next step").
+That matters because the run the field apps work on (`runDate` in `GET /clock`) is today's until **12:00** and the
+next operating day's after that (`planning_repo.active_service_date`). Once scenario time passes Tue noon, the
+loader and the driver ask for **Wednesday's** work, which has no released plan, so the dock and the run are empty.
 
-The run the field apps work on (`runDate` in `GET /clock`) is today's until **12:00**, and the next
-operating day's after that (`planning_repo.active_service_date`). So once scenario time passes Tue
-noon, the loader and the driver ask for **Wednesday's** work. Wednesday has no released plan, so the
-dock shows no vehicles and the driver shows no run, while the clock in the corner keeps ticking. The
-plan you released is still there, for Tuesday; nothing is lost, the apps are simply looking at the
-next day.
-
-The clock only moves forward (`clock_backwards`), so there is no way to step back into the run window.
-Reset demo is the only way back, and it clears the plan, so you have to draft and release again.
-
-Keep it still while you work:
-
-```bash
-TOKEN=$(curl -s -X POST localhost:8000/api/v1/auth/login -H 'Content-Type: application/json' \
-  -d '{"email":"dispatcher@waypoint.demo","password":"waypoint-demo","role":"dispatcher"}' \
-  | python -c 'import sys,json;print(json.load(sys.stdin)["accessToken"])')
-curl -s -X POST localhost:8000/api/v1/demo/pause -H "Authorization: Bearer $TOKEN"
-```
-
-Then move time only when you mean to, with the presenter control's "Go to next step". `/demo/resume`
-starts it ticking again. Alternatively set `CLOCK_RATE=0` in the environment before
-`docker compose up` and it never ticks on its own.
+If you start with `CLOCK_RATE=1` to watch countdowns tick, the clock gets there on its own in about 20 hours. A
+restart of the `api` container then notices the drift and resets the demo (`seed.run.drifted_past_run`); within a
+session, Reset demo in the dispatcher's avatar menu does the same. Either way the plan is cleared, so draft and
+release again.
 
 ## The order matters
 
@@ -125,7 +109,7 @@ Check these in order.
 
 1. **What run date are the field apps on?** `GET /clock` returns both `serviceDate` and `runDate`.
    `runDate` is the one the loader and driver use. If it is a day later than the plan you released,
-   the clock has passed 12:00 and rolled over. Reset, pause, and walk the sequence again.
+   the clock has passed 12:00 and rolled over. Reset and walk the sequence again.
 2. **Is a plan actually released?** A draft is not enough.
    ```bash
    docker compose exec db psql -U waypoint -d waypoint \

@@ -215,15 +215,22 @@ adds "Change dock" to the loader's top bar menu.
 
 ### The scenario clock
 
-Scenario time starts at 15:30 the day before the delivery day and **ticks in real time**, so countdowns and
-"last heard" ages move on their own, and the 16:00 cutoff and 16:05 draft fire when the clock reaches them. The
-dispatcher's presenter control can **Pause**, **Resume**, **Go to next step** and **Reset demo**.
+Scenario time starts at 15:30 the day before the delivery day and is **held there by default**, so the demo reads
+the same whenever it is opened. The dispatcher's presenter control moves it: **Go to next step**, **Pause**,
+**Resume** and **Reset demo**. A jump runs every job it passes, so the 16:00 cutoff and the 16:05 draft happen on the
+presenter's step rather than on their own.
+
+Set `CLOCK_RATE=1` to watch countdowns and "last heard" ages move by themselves. The cost is that the demo expires:
+every seeded order sits on the delivery day, and the screens follow the *active* run, which rolls to the next
+operating day at noon. About 20 hours after the seed the clock passes that noon and the queue, the dock and the
+driver's run all go empty against an intact database. The API notices this on restart and starts the demo again;
+**Reset demo** does the same at any time.
 
 | Setting | Effect |
 |---|---|
-| `CLOCK_RATE=1` | Real time (default) |
+| `CLOCK_RATE=0` | Held still; only the presenter moves it (default) |
+| `CLOCK_RATE=1` | Real time. Reset the demo the same day it is shown |
 | `CLOCK_RATE=60` | A minute a second |
-| `CLOCK_RATE=0` | Held still; only the presenter moves it |
 | `SCENARIO_SERVICE_DATE=2026-09-29` | The delivery day. It must be an operating day (not a Sunday) |
 
 ---
@@ -262,7 +269,7 @@ Everything is set in `.env`; [`.env.example`](.env.example) carries the full lis
 | `DEMO_PASSWORD` | `waypoint-demo` | The one password for the four seeded accounts |
 | `SEED_ON_START` | `true` | Migrate then seed when the API starts |
 | `SEED_GENERATED_ORDERS` | `false` | `true` adds a full-size day (60 vehicles, about 270 orders). The walkthrough's named moves then differ |
-| `CLOCK_RATE` | `1` | Scenario seconds per wall second |
+| `CLOCK_RATE` | `0` | Scenario seconds per wall second. `0` holds the clock at the checkpoint; `1` is real time |
 | `SCENARIO_SERVICE_DATE` | `2026-09-29` | The delivery day |
 | `DEMO_MODE` | on in `dev`, off elsewhere | Mounts the presenter routes (`/demo/*`). The walkthrough needs them |
 | `JWT_SECRET` | dev default | Required outside `dev`: the API refuses to start with the published value |
@@ -286,8 +293,14 @@ nginx in front to proxy `/api`, the fourth because the host does not run in `dev
 3. `VITE_DATA_SOURCE=live` must be set at build time. `frontend/.env.production` carries it, but a host that builds in
    another Vite mode or passes the variable through empty would serve the mocks and say nothing.
 4. The API must have `DEMO_MODE=true`. Outside `ENVIRONMENT=dev` the presenter routes are not mounted at all, so
-   **Reset demo** and **Go to next step** answer 404, the clock runs on past the story day, and the walkthrough cannot
-   start. Check that `/api/openapi.json` on the API lists the four `/demo` routes after each deploy.
+   **Reset demo** and **Go to next step** answer 404 and the walkthrough cannot start. The panel now prints that
+   reason instead of looking dead, but the fix is the variable. Check it after each deploy, which is one command:
+
+   ```bash
+   curl -s https://<api-host>/api/openapi.json | grep -c '/api/v1/demo/'
+   ```
+
+   That must print `4`. A `0` means the routes are absent and the deploy needs `DEMO_MODE=true` and a restart.
 
 `docker compose up` needs none of the four and remains the reference deployment. More:
 [docs/build/api-mode.md](docs/build/api-mode.md).
@@ -406,8 +419,10 @@ system rather than one screen:
 - **No separate allocation or prediction service.** The Designathon diagram showed them as their own deployables. The
   planner is a deterministic pure function, so it ships as `backend/waypoint_rules`, imported in-process: no network
   hop, no second deployable, and the same package serves the notebook and the tests.
-- **The scenario clock ticks (DP-26).** The PRD had time move only on a presenter action. It now runs at `CLOCK_RATE`,
-  so countdowns move on their own and the cutoff and draft fire when the clock crosses them.
+- **The scenario clock can tick (DP-26).** The PRD had time move only on a presenter action, which is still the
+  default (`CLOCK_RATE=0`) because a held clock keeps the seeded day as the active run however long the stack is up.
+  Set `CLOCK_RATE` above 0 and time runs on its own, countdowns move, and the cutoff and draft fire when the clock
+  crosses them.
 - **Two display mirrors remain on the client (DP-27).** The store mirrors the 16:00 cutoff and the 23:40 release, and
   the dispatcher's exception screen sums kg and m³. The API remains the authority.
 - **The walkthrough's refused moves changed (DP-30).** The PRD's step 4 named moves with no target in the 16:06

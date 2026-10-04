@@ -30,6 +30,7 @@ from app.models.orders import Order, OutletServiceHistory
 from app.models.people import User
 from app.models.plans import FuelLedger, VehicleDayStatus
 from app.models.reference import CalendarDay, Outlet, Vehicle
+from app.services.planning_repo import active_service_date
 from waypoint_rules.vocab import Temp
 
 from . import accounts, checks, fallback, generated, load_reference
@@ -247,6 +248,23 @@ def reset(*, actor: str = "demo") -> dict[str, Any]:
     return report
 
 
+def drifted_past_run(db: Session) -> bool:
+    """Whether scenario time has run past the seeded delivery day, which empties every screen that shows "today's run".
+
+    The dispatcher's queue, the plan and the loader's dock all follow the *active* run, which rolls to the next
+    operating day at noon (``planning_repo.active_service_date``). Every seeded order is pinned to
+    ``SCENARIO_SERVICE_DATE``, so once the clock passes that day's noon the seeded day is no longer anyone's run and
+    the screens go empty against a database that is perfectly intact. At ``CLOCK_RATE=1`` a stack left up overnight
+    reaches it in about 20 hours.
+    """
+    row = db.get(Clock, 1)
+    if row is None:
+        return False
+    ops = sorted(db.scalars(select(CalendarDay.date).where(CalendarDay.is_operating)))
+    now = clock.now(db).replace(tzinfo=None)
+    return active_service_date(now, ops) > get_settings().scenario_service_date
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m seed.run", description=__doc__.split("\n\n")[0])
     parser.add_argument("--force", action="store_true", help="seed now, ignoring SEED_ON_START and existing data")
@@ -257,19 +275,39 @@ def main(argv: list[str] | None = None) -> int:
     if not args.force and not settings.seed_on_start:
         print("seed: SEED_ON_START is not true, skipping (use --force to seed anyway)")
         return 0
+    drifted_at: datetime | None = None
     with SessionLocal() as db:
         if not args.force and is_seeded(db):
-            print("seed: database already seeded, nothing to do (use --force to reseed)")
+            # A restart is the one moment a drifted demo can be put right without a person. A clock rewind on its own
+            # would leave a half-played day: the jobs that already ran are claimed in ``job_runs`` and would not run
+            # again, and each drifted day has added another deferred ``-R`` order. So the repair is the demo reset,
+            # taken below once this session is closed, because it truncates the tables this one has just read.
+            drifted_at = clock.now(db) if drifted_past_run(db) else None
+            if drifted_at is None:
+                print("seed: database already seeded, nothing to do (use --force to reseed)")
+                return 0
+        else:
+            try:
+                report = seed(db, strict=args.strict)
+            except (load_reference.SeedConfigError, checks.SeedCheckError) as exc:
+                db.rollback()
+                print(f"seed: FAILED\n{exc}", file=sys.stderr)
+                return 1
+            db.commit()
+            for step, info in report.items():
+                print(f"seed: {step}: {info}")
             return 0
-        try:
-            report = seed(db, strict=args.strict)
-        except (load_reference.SeedConfigError, checks.SeedCheckError) as exc:
-            db.rollback()
-            print(f"seed: FAILED\n{exc}", file=sys.stderr)
-            return 1
-        db.commit()
-    for step, info in report.items():
-        print(f"seed: {step}: {info}")
+
+    print(
+        f"seed: the scenario clock had run to {drifted_at:%a %d %b %H:%M}, past the seeded run "
+        f"({settings.scenario_service_date}), so every screen showed an empty day. Starting the demo again."
+    )
+    try:
+        for step, info in reset(actor="seed").items():
+            print(f"seed: {step}: {info}")
+    except (load_reference.SeedConfigError, checks.SeedCheckError) as exc:
+        print(f"seed: FAILED\n{exc}", file=sys.stderr)
+        return 1
     return 0
 
 
