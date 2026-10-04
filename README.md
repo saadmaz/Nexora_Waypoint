@@ -362,6 +362,23 @@ the screen says so.
 
 ---
 
+## 🚧 Known gaps
+
+What the build does not do yet, in one place. The full list of known gaps is `G-1` to `G-15` in `waypoint-prd-v3.md` section 18.
+
+| Gap | What you will see | Register |
+|---|---|---|
+| Deferral count | The seeded day defers the orders the planner computes, which can differ from the PRD's fixed figure of 19 at Peliyagoda. The screen shows the computed number | DP-01 |
+| D9 capacity outlook | A labelled baseline that scales the live queue by the calendar, not the Datathon model: the eight weeks of delivered orders it would need are not in the repository | [above](#-departures-from-the-designathon-submission) |
+| Two display mirrors | The store mirrors the 16:00 cutoff and the 23:40 release, and the dispatcher's exception screen sums kg and m³ on the client. The API stays the authority | DP-27 |
+| Loader "Other…" PIN | `POST /loader/pins/verify` takes a numeric `personId` and has no guest path, so "Other…" with the guest PIN works on the mocks only, and the tablet caches no PIN hashes, so a load gate needs a connection. `e2e/loader-offline.spec.ts` pins the current behaviour | A55 |
+| Driver dates other than the demo day | Only the demo day has a seeded run. In API mode another date answers `no_run` with its reason, and History shows today plus whatever runs the server holds | |
+| Sinhala and Tamil | The driver strings are a machine draft, not reviewed by a native speaker | O-8 |
+| Dispatcher screens in `e2e/` | The refused moves, release, swap, defer and keep-delivery are checked through the API, not by dragging on the screen | |
+| Bundle size | The app ships as one 957 kB script (283 kB gzipped); it is not split per role | |
+
+---
+
 ## 🛠️ Tech Stack
 
 | Layer | Technology |
