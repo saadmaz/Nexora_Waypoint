@@ -150,6 +150,12 @@ def test_lengthening_trip_1_past_trip_2s_departure_is_refused(v3, orders, ref, v
     ]
 
 
+def test_a_structurally_refused_move_does_not_also_list_turnaround(v3, orders, ref, vdays):
+    # ORD1023 is Gampaha: on VEH003's Colombo trip 1 it breaks the district rule, so when the trip would return is noise.
+    res = validate_move(v3, Move("ORD1023", ("VEH003", 1)), orders, ref, vdays)
+    assert [v.rule for v in res.violations] == [RuleId.DISTRICT]
+
+
 def test_a_vehicle_day_with_overlapping_trips_breaks_the_turnaround_rule(v3, orders, ref, vdays):
     # The release gate checks the whole day this way, so an overlap saved by any path is caught before release.
     trips = v3.trips_of("VEH035")
