@@ -12,6 +12,8 @@ export type DeliveryOrder = {
   issue?: IssueType;
   /** Units the store counted when it confirmed receipt with a shortfall (S3.1 B: 10 of 12). */
   received?: number;
+  /** Units the dock counted onto the truck, present only when it is fewer than `units`. */
+  loadedUnits?: number;
 };
 
 /**

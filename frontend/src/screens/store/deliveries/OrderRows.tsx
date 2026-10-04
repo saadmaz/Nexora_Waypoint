@@ -17,6 +17,11 @@ export function OrderRows({ orders }: { orders: DeliveryOrder[] }) {
               {order.kind === "chilled" ? <Tag kind="chilled">Chilled</Tag> : <Tag kind="ambient">Ambient</Tag>}
             </div>
             <div className={styles.units}>{unitsLabel(order.units)}</div>
+            {order.loadedUnits != null && (
+              <div className={styles.short}>
+                <Mono>{order.loadedUnits}</Mono> of <Mono>{order.units}</Mono> loaded at the dock
+              </div>
+            )}
           </div>
           <StatusPill status={order.status} />
         </li>

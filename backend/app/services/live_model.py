@@ -64,5 +64,7 @@ class LiveDay:
     acknowledged: dict[str, int] = field(default_factory=dict)
     exceptions: list[ExceptionRow] = field(default_factory=list)
     conflicts: list[ConflictRow] = field(default_factory=list)
+    #: (vehicle, trip) -> what the dock counted short, by order id. A short load is Dispatch's to know about.
+    short_loaded: dict[tuple[str, int], dict[str, int]] = field(default_factory=dict)
     #: The latest released plan version number.
     released_number: int | None = None

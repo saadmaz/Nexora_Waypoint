@@ -1637,6 +1637,8 @@ export interface components {
             issue?: string | null;
             /** Received */
             received?: number | null;
+            /** Loadedunits */
+            loadedUnits?: number | null;
         };
         /** DeliveryOut */
         DeliveryOut: {
