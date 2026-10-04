@@ -37,7 +37,7 @@ export function ExceptionRoute() {
   // The gallery opens the manual frames (D8.3) from the address, without clicks.
   const ui = params.get("ui");
   const [manual, setManual] = useState(ui === "manual" || ui === "refuse");
-  const [picked, setPicked] = useState<Set<string>>(() => new Set(ui === "refuse" ? ["ORD1001"] : []));
+  const [picked, setPicked] = useState<Set<string>>(() => new Set(import.meta.env.DEV && ui === "refuse" ? ["ORD1001"] : []));
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
 

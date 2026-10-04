@@ -23,7 +23,7 @@ def _generate(db) -> dict[str, int]:
     from seed import run as seed_run
 
     generated.extend_reference(db, service_date=SERVICE)
-    seed_run.seed_vehicle_day(db)  # the workshop vehicles apply now that the fleet has them
+    seed_run.seed_vehicle_day(db, SERVICE)  # the workshop vehicles apply now that the fleet has them
     pinned = seed_run._orders_by_depot(db, SERVICE)
     made = generated.seed_orders(
         db, service_date=SERVICE, received_date=RECEIVED, pinned_peliyagoda=pinned.get("peliyagoda", 0), pinned_kandy=pinned.get("kandy", 0)

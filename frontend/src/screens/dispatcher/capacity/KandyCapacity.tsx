@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import { Box, Check, CircleCheck, Fuel, Info, Package, Snowflake, Split, Timer, Truck, Van, Weight } from "lucide-react";
 import type { CapacityView } from "../../../api/DispatcherApi";
+import { dayLabel } from "../../../domain/format";
 import { Mono } from "../../../shared/ui/Mono";
 import { Banner } from "../ui/Banner";
 import { Btn } from "../ui/Btn";
@@ -33,7 +34,7 @@ export function KandyCapacity({ view, onPeliyagoda }: { view: CapacityView; onPe
     <>
       <Banner tone="success" icon={<CircleCheck size={19} />} title={
         <>
-          Kandy has enough capacity for Tue 29 Sep. <Mono>{view.orders}</Mono> orders, <Mono>{view.deferrals.total}</Mono> deferrals.
+          Kandy has enough capacity for {dayLabel(view.serviceDate)}. <Mono>{view.orders}</Mono> orders, <Mono>{view.deferrals.total}</Mono> deferrals.
         </>
       } />
       <div className={styles.main}>

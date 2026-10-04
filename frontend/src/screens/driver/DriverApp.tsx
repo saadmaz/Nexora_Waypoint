@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { ClockProvider } from "../../field/clock/ClockContext";
-import { HERO_DATE } from "../../field/clock/clock";
+import { devMocks } from "../../devMocks/registry";
 import { FieldRuntime } from "../../field/FieldRuntime";
 import { RoleRoot } from "../../shared/RoleRoot";
 import { DriverProvider } from "./context/DriverProvider";
@@ -20,7 +20,6 @@ import { PhotoFailureScreen } from "./sync/PhotoFailureScreen";
 import { SyncResultScreen } from "./sync/SyncResultScreen";
 
 /** Where the driver's clock starts without `?at=`: the first frame, R1.3 A at 04:45 on the hero day. */
-const DRIVER_START = { date: HERO_DATE, time: "04:45" };
 
 /**
  * The Driver role root: `/driver/*`. On a wide screen it is a centred column on surface-0
@@ -29,13 +28,15 @@ const DRIVER_START = { date: HERO_DATE, time: "04:45" };
  * The state gallery is dev only: judges never see it (PRD v3 section 15).
  */
 export function DriverApp() {
+  // Where the mock clock starts. On the real API the clock is the server's and this is never read.
+  const start = import.meta.env.DEV ? devMocks().fieldClock.DRIVER_START : undefined;
   return (
     <Routes>
       {import.meta.env.DEV && <Route path="_states" element={<DriverGallery />} />}
       <Route
         path="*"
         element={
-          <ClockProvider start={DRIVER_START}>
+          <ClockProvider {...(start ? { start } : {})} role="driver">
             <FieldRuntime>
               <DriverProvider>
                 <ThemedRoot>

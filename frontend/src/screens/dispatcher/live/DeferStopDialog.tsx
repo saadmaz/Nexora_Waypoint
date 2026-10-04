@@ -30,13 +30,15 @@ export type DeferStopDialogProps = {
   offlineSince: string | undefined;
   /** The version the deferral creates ("v5"). */
   nextVersion: number;
+  /** When the stop goes next: "Wed 30 Sep · from 05:30". */
+  nextRun: string;
   busy: boolean;
   error: string | null;
   onConfirm: (request: { orderIds: string[]; kind: DeferralKind; reason: string }) => void;
 };
 
 /** D6.3: defer a stop after release. It always creates a new plan version, and says who will and will not hear of it at once. */
-export function DeferStopDialog({ open, onOpenChange, stop, vehicleId, offlineSince, nextVersion, busy, error, onConfirm }: DeferStopDialogProps) {
+export function DeferStopDialog({ open, onOpenChange, stop, vehicleId, offlineSince, nextVersion, nextRun, busy, error, onConfirm }: DeferStopDialogProps) {
   const [picked, setPicked] = useState<Set<string>>(() => new Set(stop?.orders.map((o) => o.id) ?? []));
   const [kind, setKind] = useState<DeferralKind>("store request");
   const [reasonChip, setReasonChip] = useState(REASONS["store request"]![0]!);
@@ -111,7 +113,7 @@ export function DeferStopDialog({ open, onOpenChange, stop, vehicleId, offlineSi
 
         <div className={styles.nextRun}>
           <span className={styles.label}>Next run</span>
-          <Mono>Wed 30 Sep · from 05:30</Mono>
+          <Mono>{nextRun}</Mono>
         </div>
 
         {offlineSince && (

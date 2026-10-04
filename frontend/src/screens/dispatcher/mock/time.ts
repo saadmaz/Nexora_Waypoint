@@ -7,7 +7,7 @@ export const NEXT_RUN = "2026-09-30";
 
 /** A time on the hero evening ("16:05") or, from `morning`, on the hero morning ("02:45"). */
 export function at(hhmm: string, morning = false): Date {
-  return new Date(`${morning ? MORNING : EVENING}T${hhmm}:00`);
+  return new Date(`${morning ? MORNING : EVENING}T${hhmm}:00+05:30`);
 }
 
 /** "HH:MM" from a Date. */

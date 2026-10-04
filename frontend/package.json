@@ -1,6 +1,7 @@
 {
   "name": "waypoint-store-frontend",
   "private": true,
+  "sideEffects": ["**/*.css"],
   "version": "0.0.0",
   "type": "module",
   "scripts": {
@@ -11,6 +12,7 @@
     "preview": "vite preview",
     "dev:https": "vite --mode https",
     "test": "vitest run",
+    "check:bundle": "node scripts/check-bundle.mjs",
     "compare": "node scripts/compare-frames.ts",
     "test:hero": "node scripts/driver-hero-walkthrough.ts",
     "test:offline": "node scripts/driver-offline-shell.ts",
@@ -20,7 +22,8 @@
     "test:api-sync": "node scripts/api-sync-check.ts",
     "test:api-store": "node scripts/api-store-check.ts",
     "test:store-live": "node scripts/store-live-walkthrough.ts",
-    "test:loader-stories": "node scripts/loader-stories.ts"
+    "test:loader-stories": "node scripts/loader-stories.ts",
+    "test:loader-devices": "node scripts/loader-device-shots.ts"
   },
   "dependencies": {
     "@fontsource-variable/archivo": "^5.3.0",

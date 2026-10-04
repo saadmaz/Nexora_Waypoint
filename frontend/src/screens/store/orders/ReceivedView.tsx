@@ -7,9 +7,10 @@ import { Tag } from "../../../shared/ui/Tag";
 import { unitsLabel } from "../../../domain/estimate";
 import { clockTime, dayLabel, displayStatus } from "../../../domain/format";
 import type { Order } from "../../../domain/order";
-import { WINDOW_LABEL } from "../../../domain/outlet";
+import { windowLabel } from "../../../domain/outlet";
 import { isPlanReleased } from "../../../domain/schedule";
 import styles from "./ReceivedView.module.css";
+import { useStore } from "../../../app/StoreContext";
 
 export type ReceivedViewProps = {
   orders: Order[];
@@ -24,6 +25,7 @@ export type ReceivedViewProps = {
  * next, and Edit order while the 16:00 cutoff has not passed.
  */
 export function ReceivedView({ orders, now, onEdit, onSeeDeliveries }: ReceivedViewProps) {
+  const { outlet } = useStore();
   const first = orders[0];
   if (!first) return null;
 
@@ -109,7 +111,7 @@ export function ReceivedView({ orders, now, onEdit, onSeeDeliveries }: ReceivedV
           steps={[
             { label: "Confirmed", meta: <Mono>16:00</Mono>, state: editable ? "pending" : "done" },
             { label: "Arrival time shared", meta: <Mono>23:40</Mono>, state: released ? "done" : "pending" },
-            { label: "Delivery window", meta: <Mono>{WINDOW_LABEL}</Mono>, state: "pending" },
+            { label: "Delivery window", meta: <Mono>{windowLabel(outlet)}</Mono>, state: "pending" },
           ]}
         />
       </section>

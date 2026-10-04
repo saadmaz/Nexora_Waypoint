@@ -12,10 +12,14 @@ export function apiBase(): string {
   return base.replace(/\/+$/, "");
 }
 
-/** The per-role switch, from `VITE_<ROLE>_API=mock|api` (PRD v3 section 9 principle 7). Mock is the default. */
+/**
+ * The per-role switch, from `VITE_<ROLE>_API=mock|api` (PRD v3 section 9 principle 7). Mock is the default in development.
+ * A production build is always `api`: no flag can switch it to mocks (DP-26).
+ */
 export type ApiMode = "mock" | "api";
 
 export function roleApiMode(role: Role): ApiMode {
+  if (!import.meta.env.DEV) return "api";
   const env = import.meta.env;
   const value = { store: env.VITE_STORE_API, dispatcher: env.VITE_DISPATCHER_API, loader: env.VITE_LOADER_API, driver: env.VITE_DRIVER_API }[role];
   return value === "api" ? "api" : "mock";

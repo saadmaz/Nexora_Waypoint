@@ -1,7 +1,7 @@
 """Importing this package registers every table on ``Base.metadata`` (Alembic relies on it)."""
 
 from . import comms, enums, field, orders, people, plans, reference
-from .comms import AuditEvent, Clock, Notice, NoticeRead, ScenarioEvent
+from .comms import AuditEvent, Clock, JobRun, Notice, NoticeRead, ScenarioEvent
 from .field import (
     Attachment,
     Conflict,
@@ -29,7 +29,7 @@ from .plans import (
 from .reference import CalendarDay, Depot, District, Outlet, RoadCondition, ServiceAllowance, TrafficSpeed, Vehicle
 
 __all__ = [
-    "Acknowledgement", "Attachment", "AuditEvent", "CalendarDay", "Clock", "Conflict", "Deferral", "Depot",
+    "Acknowledgement", "Attachment", "AuditEvent", "CalendarDay", "Clock", "Conflict", "JobRun", "Deferral", "Depot",
     "DeviceRecord", "District", "Driver", "FieldException", "FuelLedger", "LoadCheck", "LoadGate", "Notice",
     "Order", "Outlet", "OutletServiceHistory", "PinPerson", "PlanVersion", "Receipt", "Run", "ScenarioEvent",
     "ServiceAllowance", "TrafficSpeed", "Trip", "TripOrder", "User", "Vehicle", "VehicleDayStatus",

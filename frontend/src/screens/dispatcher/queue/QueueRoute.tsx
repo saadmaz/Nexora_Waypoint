@@ -9,6 +9,7 @@ import { PageHeader } from "../chrome/PageHeader";
 import { ROUTES, withDepot } from "../chrome/routes";
 import { Screen } from "../chrome/Screen";
 import { Stepper } from "../chrome/Stepper";
+import { dayLabel } from "../../../domain/format";
 import { useDispatcher } from "../context";
 import { useDepot, useLoad, useNow } from "../hooks";
 import { Banner } from "../ui/Banner";
@@ -22,7 +23,6 @@ import { HistoryDrawer } from "./HistoryDrawer";
 import { KandyTable, QueueSkeletonTable, QueueTable } from "./QueueTable";
 import styles from "./QueueRoute.module.css";
 
-const SERVICE_DATE = "2026-09-29";
 
 /** `?filter=Fresh,chilled` opens the queue filtered, for the state gallery and for links from elsewhere. */
 function parseFilters(raw: string | null): QueueFilters {
@@ -39,7 +39,7 @@ function parseFilters(raw: string | null): QueueFilters {
 
 /** D1: the order queue (PRD v3 section 3). Before the cutoff it fills live; after it, carry-overs are pinned first. */
 export function QueueRoute() {
-  const { api, offline, preview } = useDispatcher();
+  const { api, offline, preview, scenarioDays } = useDispatcher();
   const navigate = useNavigate();
   const now = useNow();
   const [depot, setDepot] = useDepot();
@@ -54,7 +54,8 @@ export function QueueRoute() {
   const history = useLoad(() => (orderId ? api.getOrderHistory(orderId) : Promise.resolve(undefined)), [orderId]);
 
   const view = load.data;
-  const closed = view?.cutoff.closed ?? isPastCutoff(SERVICE_DATE, now);
+  const day = view?.serviceDate ?? scenarioDays.serviceDate;
+  const closed = view?.cutoff.closed ?? isPastCutoff(day, now);
   const filtering = isFiltering(filters) || search.trim() !== "";
   const cached = Boolean(view) && (offline || load.status === "error");
   const chips = useMemo(() => activeChips(filters, setFilters), [filters]);
@@ -83,8 +84,8 @@ export function QueueRoute() {
 
   const header = (
     <PageHeader
-      overline="PLAN FOR TUE 29 SEP · RUN 1"
-      title="Orders for Tue 29 Sep"
+      overline={`PLAN FOR ${dayLabel(day).toUpperCase()} · RUN 1`}
+      title={`Orders for ${dayLabel(day)}`}
       titleAddon={addon}
       actions={
         <Btn iconRight={<ChevronRight size={16} />} disabled={!closed} onClick={goCapacity}>
@@ -146,7 +147,7 @@ export function QueueRoute() {
         <div className={styles.emptyBody}>
           <StateBlock
             icon={<Clock3 size={24} />}
-            title="No confirmed orders for Tue 29 Sep yet"
+            title={`No confirmed orders for ${dayLabel(day)} yet`}
             body="Cutoff at 16:00."
             facts={
               <>
@@ -204,7 +205,7 @@ export function QueueRoute() {
           </>
         )}
         {closed && depot === "peliyagoda" && !filtering && (
-          <Banner tone="info" icon={<Info size={20} />} title={`Cutoff closed at 16:00, ${view.counts.peliyagoda} orders confirmed for Tue 29 Sep`}>
+          <Banner tone="info" icon={<Info size={20} />} title={`Cutoff closed at 16:00, ${view.counts.peliyagoda} orders confirmed for ${dayLabel(day)}`}>
             {view.carryOvers} carry-overs from yesterday are pinned first.
           </Banner>
         )}

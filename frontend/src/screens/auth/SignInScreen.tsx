@@ -176,7 +176,7 @@ export function SignInScreen({
                   </span>
                   <span className={styles.rowText}>
                     <span className={styles.rowName}>
-                      {account.displayName} · {ROLE_LABEL[account.role]}
+                      {account.role === "loader" ? `${account.displayName} · ${ROLE_LABEL[account.role]}` : ROLE_LABEL[account.role]}
                     </span>
                     <span className={styles.rowEmail}>{account.email}</span>
                   </span>

@@ -2,7 +2,9 @@
 # clock reaches them. The README says they are simulated. The judge's own actions (release at 23:40, the VEH003 swap,
 # the store-request deferral) are API calls, never events.
 #
-# Each event: {at: "2026-09-29T03:10:00+05:30", kind: <kind>, payload: {...}}
+# Each event: {at: {day: -1, time: "21:15"}, kind: <kind>, payload: {...}}. `day` is an offset from the scenario:
+# -1 is the planning day (the operating day before the service date), 0 is the service date itself. The seed resolves
+# it against SCENARIO_SERVICE_DATE, so no calendar date is written here.
 #
 # Kinds handled today (backend/app/jobs.py):
 #   evening_adjustments   Kumari's adjustments after the capacity review, saved as the next draft (v2).
@@ -12,6 +14,6 @@
 #   vehicle_available     A vehicle back from the workshop. payload.vehicle: VEH036 at 02:45 (A12).
 # Kinds for the loader, driver and sync owners (load confirmations, departures, the 06:40 sync) are added with them.
 events:
-  - {at: "2026-09-28T21:15:00+05:30", kind: evening_adjustments, payload: {moves: []}}
-  - {at: "2026-09-28T23:30:00+05:30", kind: final_draft, payload: {moves: []}}
-  - {at: "2026-09-29T02:45:00+05:30", kind: vehicle_available, payload: {vehicle: VEH036}}
+  - {at: {day: -1, time: "21:15"}, kind: evening_adjustments, payload: {moves: []}}
+  - {at: {day: -1, time: "23:30"}, kind: final_draft, payload: {moves: []}}
+  - {at: {day: 0, time: "02:45"}, kind: vehicle_available, payload: {vehicle: VEH036}}

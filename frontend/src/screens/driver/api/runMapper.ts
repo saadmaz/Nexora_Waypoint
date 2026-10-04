@@ -3,7 +3,7 @@ import type { components } from "../../../api/schema";
 import type { Brand, DepotId, OrderTag, PlannedOrder } from "../../../domain/field";
 import { formatTime } from "../../../field/clock/clock";
 import type { ConflictDetail, DriverNotice, DriverNoticeKind, DriverRun, DriverStop } from "../types";
-import type { LocalRunState } from "./mockDriverApi";
+import type { LocalRunState } from "./deviceDriverApi";
 
 type RunOut = components["schemas"]["RunOut"];
 type NoticeOut = components["schemas"]["NoticeOut"];
@@ -149,7 +149,17 @@ export function mapRun(pkg: RunOut, depot: DepotId, local: LocalRunState): Drive
     nextPlanReleaseAt: "",
     downloadedVersion: local.downloadedVersion,
     acknowledgedVersion: local.acknowledgedVersion ?? (out.acknowledged ? out.planVersion : null),
-    loaderConfirmation: allLoaded(serverStops) ? { by: "", at: "", shortfalls: [] } : null,
+    // The loader's gate confirmation as the server has it (who, when, what was short). Older answers carry none, and then
+    // "every order loaded" is all the run can say.
+    loaderConfirmation: out.loaderConfirmation
+      ? {
+          by: out.loaderConfirmation.by ?? "",
+          at: hhmm(out.loaderConfirmation.at),
+          shortfalls: (out.loaderConfirmation.shortfalls ?? []).map((s) => ({ orderId: s.orderId, shortBy: s.shortBy })),
+        }
+      : allLoaded(serverStops)
+        ? { by: "", at: "", shortfalls: [] }
+        : null,
     departedAt: local.departedAt,
     stops,
   };

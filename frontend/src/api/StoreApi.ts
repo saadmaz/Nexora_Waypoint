@@ -1,5 +1,6 @@
 import type { Delivery } from "../domain/delivery";
 import type { Issue, IssueType } from "../domain/issue";
+import type { StoreOutlet } from "../domain/outlet";
 import type { UpdatesFeed } from "../domain/update";
 import type { EditOrderInput, NewOrderInput, Order, OrderDraft, RecentOrderDay } from "../domain/order";
 
@@ -32,6 +33,8 @@ export type ReportIssueInput = {
  * screens never talk to fetch or the mock's fixture directly.
  */
 export interface StoreApi {
+  /** The outlet this account manages: its id, name, dock and delivery window. */
+  getOutlet(): Promise<StoreOutlet>;
   /**
    * The order form for one day: window, dock, unit factors, starting quantities and the
    * orders already placed. `date` defaults to the day an order placed now counts for.

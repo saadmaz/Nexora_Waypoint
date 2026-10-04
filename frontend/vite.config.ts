@@ -48,6 +48,12 @@ export default defineConfig(({ mode }) => ({
         navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
           {
+            // The scenario clock is never read from a cache. An answer from last hour would put an offline phone's time back
+            // to last hour every time it asks; when there is no network the clock keeps its last reading and runs on from it.
+            urlPattern: ({ request, url }) => request.method === "GET" && url.pathname === "/api/v1/clock",
+            handler: "NetworkOnly",
+          },
+          {
             // The mock server answers in the page, so nothing to cache today; the real API will
             // be read network-first, with the last good answer as the offline fallback.
             urlPattern: ({ request, url }) => request.method === "GET" && url.pathname.startsWith("/api/"),

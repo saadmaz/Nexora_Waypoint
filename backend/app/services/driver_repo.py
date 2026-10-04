@@ -11,7 +11,7 @@ from waypoint_rules.vocab import OrderStatus
 
 from ..models import field as f
 from ..models import plans
-from ..models.comms import Notice, NoticeRead
+from ..models.comms import Notice
 from ..models.enums import ActorKind, AudienceKind, Availability, ConflictRecommendation, DeviceRecordType, PlanState
 from ..models.orders import Order
 from ..models.people import Driver, PinPerson
@@ -117,9 +117,9 @@ def _trip_orders(db: Session, day: date, version: plans.PlanVersion, trip: plans
 
 
 def _stop_tags(order: Order) -> tuple[str, ...]:
-    """The order's tags with its temperature first: "Chilled" and "Ambient" are ``OrderTag`` values the phone shows."""
+    """The temperature first ("Chilled", "Ambient"), then the order's own tags: the phone shows the first as a chip."""
     temp = order.temp.value.capitalize()
-    return (temp, *(t for t in (order.tags or ()) if t != temp))
+    return (temp, *[t for t in (order.tags or []) if t != temp])
 
 
 def _handling_minutes(to: plans.TripOrder) -> int | None:
@@ -194,7 +194,7 @@ def _confirmed_by(db: Session, gate: plans.LoadGate, vehicle_id: str, trip_no: i
         .where(
             f.DeviceRecord.type == DeviceRecordType.LOADER_CONFIRM_LOADED,
             f.DeviceRecord.vehicle_id == vehicle_id,
-            f.DeviceRecord.trip_no == trip_no,
+            f.DeviceRecord.trip_id == gate.trip_id,
             f.DeviceRecord.device_time == gate.confirmed_at,
         )
         .limit(1)
@@ -205,16 +205,15 @@ def _confirmed_by(db: Session, gate: plans.LoadGate, vehicle_id: str, trip_no: i
     return str(name) if name else None
 
 
-def notices(db: Session, vehicle_id: str, user_id: int, since: datetime | None) -> list[NoticeRow]:
-    """The vehicle's notices newer than ``since``, newest first. Read is per user, from ``notice_reads``."""
+def notices(db: Session, vehicle_id: str, since: datetime | None) -> list[NoticeRow]:
+    """The vehicle's notices newer than ``since``, newest first."""
     query = select(Notice).where(Notice.audience_kind == AudienceKind.DRIVER, Notice.vehicle_id == vehicle_id)
     if since is not None:
         query = query.where(Notice.created_at > since)
-    rows = list(db.scalars(query.order_by(Notice.created_at.desc(), Notice.id.desc())))
-    read = set(db.scalars(select(NoticeRead.notice_id).where(NoticeRead.user_id == user_id, NoticeRead.notice_id.in_([n.id for n in rows] or [0]))))
     return [
-        NoticeRow(id=n.id, tag=n.tag.value, title=n.title, body=n.body, created_at=n.created_at, read=n.id in read, refs=dict(n.refs or {}))
-        for n in rows
+        # The phone keeps its own read state, so the server reports every notice as unread.
+        NoticeRow(id=n.id, tag=n.tag.value, title=n.title, body=n.body, created_at=n.created_at, read=False, refs=dict(n.refs or {}))
+        for n in db.scalars(query.order_by(Notice.created_at.desc(), Notice.id.desc()))
     ]
 
 

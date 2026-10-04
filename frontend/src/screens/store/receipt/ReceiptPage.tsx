@@ -13,7 +13,6 @@ import { StateScreen } from "../../../shared/ui/StateScreen";
 import { Tag } from "../../../shared/ui/Tag";
 import type { Delivery } from "../../../domain/delivery";
 import { clockTime, dayLabel } from "../../../domain/format";
-import { OUTLET } from "../../../domain/outlet";
 import { toIsoDate } from "../../../domain/schedule";
 import { useMediaQuery } from "../../../hooks/useMediaQuery";
 import { useNow } from "../../../hooks/useNow";
@@ -29,6 +28,7 @@ import { ReceiptOutcome } from "./ReceiptOutcome";
 import styles from "./ReceiptPage.module.css";
 import { ReceiptSkeleton } from "./ReceiptSkeleton";
 import { ShortfallSheet, type ShortfallReason } from "./ShortfallSheet";
+import { accountName } from "../../auth/accountName";
 
 /**
  * Forces a state frame for the dev server and the gallery: S3.S B, D and C (loading, error,
@@ -54,9 +54,10 @@ type Queued = { at: string; lines: { orderId: string; received: number }[]; reas
  * report an issue (S3.3), then what Dispatch and the store know (S3.2, S3.4, S3.6), Dispatch's
  * question (S3.5), and the empty, loading, offline and error states (S3.S).
  */
-export function ReceiptPage({ outletId = OUTLET.id, date, preview, openReport }: ReceiptPageProps) {
+export function ReceiptPage({ outletId: outletIdProp, date, preview, openReport }: ReceiptPageProps) {
   const navigate = useNavigate();
-  const { api, now, unread } = useStore();
+  const { api, now, unread, outlet, clockVersion } = useStore();
+  const outletId = outletIdProp ?? outlet.id;
   const desktop = useMediaQuery("(min-width: 1024px)");
   const currentTime = useNow();
   const browserOnline = useOnline();
@@ -66,7 +67,7 @@ export function ReceiptPage({ outletId = OUTLET.id, date, preview, openReport }:
   const [failed, setFailed] = useState(preview === "error");
   const [attempt, setAttempt] = useState(0);
   // S3.1 B starts with ORD2001 counted at 10 of 12 (A28).
-  const [counts, setCounts] = useState<Record<string, number>>(preview === "shortfall" ? { ORD2001: 10 } : {});
+  const [counts, setCounts] = useState<Record<string, number>>(import.meta.env.DEV && preview === "shortfall" ? { ORD2001: 10 } : {});
   const [busy, setBusy] = useState(false);
   const [reportOpen, setReportOpen] = useState(Boolean(openReport));
   const [shortfallOpen, setShortfallOpen] = useState(false);
@@ -111,7 +112,7 @@ export function ReceiptPage({ outletId = OUTLET.id, date, preview, openReport }:
     return () => {
       alive = false;
     };
-  }, [api, outletId, date, minute, online, attempt, preview, now, setQueued]);
+  }, [api, outletId, date, minute, online, attempt, preview, now, setQueued, clockVersion]);
 
   const reload = useCallback(() => setAttempt((n) => n + 1), []);
 
@@ -245,7 +246,7 @@ export function ReceiptPage({ outletId = OUTLET.id, date, preview, openReport }:
             Saved on phone
           </span>
           <p className={styles.savedLine}>
-            Receipt confirmed <Mono>{queued.at}</Mono> · Anusha
+            Receipt confirmed <Mono>{queued.at}</Mono> · {accountName("store")}
           </p>
         </div>
       </Card>
@@ -324,7 +325,7 @@ export function ReceiptPage({ outletId = OUTLET.id, date, preview, openReport }:
         <PhoneLayout
           sync={syncState}
           bell={{ unread }}
-          {...(outletTitle ? { outlet: outletTitle, place: `${OUTLET.id} · ${OUTLET.brand} · ${OUTLET.district}`, placeMono: true } : {})}
+          {...(outletTitle ? { outlet: outletTitle, place: `${outlet.id} · ${outlet.brand} · ${outlet.district}`, placeMono: true } : {})}
           {...(offlineBar ? { connectivity: offlineBar } : {})}
           {...(actions ? { actions } : {})}
         >

@@ -11,7 +11,7 @@ import { LoadingSkeleton, StateScreen } from "../../../shared/ui/StateScreen";
 import { Tag } from "../../../shared/ui/Tag";
 import { useDriverApi, useT } from "../context/DriverContext";
 import { useDriverRun } from "../context/useDriverRun";
-import { RUN_DATE } from "../fixtures";
+import { runDate } from "../../../field/clock/runDate";
 import { buildOfflineBanner } from "../offlineBanner";
 import { DriverShell } from "../shell/DriverShell";
 import { dockLabel, isChilled, openMapsFor } from "../stopFormat";
@@ -40,7 +40,7 @@ export function StopScreen({ connectivityOverride, forceSaveError, forceJustSave
   const liveConnectivity = useConnectivity();
   const connectivity = connectivityOverride ?? liveConnectivity;
   const now = useNow();
-  const { run, refresh } = useDriverRun(RUN_DATE);
+  const { run, refresh } = useDriverRun(runDate());
   const [justSaved, setJustSaved] = useState(Boolean(forceJustSaved));
   const [saveError, setSaveError] = useState(Boolean(forceSaveError));
   const [saving, setSaving] = useState(false);
@@ -50,7 +50,7 @@ export function StopScreen({ connectivityOverride, forceSaveError, forceJustSave
     setSaving(true);
     setSaveError(false);
     try {
-      await api.recordArrival(RUN_DATE, stopId);
+      await api.recordArrival(runDate(), stopId);
       refresh();
       setJustSaved(true);
       window.setTimeout(() => setJustSaved(false), 4000);
@@ -92,7 +92,7 @@ export function StopScreen({ connectivityOverride, forceSaveError, forceJustSave
   const title = t("stop.title", { number: stop.number, outletId: stop.outletId });
   const subtitle =
     connectivity.status === "offline" ? t("stop.subtitleOffline", { district: stop.district }) : t("stop.subtitleOnline", { district: stop.district });
-  const windowOpenMs = colomboMs(RUN_DATE, stop.window.open);
+  const windowOpenMs = colomboMs(runDate(), stop.window.open);
   const insideWindowAlready = now >= windowOpenMs;
   const arrived = Boolean(stop.arrivalAt);
 
@@ -301,7 +301,7 @@ export function StopScreen({ connectivityOverride, forceSaveError, forceJustSave
             <span className={styles.statValue}>
               {t("stop.windowOpened")} <Mono>{stop.window.open}</Mono>
             </span>
-            <span className={styles.statLabel}>{t("stop.waited", { minutes: minutesBetween(arrivalTime, stop.window.open) })}</span>
+            <span className={styles.statLabel}>{t("stop.waited", { minutes: Math.max(0, minutesBetween(arrivalTime, stop.window.open)) })}</span>
           </div>
         </div>
         {ordersSection}

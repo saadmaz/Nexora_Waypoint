@@ -8,13 +8,14 @@ import { Tag } from "../../../shared/ui/Tag";
 import { unitsSum, type Delivery } from "../../../domain/delivery";
 import { dayLabel } from "../../../domain/format";
 import type { RecentOrderDay } from "../../../domain/order";
-import { WINDOW_LABEL } from "../../../domain/outlet";
+import { windowLabel } from "../../../domain/outlet";
 import { RecentOrdersTable } from "../orders/RecentOrdersTable";
 import { ArrivalTile } from "./ArrivalTile";
 import styles from "./DesktopDelivery.module.css";
 import { JourneySection } from "./JourneySection";
 import { OrderRows } from "./OrderRows";
 import { PodPhoto } from "./PodPhoto";
+import { useStore } from "../../../app/StoreContext";
 
 export type DesktopDeliveryProps = {
   delivery: Delivery;
@@ -32,6 +33,7 @@ export type DesktopDeliveryProps = {
  * the same table S1.6 uses.
  */
 export function DesktopDelivery({ delivery, recent, onConfirmReceipt, disabled, notice }: DesktopDeliveryProps) {
+  const { outlet } = useStore();
   const { proof } = delivery;
   const canConfirm = delivery.status === "Delivered" && !delivery.receiptConfirmedAt;
 
@@ -41,7 +43,7 @@ export function DesktopDelivery({ delivery, recent, onConfirmReceipt, disabled, 
         <header>
           <h1 className={styles.title}>{dayLabel(delivery.date)}</h1>
           <p className={styles.sub}>
-            Window <Mono>{WINDOW_LABEL}</Mono> · {delivery.dock}
+            Window <Mono>{windowLabel(outlet)}</Mono> · {delivery.dock}
             {delivery.vehicle && (
               <>
                 {" "}

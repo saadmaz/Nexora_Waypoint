@@ -1,6 +1,7 @@
 import type { ExceptionCandidate, ExceptionView } from "../../../api/DispatcherApi";
 import { minutesBetween } from "./time";
 import { SCRIPT, type Milestones } from "./world";
+import { clockTime } from "../../../domain/format";
 
 /**
  * D8: the loading exception. Priya flags VEH003 at 02:55 ("reefer not holding temperature"); VEH036 is
@@ -78,7 +79,7 @@ export function exceptionView(m: Milestones, id: string): ExceptionView {
     },
   };
   if (decided && m.swapAt) {
-    const time = `${String(m.swapAt.getHours()).padStart(2, "0")}:${String(m.swapAt.getMinutes()).padStart(2, "0")}`;
+    const time = clockTime(m.swapAt);
     view.confirmed = {
       plan: 4,
       at: time,

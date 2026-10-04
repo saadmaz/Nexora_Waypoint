@@ -252,7 +252,7 @@ function Groups(p: GroupsProps) {
     flush();
     return out;
   };
-  const failTarget = view.policy.find((c) => c.orderId === "ORD1009")?.orderId ?? view.policy[0]?.orderId;
+  const failTarget = view.policy[0]?.orderId;
   return (
     <>
       {view.capacity.length > 0 && (
@@ -279,7 +279,7 @@ function Groups(p: GroupsProps) {
               </button>
               {p.showMore && (
                 <p className={styles.moreList}>
-                  The other {view.policyMore} orders (ORD3002 to ORD3016) are deferred by policy in the same way: the planner left them out to absorb the same shortfall, and the continuity guard kept both protected outlets on their trips.
+                  The other {view.policyMore} orders are deferred by policy in the same way: the planner left them out to absorb the same shortfall, and the continuity guard kept both protected outlets on their trips.
                 </p>
               )}
             </div>

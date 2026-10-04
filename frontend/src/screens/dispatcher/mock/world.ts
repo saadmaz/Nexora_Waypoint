@@ -1,5 +1,6 @@
 import type { MoveRequest } from "../../../api/DispatcherApi";
 import { at } from "./time";
+import { clockTime } from "../../../domain/format";
 
 /**
  * The hero night as the mock knows it (PRD v3 sections 2, 4c, 13). Two kinds of event:
@@ -141,5 +142,5 @@ export function versionsAt(m: Milestones): { number: number; state: "draft" | "r
 }
 
 function hhmm(date: Date): string {
-  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+  return clockTime(date);
 }

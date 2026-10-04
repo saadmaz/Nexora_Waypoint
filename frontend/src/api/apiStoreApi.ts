@@ -32,6 +32,13 @@ export function createApiStoreApi(getClient: () => HttpClient = () => apiClient(
   }
 
   return {
+    async getOutlet() {
+      const me = await client().get("/api/v1/me");
+      if (!me.outlet) throw new Error("This account does not manage an outlet");
+      const { id, name, brand, district, dock, window } = me.outlet;
+      return { id, name, brand, district, dock, window: { start: window.start, end: window.end } };
+    },
+
     async getOrderDraft(_outletId, date) {
       return mapOrderDraft(await client().get("/api/v1/store/order-form", { query: { date } }));
     },

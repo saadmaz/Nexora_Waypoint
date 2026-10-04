@@ -4,12 +4,13 @@ import { Icon } from "../../../shared/ui/Icon";
 import { Mono } from "../../../shared/ui/Mono";
 import { Tag } from "../../../shared/ui/Tag";
 import { estimateFor, formatEstimate, unitsLabel } from "../../../domain/estimate";
-import { OUTLET, WINDOW_LABEL } from "../../../domain/outlet";
+import { windowLabel } from "../../../domain/outlet";
 import type { OrderKind, RecentOrderDay, UnitFactors } from "../../../domain/order";
 import { OrderCard } from "./OrderCard";
 import { OrderHeader } from "./OrderHeader";
 import { RecentOrdersTable } from "./RecentOrdersTable";
 import styles from "./DesktopOrders.module.css";
+import { useStore } from "../../../app/StoreContext";
 
 const KINDS: OrderKind[] = ["chilled", "dry"];
 
@@ -49,6 +50,7 @@ export function DesktopOrders({
   recent,
   onOpenDay,
 }: DesktopOrdersProps) {
+  const { outlet } = useStore();
   const placed = KINDS.filter((kind) => quantities[kind] > 0);
 
   return (
@@ -98,7 +100,7 @@ export function DesktopOrders({
               </div>
             ))}
             <p className={styles.estimate}>
-              Window <Mono>{WINDOW_LABEL}</Mono> · {OUTLET.dock}
+              Window <Mono>{windowLabel(outlet)}</Mono> · {outlet.dock}
             </p>
             {actions}
           </div>

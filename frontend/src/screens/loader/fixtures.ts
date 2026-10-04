@@ -1,4 +1,4 @@
-import type { Depot, DepotId, PlannedOrder, Stop, Trip, Vehicle } from "../../domain/field";
+import type { DepotId, PlannedOrder, Stop, Trip, Vehicle } from "../../domain/field";
 
 /**
  * The loader's seed data (field conventions section 9, PRD v3 section 4c): the two docks, the
@@ -8,14 +8,17 @@ import type { Depot, DepotId, PlannedOrder, Stop, Trip, Vehicle } from "../../do
  * sum (for example a vehicle's "orders checked" badge), the frame wins.
  */
 
-export const DOCKS: Depot[] = [
-  { id: "peliyagoda", name: "Peliyagoda" },
-  { id: "kandy", name: "Kandy" },
-];
+export { DOCKS } from "../../domain/field";
 
+/**
+ * The ids are the server's `pin_people.id` (Priya 1, Ruwan 2, seeded by `seed/accounts.py`), not names.
+ * In `api` mode the PIN sheet sends this id to `POST /loader/pins/verify`, which only accepts a numeric one,
+ * and every record the dock queues carries it as `personId` so the acknowledgement, the load checks and the
+ * load gate are attributed to the right person. The mock looks the PIN up in this same list, so both modes agree.
+ */
 export const LOADER_PEOPLE = [
-  { id: "priya", name: "Priya", dock: "peliyagoda" as DepotId, pin: "1234" },
-  { id: "ruwan", name: "Ruwan", dock: "kandy" as DepotId, pin: "5678" },
+  { id: "1", name: "Priya", dock: "peliyagoda" as DepotId, pin: "1234" },
+  { id: "2", name: "Ruwan", dock: "kandy" as DepotId, pin: "5678" },
 ];
 
 /** A62 (PRD v3.1 A55): the guest PIN for "Other…", the same at both docks. */
