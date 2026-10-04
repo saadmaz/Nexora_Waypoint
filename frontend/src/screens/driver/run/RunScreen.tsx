@@ -161,14 +161,19 @@ export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadE
           body={t("run.noRouteBody")}
           facts={[
             { key: t("run.vehicleFact"), value: <Mono>{run.vehicle.id}</Mono> },
-            {
-              key: t("run.releaseFact"),
-              value: (
-                <>
-                  {formatDate(releaseMs)} <Mono>{formatTime(releaseMs)}</Mono>
-                </>
-              ),
-            },
+            // A release time the server did not send is left out, never formatted (it would throw and blank the screen).
+            ...(Number.isFinite(releaseMs)
+              ? [
+                  {
+                    key: t("run.releaseFact"),
+                    value: (
+                      <>
+                        {formatDate(releaseMs)} <Mono>{formatTime(releaseMs)}</Mono>
+                      </>
+                    ),
+                  },
+                ]
+              : []),
           ]}
         />
       </DriverShell>
@@ -275,7 +280,11 @@ export function RunScreen({ connectivityOverride, forcedProgress, forceDownloadE
     const loaderLine = loaderConfirmed ? (
       <>
         <p className={styles.body}>{t("run.ordersOnBoard", { count: totalOrders })}</p>
-        <p className={styles.body}>{t("run.confirmedBy", { name: run.loaderConfirmation?.by ?? "", time: run.loaderConfirmation?.at ?? "" })}</p>
+        {run.loaderConfirmation?.by ? (
+          <p className={styles.body}>{t("run.confirmedBy", { name: run.loaderConfirmation.by, time: run.loaderConfirmation.at })}</p>
+        ) : run.loaderConfirmation?.at ? (
+          <p className={styles.body}>{t("run.confirmedAt", { time: run.loaderConfirmation.at })}</p>
+        ) : null}
       </>
     ) : (
       <p className={styles.body}>{t("run.waitingForLoading", { depot: depotLabel(run.depot), vehicleId: run.vehicle.id })}</p>

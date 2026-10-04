@@ -43,7 +43,9 @@ export function FinishScreen() {
 
   const allRecorded = Boolean(run?.stops.every((stop) => stop.orders.every((order) => stop.outcomes[order.id])));
   const vehicleId = run?.vehicle.id ?? "";
-  const nextPlanAt = run ? formatTime(Date.parse(run.nextPlanReleaseAt)) : "23:40";
+  // The server does not always say when the next plan releases; a missing time must never break the screen (R9.5).
+  const nextReleaseMs = run ? Date.parse(run.nextPlanReleaseAt) : Number.NaN;
+  const nextPlanAt = Number.isFinite(nextReleaseMs) ? formatTime(nextReleaseMs) : null;
 
   async function finish() {
     setBusy(true);
@@ -62,7 +64,7 @@ export function FinishScreen() {
             <Icon name="calendar-clock" size={28} />
           </span>
           <h2 className={styles.title}>{t("finish.noMoreTitle")}</h2>
-          <p className={styles.muted}>{t("finish.noMoreBody", { time: nextPlanAt })}</p>
+          {nextPlanAt && <p className={styles.muted}>{t("finish.noMoreBody", { time: nextPlanAt })}</p>}
         </div>
       </DriverShell>
     );
