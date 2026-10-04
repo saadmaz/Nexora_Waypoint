@@ -300,8 +300,8 @@ let interval: ReturnType<typeof setInterval> | undefined;
 let removeOnlineListener: (() => void) | undefined;
 
 /**
- * Starts the triggers: the `online` event, every 30 s while anything waits, and a send as soon as
- * a record is saved. There is no Background Sync API here on purpose: iOS Safari lacks it, so
+ * Starts the triggers: at start (records left from an offline session), the `online` event, the app coming back to the
+ * front, every 30 s while anything waits, and a send as soon as a record is saved. There is no Background Sync API here on purpose: iOS Safari lacks it, so
  * sync only runs while the app is open. Returns a stop function.
  */
 export function startSyncEngine(options: { syncOnEnqueue?: boolean } = {}): () => void {
@@ -323,10 +323,23 @@ export function startSyncEngine(options: { syncOnEnqueue?: boolean } = {}): () =
     };
   }
 
-  // Whatever a previous page left half-sent goes back in the queue, then a run picks it up.
-  void requeueInterrupted().then((count) => {
-    if (count > 0) void runSync();
-  });
+  // Whatever a previous page left half-sent goes back in the queue. Then anything waiting is sent now: an app reopened
+  // with signal after an offline session gets no `online` event, and must not sit on its records until the next 30 s tick.
+  const sendIfWaiting = () => void hasWork().then((work) => (work ? runSync() : undefined));
+  void requeueInterrupted().then(sendIfWaiting);
+
+  // A phone that brings the app back to the front (it was in the background, or the screen was off) sends at once too.
+  const onVisible = () => {
+    if (typeof document !== "undefined" && document.visibilityState === "visible") sendIfWaiting();
+  };
+  if (typeof document !== "undefined") {
+    document.addEventListener("visibilitychange", onVisible);
+    const removeWindowListeners = removeOnlineListener;
+    removeOnlineListener = () => {
+      removeWindowListeners?.();
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }
 
   interval = setInterval(() => {
     void hasWork().then((work) => {

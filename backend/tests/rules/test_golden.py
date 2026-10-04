@@ -141,6 +141,30 @@ def test_d35_continuity_guard(v3, orders, ref, vdays):
     ]
 
 
+def test_lengthening_trip_1_past_trip_2s_departure_is_refused(v3, orders, ref, vdays):
+    # ORD1013 fits VEH003 trip 1 on every other rule, but trip 1 would then be back at 06:32 and trip 2 leaves at 06:09.
+    res = validate_move(v3, Move("ORD1013", ("VEH003", 1)), orders, ref, vdays)
+    assert not res.ok
+    assert [(v.rule, v.message) for v in res.violations] == [
+        (RuleId.TURN, "VEH003 trip 2 leaves at 06:09, before trip 1 is back at the depot at 06:32")
+    ]
+
+
+def test_a_structurally_refused_move_does_not_also_list_turnaround(v3, orders, ref, vdays):
+    # ORD1023 is Gampaha: on VEH003's Colombo trip 1 it breaks the district rule, so when the trip would return is noise.
+    res = validate_move(v3, Move("ORD1023", ("VEH003", 1)), orders, ref, vdays)
+    assert [v.rule for v in res.violations] == [RuleId.DISTRICT]
+
+
+def test_a_vehicle_day_with_overlapping_trips_breaks_the_turnaround_rule(v3, orders, ref, vdays):
+    # The release gate checks the whole day this way, so an overlap saved by any path is caught before release.
+    trips = v3.trips_of("VEH035")
+    early = Trip("VEH035", 2, at("05:00"), list(trips[1].order_ids))
+    found = check_vehicle_day(ref.vehicles["VEH035"], [trips[0], early], orders, ref, vdays["VEH035"])
+    assert [v.rule for v in found] == [RuleId.TURN]
+    assert not check_vehicle_day(ref.vehicles["VEH035"], trips, orders, ref, vdays["VEH035"])
+
+
 def test_accepted_move_has_consequence_preview(v3, orders, ref, vdays):
     # ORD1012 (OUT004, street, last stop of VEH003 trip 2) is not protected, so deferring it is legal.
     res = validate_move(v3, Move("ORD1012", None), orders, ref, vdays)

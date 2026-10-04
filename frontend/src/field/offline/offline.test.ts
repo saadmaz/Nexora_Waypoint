@@ -13,6 +13,8 @@ import {
   registerBlobUploader,
   registerSyncHandler,
   runSync,
+  startSyncEngine,
+  stopSyncEngine,
   type SyncOutcome,
 } from "./sync";
 import { resetTimeSource, setTimeSource } from "./time";
@@ -51,6 +53,28 @@ describe("outbox", () => {
 });
 
 describe("sync engine", () => {
+  it("sends records left from an offline session as soon as the engine starts, without waiting for the timer", async () => {
+    const sent: string[] = [];
+    registerSyncHandler("driver.arrival", async (r) => {
+      sent.push(r.clientId);
+      return { result: "accepted" };
+    });
+    // Saved while offline in an earlier session: nothing sent them.
+    await connectivity.setSimulatedOffline(true);
+    await record("driver.arrival", "left-over");
+    await connectivity.setSimulatedOffline(false);
+    expect(sent).toEqual([]);
+
+    const stop = startSyncEngine({ syncOnEnqueue: false });
+    try {
+      await vi.waitFor(() => expect(sent).toEqual(["left-over"]), { timeout: 2000 });
+      await vi.waitFor(async () => expect((await getRecord("left-over"))?.status).toBe("accepted"));
+    } finally {
+      stop();
+      stopSyncEngine();
+    }
+  });
+
   it("sends a record saved while a run is in flight without waiting for the next timer", async () => {
     const sent: string[] = [];
     let release: (() => void) | undefined;

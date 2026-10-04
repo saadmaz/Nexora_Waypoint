@@ -49,6 +49,10 @@ def too_many_trips(vehicle_id: str, n: int) -> str:
     return f"{vehicle_id} would run {n} trips; the limit is 2"
 
 
+def before_return(vehicle_id: str, trip_no: int, depart: str, prev_no: int, back: str) -> str:
+    return f"{vehicle_id} trip {trip_no} leaves at {depart}, before trip {prev_no} is back at the depot at {back}"
+
+
 def over_budget(vehicle_id: str, group: str, minutes: int, budget: int) -> str:
     return f"{group} minutes over budget: {minutes} of {budget} on {vehicle_id}"
 
@@ -102,6 +106,7 @@ RULE_NAMES: dict[RuleId, str] = {
     RuleId.BRAND: "One brand per trip",
     RuleId.DISTRICT: "One district per trip",
     RuleId.TRIPS: "Two trips per vehicle",
+    RuleId.TURN: "Next trip after the last one returns",
     RuleId.BUDGET_FRESH: "Fresh 270 minutes",
     RuleId.BUDGET_STYLE_TECH: "Style and Tech 480 minutes",
     RuleId.AVAIL: "Vehicle available",
