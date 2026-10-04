@@ -26,6 +26,34 @@ On a fresh database the seed loads **60 vehicles, 84 outlets and 274 orders** fo
 the competition CSVs in `data/` these are the generated stand-ins (PRD section 4c plus
 `seed/generated.py`); with the CSVs present the real reference data is used instead.
 
+## Pause the clock first
+
+**Do this before anything else.** `CLOCK_RATE` is 1, so scenario time runs at real time and the demo
+walks off the end of the day while you are using it.
+
+The run the field apps work on (`runDate` in `GET /clock`) is today's until **12:00**, and the next
+operating day's after that (`planning_repo.active_service_date`). So once scenario time passes Tue
+noon, the loader and the driver ask for **Wednesday's** work. Wednesday has no released plan, so the
+dock shows no vehicles and the driver shows no run, while the clock in the corner keeps ticking. The
+plan you released is still there, for Tuesday; nothing is lost, the apps are simply looking at the
+next day.
+
+The clock only moves forward (`clock_backwards`), so there is no way to step back into the run window.
+Reset demo is the only way back, and it clears the plan, so you have to draft and release again.
+
+Keep it still while you work:
+
+```bash
+TOKEN=$(curl -s -X POST localhost:8000/api/v1/auth/login -H 'Content-Type: application/json' \
+  -d '{"email":"dispatcher@waypoint.demo","password":"waypoint-demo","role":"dispatcher"}' \
+  | python -c 'import sys,json;print(json.load(sys.stdin)["accessToken"])')
+curl -s -X POST localhost:8000/api/v1/demo/pause -H "Authorization: Bearer $TOKEN"
+```
+
+Then move time only when you mean to, with the presenter control's "Go to next step". `/demo/resume`
+starts it ticking again. Alternatively set `CLOCK_RATE=0` in the environment before
+`docker compose up` and it never ticks on its own.
+
 ## The order matters
 
 The scenario starts **Mon 28 Sep, 15:30**, before the 16:00 cutoff. Nothing is planned yet, so the
@@ -79,8 +107,28 @@ reconnect.
 The dispatcher's avatar menu has **Reset demo**. It truncates the operational tables and reseeds, so
 the clock returns to Mon 15:30 with the full 274-order day and no plan. Use it between runs.
 
-Note the clock ticks at real time, so if you leave the stack running the service date eventually rolls
-forward. Reset to get back to the scenario start.
+After a reset there is no plan, so the loader dock and the driver run are empty until you draft and
+release again. That is correct, not a regression.
+
+## If the loader or driver shows nothing
+
+Check these in order.
+
+1. **What run date are the field apps on?** `GET /clock` returns both `serviceDate` and `runDate`.
+   `runDate` is the one the loader and driver use. If it is a day later than the plan you released,
+   the clock has passed 12:00 and rolled over. Reset, pause, and walk the sequence again.
+2. **Is a plan actually released?** A draft is not enough.
+   ```bash
+   docker compose exec db psql -U waypoint -d waypoint \
+     -c "SELECT service_date, number, state, released_at FROM plan_versions ORDER BY service_date, number;"
+   ```
+   Every row saying `draft` with an empty `released_at` means D5 was never completed. The 16:05 job
+   drafts automatically but never releases: releasing is the dispatcher's own action.
+3. **Does the released plan's `service_date` match `runDate`?** They have to be the same day.
+
+`serviceDate` and `runDate` are deliberately different. `serviceDate` is the day a new order placed
+now would be delivered, which after 16:00 is the day after next; `runDate` is the run being delivered.
+At Mon 16:30 they are Wed and Tue respectively, and both are right.
 
 ## Checking it is really live
 
