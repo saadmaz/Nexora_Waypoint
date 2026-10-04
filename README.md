@@ -277,6 +277,8 @@ loader's offline runs, are driven in a real browser, and the rest through the sa
 
 **Accounts.** All four use the password `waypoint-demo`: `store@waypoint.demo`, `dispatcher@waypoint.demo`, `loader@waypoint.demo`, `driver@waypoint.demo`. Open `/start` to sign in as each role in its own tab. The loader enters a PIN for each action: **Priya `1234`** at Peliyagoda, **Ruwan `5678`** at Kandy. Use phone width for the store, loader and driver, and a laptop for Dispatch.
 
+**Start from a clean day.** The hosted demo is one shared database and one shared clock: anyone signed in as the dispatcher can move the clock or reset it for everybody. Before you begin, open the presenter control (the dispatcher's avatar menu, or `?presenter=1`) and press **Reset demo**, so the clock reads Monday 15:30 and step 1 matches. If a step does not match what you see, reset and start again.
+
 | # | Clock | Who | Do this | You should see |
 |---|---|---|---|---|
 | 1 | Mon 15:40 | Store | Orders tab: Chilled 12, Dry 8, review, **Place orders** | "Received 15:40", "Counts for Tue 29 Sep", "You can edit until 16:00" |
