@@ -28,6 +28,8 @@ Who: anyone.
 | Method | Path | Operation | What it does |
 |---|---|---|---|
 | GET | `/health` | `getHealth` | Liveness plus a database round trip (used by the Compose healthcheck). |
+| GET | `/health/live` | `getLive` | Liveness on its own: the process is up and serving, without touching the database. |
+| GET | `/health/ready` | `getReady` | Readiness: the database answers and the job loop is still ticking; 503 with `failing` when it is not. |
 
 ## Sign-in
 
@@ -85,7 +87,7 @@ Who: the dispatcher.
 | POST | `/dispatcher/plan/validate-move` | `validateMove` | D3.2 to D3.6: ``ok``, every violation, and a before / after consequence preview. |
 | POST | `/dispatcher/plan/moves` | `saveMoves` | Accepted moves write a new draft version. |
 | GET | `/dispatcher/deferrals` | `listDeferrals` | D4: every deferral with its type, binding tag, impact, frees and notice state. |
-| POST | `/dispatcher/deferrals/notify` | `notifyDeferrals` | Sends the store notices for every deferral at the depot that has not been told yet. |
+| POST | `/dispatcher/deferrals/notify` | `notifyDeferrals` | Sends the store notices for every deferral at the depot that has not been told yet. With `orderId`, sends that one notice again (D4.2 "Resend notice"). |
 | POST | `/dispatcher/plan/release` | `releasePlan` | D5: releasing the current draft creates the released snapshot. |
 | GET | `/dispatcher/acknowledgements` | `listAcknowledgements` | D5: who has acknowledged a plan version, and who is pending. |
 | GET | `/dispatcher/forecast` | `getForecast` | D9: the baseline capacity outlook (feature/analytics). |
@@ -97,6 +99,7 @@ Who: the dispatcher.
 | POST | `/dispatcher/conflicts/{conflict_id}/resolve` | `resolveConflict` | D7.4: writes the decision and posts notices to driver, store and dock. |
 | GET | `/dispatcher/exceptions/{exception_id}` | `getExceptionForReview` | D8: a loader flag or driver problem, with the recommended swap. |
 | POST | `/dispatcher/exceptions/{exception_id}/decide` | `decideException` | D8: swap the vehicle and defer orders. Creates and releases the next plan version. |
+| POST | `/dispatcher/contact` | `contact` | D5, D7 "Call": asks a store, driver or dock to call Dispatch back. The dataset has no phone numbers, so this writes a notice to the store's updates, the driver's notifications or the dock banner. |
 
 ## Loader (`LoaderApi`)
 
@@ -104,7 +107,7 @@ Who: the dock tablet account, scoped to the dock.
 
 | Method | Path | Operation | What it does |
 |---|---|---|---|
-| GET | `/loader/docks/{dock}` | `getDock` | L1: the dock's vehicles for the current plan, with the PIN people who work it. |
+| GET | `/loader/docks/{dock}` | `getDock` | L1: the dock's vehicles for the current plan, with the PIN people who work it, and Dispatch's latest call-back requests (`requests`). |
 | POST | `/loader/pins/verify` | `verifyPin` | The PIN sheet. The tablet also caches salted hashes so PIN actions can queue offline; the server re-verifies on sync. |
 | GET | `/loader/vehicles/{vehicle_id}/trips/{trip}` | `getLoadPlan` | L2: the load list for one trip, in reverse stop order. |
 | GET | `/loader/exceptions/{exception_id}` | `getException` | L3: a flag the loader raised and what dispatch decided. |
