@@ -113,7 +113,7 @@ export function QueueRoute() {
         <>
           {noPlanYet && (
             <Btn variant="secondary" icon={<Sparkles size={16} />} disabled={offline || drafting} onClick={() => void draftPlan()}>
-              {drafting ? "Drafting..." : "Draft plan"}
+              {drafting ? "Placing trips..." : "Draft plan"}
             </Btn>
           )}
           <Btn iconRight={<ChevronRight size={16} />} disabled={!closed} onClick={goCapacity}>
@@ -236,6 +236,12 @@ export function QueueRoute() {
         {closed && depot === "peliyagoda" && !filtering && (
           <Banner tone="info" icon={<Info size={20} />} title={`Cutoff closed at 16:00, ${view.counts.peliyagoda} orders confirmed for ${dayLabel(day)}`}>
             {view.carryOvers} carry-overs from yesterday are pinned first.
+          </Banner>
+        )}
+        {drafting && (
+          <Banner tone="info" icon={<Sparkles size={20} />} title="Placing trips for every vehicle">
+            The planner checks each order against weight, volume, temperature, outlet access, delivery windows and the
+            weekly fuel quota. On a full day this takes up to a minute.
           </Banner>
         )}
         {draftError && (
