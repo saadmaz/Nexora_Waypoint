@@ -16,7 +16,7 @@ from ..models.enums import ConflictStatus, ExceptionStatus, PlanState
 from ..schemas import dispatcher as s
 from .dispatch_model import TripRow
 from .dispatcher_views import day_label, hm
-from .exception_logic import ExceptionRow
+from .exception_logic import ExceptionRow, holds_the_vehicle
 from .live_model import ConflictRow, LiveDay, RunRow
 
 #: Rows shown without "Show all": those needing attention first, up to this many in all.
@@ -330,6 +330,8 @@ def _conflict_decision(live: LiveDay, c: ConflictRow) -> s.Decision:
 
 def _exception_decision(live: LiveDay, e: ExceptionRow) -> s.Decision:
     day = live.day
+    if not holds_the_vehicle(e):
+        return _reported_decision(live, e)
     trips = [t for t in day.trips if t.vehicle_id == e.vehicle_id]
     first = min((t.depart_at for t in trips), default=None)
     n = sum(len(t.order_ids) for t in trips)
@@ -345,6 +347,25 @@ def _exception_decision(live: LiveDay, e: ExceptionRow) -> s.Decision:
     )
 
 
+def _reported_decision(live: LiveDay, e: ExceptionRow) -> s.Decision:
+    """A problem reported from the road, or a dock flag that is not a failed vehicle check.
+
+    Nothing is held and there is no swap to review, so this is news, not a decision: no "held", no countdown to
+    a departure the truck has already made, and no link to D8, which only handles a vehicle swap (PRD v3.1).
+    The time is the reporter's own, since a problem recorded offline can sync hours later.
+    """
+    at = hm(e.device_time or e.raised_at)
+    orders = f" · {' + '.join(e.order_ids)}" if e.order_ids else ""
+    return s.Decision(
+        id=f"x{e.id}",
+        kind="info",
+        title=f"{e.vehicle_id}: {e.type}" if e.vehicle_id else e.type,
+        text=f"{e.detail or e.type} · reported by {e.raised_by or 'the driver'} {at}{orders}",
+        at=at,
+        info_only=True,
+    )
+
+
 def decision_entries(live: LiveDay) -> list[tuple[str, s.Decision]]:
     """What needs the dispatcher, each with the depot it belongs to: conflicts first, then held vehicles, then the information that explains them."""
     day = live.day
@@ -356,7 +377,8 @@ def decision_entries(live: LiveDay) -> list[tuple[str, s.Decision]]:
     for e in open_exc:
         out.append((day.ref.vehicles[str(e.vehicle_id)].depot, _exception_decision(live, e)))
 
-    if open_exc:
+    # A free vehicle is only worth offering when one is actually held and needs replacing.
+    if any(holds_the_vehicle(e) for e in open_exc):
         used = {t.vehicle_id for t in day.trips}
         for vid in sorted(day.ref.vehicles):
             a = day.availability.get(vid)

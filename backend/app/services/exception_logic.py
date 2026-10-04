@@ -63,6 +63,19 @@ class ExceptionRow:
     decision: dict[str, object] | None
     decided_by: str | None
     decided_at: datetime | None
+    #: When the reporter's own device recorded it, if it sent one. Naive Asia/Colombo. A driver's problem is
+    #: recorded on the road and may sync much later, so D6 shows this rather than ``raised_at``.
+    device_time: datetime | None = None
+
+
+#: The one flag that holds a vehicle and has a Dispatch screen to decide it (D8). Everything else a dock or a
+#: driver reports reaches D6 as news: it is listed, and no plan version is created (PRD v3.1).
+VEHICLE_HELD_TYPE = "Vehicle check failed"
+
+
+def holds_the_vehicle(e: ExceptionRow) -> bool:
+    """True when this flag holds its vehicle, so D6 offers a review and D8 can work out the swap."""
+    return e.vehicle_id is not None and e.type == VEHICLE_HELD_TYPE
 
 
 @dataclass(slots=True)
