@@ -5,9 +5,12 @@
  *   they are Ordered and editable, at 16:00 they flip to Confirmed and lock.
  * - An order placed after 16:00 rolls to the following operating day and is
  *   tagged "After cutoff".
- * - The plan (and with it, the window-aware arrival range) is not released
- *   until 23:40 the day before the operating day. Before release, S2 shows
- *   "Plan not released yet, arrival time follows" instead of a time.
+ * - The plan (and with it, the window-aware arrival range) is released by the
+ *   dispatcher, at no fixed time. In api mode nothing here decides that: a
+ *   screen asks whether the server sent an arrival, and the order form carries
+ *   the server's own `cutoffAt`. `RELEASE_HOUR`, `RELEASE_MINUTE`, `releaseFor`
+ *   and `isPlanReleased` exist for the mocks alone, which play a scripted
+ *   evening where the release lands at 23:40 (DP-27).
  */
 
 import { colomboMs, formatDate, formatTime, isoDate } from "../field/clock/clock";
@@ -15,6 +18,7 @@ import { colomboMs, formatDate, formatTime, isoDate } from "../field/clock/clock
 export const CUTOFF_HOUR = 16;
 export const CUTOFF_MINUTE = 0;
 
+/** Mock only: the scripted evening's release. The server decides when a plan is released. */
 export const RELEASE_HOUR = 23;
 export const RELEASE_MINUTE = 40;
 
@@ -57,7 +61,7 @@ export function cutoffFor(operatingDate: string): Date {
   return new Date(colomboMs(isoPlusDays(operatingDate, -1), hhmm(CUTOFF_HOUR, CUTOFF_MINUTE)));
 }
 
-/** The plan-release instant (23:40) for the given operating day. */
+/** Mock only: the scripted release instant (23:40) for the given operating day. */
 export function releaseFor(operatingDate: string): Date {
   return new Date(colomboMs(isoPlusDays(operatingDate, -1), hhmm(RELEASE_HOUR, RELEASE_MINUTE)));
 }
@@ -65,11 +69,6 @@ export function releaseFor(operatingDate: string): Date {
 /** True once `now` is at or past the 16:00 cutoff for orders on `operatingDate`. */
 export function isPastCutoff(operatingDate: string, now: Date): boolean {
   return now.getTime() >= cutoffFor(operatingDate).getTime();
-}
-
-/** True once `now` is at or past the 23:40 plan release for `operatingDate`. */
-export function isPlanReleased(operatingDate: string, now: Date): boolean {
-  return now.getTime() >= releaseFor(operatingDate).getTime();
 }
 
 /**

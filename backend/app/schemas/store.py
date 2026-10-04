@@ -58,6 +58,11 @@ class OrderDraftOut(ApiModel):
     unit_factors: dict[Temp, UnitFactor]
     default_units: dict[Temp, int]
     orders: list[OrderOut]
+    #: ``HH:MM`` the queue for ``delivery_date`` closes (R-CUTOFF). The screen shows this rather than its own 16:00.
+    cutoff_at: str
+    #: ``Mon 16:00`` or ``16:00``: when the orders on this day can no longer be edited, with the day when it is not today.
+    #: Absent once it has passed.
+    editable_until: str | None = None
 
 
 class NewOrderLine(ApiModel):

@@ -335,14 +335,13 @@ _DEFAULT_FACTORS = {Temp.CHILLED: (70 / 12, 0.7 / 12), Temp.AMBIENT: (45 / 8, 0.
 _DEFAULT_UNITS = {Temp.CHILLED: 12, Temp.AMBIENT: 8}
 
 
-def order_draft(db: Session, user: CurrentUser, day: date | None) -> s.OrderDraftOut:
-    """S1: the form for one day. Figures per unit and starting quantities come from the outlet's own last order of each kind."""
-    from waypoint_rules.schedule import service_day_for
+def unit_factors(db: Session, outlet: reference.Outlet) -> tuple[dict[Temp, s.UnitFactor], dict[Temp, int]]:
+    """What one unit means for this outlet, and the quantity its form opens with (PRD A14, A42).
 
-    outlet = outlet_of(db, user)
-    now = now_local(db)
-    service = service_day_for(now, repo.operating_days(db))
-    delivery_date = day or service.service_date
+    The outlet's own last order of each kind, else the outlet's configured figures, else the PRD defaults.
+    This is the authority for every order's weight and volume: ``store_writes`` computes from it on each
+    write, and the form sends the same numbers to the screen so the estimate it shows is the stored one.
+    """
     history = list(db.scalars(select(om.Order).where(om.Order.outlet_id == outlet.id).order_by(om.Order.received_at.desc().nulls_last(), om.Order.id.desc())))
     factors: dict[Temp, s.UnitFactor] = {}
     defaults: dict[Temp, int] = {}
@@ -355,12 +354,29 @@ def order_draft(db: Session, user: CurrentUser, day: date | None) -> s.OrderDraf
             kg, m3 = (outlet.units_to_kg, outlet.units_to_m3) if outlet.units_to_kg and outlet.units_to_m3 else _DEFAULT_FACTORS[temp]
             factors[temp] = s.UnitFactor(kg=kg, m3=m3)
             defaults[temp] = _DEFAULT_UNITS[temp]
+    return factors, defaults
+
+
+def order_draft(db: Session, user: CurrentUser, day: date | None) -> s.OrderDraftOut:
+    """S1: the form for one day. Figures per unit and starting quantities come from the outlet's own last order of each kind."""
+    from waypoint_rules.schedule import service_day_for
+
+    outlet = outlet_of(db, user)
+    now = now_local(db)
+    service = service_day_for(now, repo.operating_days(db))
+    delivery_date = day or service.service_date
+    factors, defaults = unit_factors(db, outlet)
     placed = sorted(orders_of(db, outlet.id, on=delivery_date), key=kind_order)
     facts = load_facts(db, outlet, placed)
+    # The cutoff is the server's, and it names its day when it is not today: at 16:20 on Monday a Wednesday
+    # order is editable until Tuesday 16:00, and a bare "16:00" reads as already gone.
+    closes = repo.cutoff_at(delivery_date, repo.operating_days(db))
     return s.OrderDraftOut(
         outlet_id=outlet.id, delivery_date=delivery_date, after_cutoff=service.after_cutoff if delivery_date == service.service_date else False,
         window=window_of(outlet), dock=dock_label(outlet.dock_type), unit_factors=factors, default_units=defaults,
         orders=[order_out(o, facts) for o in placed],
+        cutoff_at=f"{closes:%H:%M}",
+        editable_until=(f"{closes:%a %H:%M}" if closes.date() != now.date() else f"{closes:%H:%M}") if now < closes else None,
     )
 
 
