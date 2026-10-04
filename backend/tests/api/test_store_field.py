@@ -81,7 +81,7 @@ def test_the_store_places_edits_and_cancels_its_orders(client, auth, reseed):
     assert [(o["id"], o["line"]["kind"], o["line"]["units"], o["status"]) for o in orders] == [
         ("ORD2001", "chilled", 12, "ordered"), ("ORD2002", "ambient", 8, "ordered"),
     ]
-    assert orders[0]["receivedAt"].startswith("2026-09-28T15:40") and orders[0]["afterCutoff"] is False and orders[0]["dock"] == "rear_dock"
+    assert orders[0]["receivedAt"] == "2026-09-28T15:40:00+05:30" and orders[0]["afterCutoff"] is False and orders[0]["dock"] == "rear_dock"
     # The form now lists them, and the units they were placed with become the form's starting quantities.
     again = get(client, auth, "store", f"{STORE}/order-form")
     assert [o["id"] for o in again["orders"]] == ["ORD2001", "ORD2002"] and again["defaultUnits"] == {"chilled": 12, "ambient": 8}

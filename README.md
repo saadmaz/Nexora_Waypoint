@@ -409,10 +409,13 @@ Pass `--base` when the app is not on `:5173`, and add that origin to `CORS_ORIGI
 **The four contract breaks the scripts caught are fixed.** They were differences between the backend and the
 contract the mock and the PRD set, not faults in the scripts. What changed:
 
-- **Timestamps carried an offset.** `receivedAt` and `updatedAt` came back as `2026-09-28T15:40:00+05:30`; §19
-  and the mock both say naive local ISO with no offset. `clockTime()` renders with `getHours()`, so the store
-  showed the right time only in Asia/Colombo: in Europe/London the same reply read `11:10` instead of `15:40`.
-  `store_views.stamp()` now emits naive local ISO, covered by `test_store_contract.py`.
+- **Timestamps did not say which zone they meant.** `receivedAt` and `updatedAt` were briefly changed to naive
+  local ISO, on the reading that `clockTime()` renders with `getHours()`. That stopped being true when
+  `feature/field-foundation` made `clockTime()` format the instant in Asia/Colombo through `Intl` whatever zone
+  the browser sits in, so a naive string is read as the browser's own wall clock: the same reply said `15:40`
+  from Colombo and `21:10` from a UTC runner, which is how CI failed the walkthrough. `store_views.stamp()`
+  emits `2026-09-28T15:40:00+05:30`, which is PRD §10 (stored in UTC, shown in Asia/Colombo) and what
+  `ClockOut` already documented. Covered by `test_store_contract.py`.
 - **A shortfall was accepted with no reason.** PRD A50 says "Confirm with a shortfall" asks for a reason before
   it sends. The sheet asked, but `POST /store/receipts` took a 9 of 12 with no reason and returned Partial, so
   the rule lived only in the screen (§19: the frontend never re-implements a rule). The rule now lives in

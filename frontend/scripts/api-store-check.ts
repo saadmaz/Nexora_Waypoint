@@ -11,7 +11,7 @@
  * plan, defers the stop and settles the review; the dock tablet and the phone sync through `/sync`.
  *
  *   1. Mon 15:40, the order form opens on Tue 29 Sep, before the cutoff, with both unit factors (S1.1).
- *   2. Anusha places chilled 12 and dry 8: ORD2001 and ORD2002, naive local `receivedAt` (S1.3, H1).
+ *   2. Anusha places chilled 12 and dry 8: ORD2001 and ORD2002, `receivedAt` with its Colombo offset (S1.3, H1).
  *   3. 15:59 an edit is taken and 16:01 the same edit is the typed `CutoffError` (S1.5).
  *   4. The feed has its "Order received" row and the bell counts it (S4).
  *   5. The night and the run, read from S2 as the store sees it: 23:41 the arrival range, 04:51 loaded,
@@ -53,8 +53,8 @@ const MONDAY = "2026-09-28";
 const HERO = ["ORD2001", "ORD2002"];
 /** "05:42": what the store's screens print as a clock time. */
 const HHMM = /^\d{2}:\d{2}$/;
-/** The store's own timestamps are naive local ISO, with no offset (§19). */
-const NAIVE_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/;
+/** The store's own timestamps are an instant with its Asia/Colombo offset (§10). */
+const COLOMBO_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+05:30$/;
 /** The five tags S4 may use (PRD §4b, Store feed). */
 const FEED_TAGS = ["Order", "Plan", "Delivery", "Deferral", "Review"];
 
@@ -257,16 +257,16 @@ async function main() {
     "both are Ordered and neither is after the cutoff",
     placed.map((o) => o.status),
   );
-  check(placed[0].receivedAt === `${MONDAY}T15:40:00`, `receivedAt is the naive local time the store placed it (${placed[0].receivedAt})`);
-  check(NAIVE_ISO.test(placed[0].receivedAt), "the store's timestamps carry no offset (§19)", placed[0].receivedAt);
+  check(placed[0].receivedAt === `${MONDAY}T15:40:00+05:30`, `receivedAt is the moment the store placed it, with its offset (${placed[0].receivedAt})`);
+  check(COLOMBO_ISO.test(placed[0].receivedAt), "the store's timestamps carry the Colombo offset (§10)", placed[0].receivedAt);
   check(placed.every((o) => o.updatedAt === undefined), "an order nobody has edited has no updatedAt");
 
   // ---- 3. the edit, and the cutoff ------------------------------------------------------------------------------------
   await advance(at("15:59", MONDAY));
   const edited = await value<Order>(page, "editOrder", HERO[0], { units: 14, estimatedKg: 81.7, estimatedM3: 0.82 });
   check(edited.line.units === 14, `15:59 the edit is taken (${edited.line.units} units)`);
-  check(edited.updatedAt === `${MONDAY}T15:59:00`, `the edit stamps updatedAt (${edited.updatedAt})`);
-  check(edited.receivedAt === `${MONDAY}T15:40:00`, "editing does not touch the time it was placed");
+  check(edited.updatedAt === `${MONDAY}T15:59:00+05:30`, `the edit stamps updatedAt (${edited.updatedAt})`);
+  check(edited.receivedAt === `${MONDAY}T15:40:00+05:30`, "editing does not touch the time it was placed");
   // Back to 12, so the rest of the day is the hero one: 12 + 8.
   const restored = await value<Order>(page, "editOrder", HERO[0], { units: 12, estimatedKg: 70.0, estimatedM3: 0.7 });
   check(restored.line.units === 12, "the order goes back to 12 units for the hero day");

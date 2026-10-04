@@ -13,29 +13,28 @@ from .test_dispatcher_live import advance, defer_hero
 from .test_store_field import DAY, LOADER, STORE, day, get, on_the_road, place, post, released
 from .test_sync import hero_batch, results, sync
 
-#: Naive local ISO, no offset and no sub-second part: "2026-09-28T15:40:00" (PRD §19 Time).
-NAIVE_ISO = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$")
+#: An instant with its Asia/Colombo offset, no sub-second part: "2026-09-28T15:40:00+05:30" (PRD §10).
+COLOMBO_ISO = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+05:30$")
 
 
-# ---- §19: times on the wire -------------------------------------------------------------------------------------
+# ---- §10: times on the wire -------------------------------------------------------------------------------------
 
 
-def test_order_timestamps_are_naive_local_with_no_offset(client, auth, reseed):
-    """The store renders these with ``clockTime()``, which reads ``getHours()``. An offset would make the same
-    reply say 15:40 in Colombo and 11:10 in London, so §19 fixes them as the scenario's own wall clock."""
+def test_order_timestamps_carry_the_colombo_offset(client, auth, reseed):
+    """The store renders these with ``clockTime()``, which formats the instant in Asia/Colombo whatever zone the
+    browser sits in. The offset is what makes the reply name one moment: without it a UTC reader sees 21:10."""
     orders = place(client, auth)
-    assert NAIVE_ISO.match(orders[0]["receivedAt"]), orders[0]["receivedAt"]
-    assert orders[0]["receivedAt"] == "2026-09-28T15:40:00"
+    assert COLOMBO_ISO.match(orders[0]["receivedAt"]), orders[0]["receivedAt"]
+    assert orders[0]["receivedAt"] == "2026-09-28T15:40:00+05:30"
     assert all(o["updatedAt"] is None for o in orders)
 
     edited = client.patch(f"{STORE}/orders/ORD2001", headers=auth("store"), json={"units": 14, "estimatedKg": 82, "estimatedM3": 0.8})
     assert edited.status_code == 200, edited.text
-    assert NAIVE_ISO.match(edited.json()["updatedAt"]), edited.json()["updatedAt"]
+    assert COLOMBO_ISO.match(edited.json()["updatedAt"]), edited.json()["updatedAt"]
 
     # Every order the form hands back carries the same shape.
     for order in get(client, auth, "store", f"{STORE}/order-form")["orders"]:
-        assert NAIVE_ISO.match(order["receivedAt"]), order["receivedAt"]
-        assert "+" not in order["receivedAt"] and not order["receivedAt"].endswith("Z")
+        assert COLOMBO_ISO.match(order["receivedAt"]), order["receivedAt"]
 
 
 # ---- A50: a short receipt has to say why ------------------------------------------------------------------------

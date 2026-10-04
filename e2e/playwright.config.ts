@@ -22,6 +22,9 @@ export default defineConfig({
   reporter: [["list"]],
   use: {
     baseURL: process.env.E2E_BASE_URL ?? "http://localhost:8080",
+    // The walkthrough reads wall-clock times off the screen ("Received 15:40"), so the browser is pinned to the
+    // scenario's own zone. Without this it inherits the runner's: CI is UTC, and every such assertion shifts 5h30.
+    timezoneId: "Asia/Colombo",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },

@@ -68,12 +68,14 @@ def hm(value: datetime | None) -> str | None:
 
 
 def stamp(value: datetime) -> str:
-    """``receivedAt`` and ``updatedAt``: naive local ISO, the scenario's own wall clock (PRD §19 Time).
+    """``receivedAt`` and ``updatedAt``: an instant with its Asia/Colombo offset (PRD §10: stored in UTC, shown in Asia/Colombo).
 
-    No offset. The store screens render these with ``clockTime()``, which reads ``getHours()``, so an offset would
-    make the same reply say 15:40 in Colombo and 11:10 in London. The mock sends ``2026-09-28T14:02:00``; so do we.
+    ``2026-09-28T15:40:00+05:30``. The store screens render these with ``clockTime()``, which formats the
+    instant in Asia/Colombo whatever zone the browser sits in, so the offset is what makes the reply mean one
+    moment everywhere. A naive string would instead be read as the browser's own wall clock: the same reply
+    said 15:40 from Colombo and 21:10 from a UTC runner.
     """
-    return repo.naive(value).replace(microsecond=0).isoformat()  # type: ignore[union-attr]
+    return repo.naive(value).replace(microsecond=0, tzinfo=COLOMBO).isoformat()  # type: ignore[union-attr]
 
 
 def dock_label(dock_type: Any) -> str:
