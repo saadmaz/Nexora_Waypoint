@@ -13,8 +13,9 @@ const ROLES_KNOWN: ReadonlySet<string> = new Set<Role>(["dispatcher", "loader", 
  * The real sign-in, against `POST /api/v1/auth/login` (backend `routers/auth.py`). Same interface as the mock, so
  * a screen cannot tell them apart.
  *
- * - A wrong email or password, and any other 4xx, is `invalid_credentials`. The backend answers an unknown email and
- *   a wrong password identically, and so do we.
+ * - A wrong email or password (400, 401, 403 or 422) is `invalid_credentials`. The backend answers an unknown email
+ *   and a wrong password identically, and so do we. Any other 4xx, such as a 404 from a misconfigured API address, is
+ *   `unavailable`: the credentials were never checked.
  * - A device with no connection is `offline`, checked before any request, like the mock.
  * - A server that cannot be reached, times out or fails (5xx) is `unavailable`: the device is online but there is
  *   nobody to sign in to. The mock has no such case. Too many failed attempts (429) is `unavailable` too: the
@@ -47,8 +48,12 @@ export function createApiAuthApi(getClient: () => HttpClient): AuthApi {
       } catch (error) {
         if (isNetworkUnavailable(error)) return { ok: false, reason: "unavailable" };
         if (isApiError(error)) {
-          if (error.status >= 500 || error.status === 429) return { ok: false, reason: "unavailable" };
-          return { ok: false, reason: "invalid_credentials" };
+          // Only an answer about the credentials says they are wrong. A 404 or 405 means the app is not talking to the API
+          // at all (a wrong VITE_API_BASE, or a host that answers /api itself), so the password was never checked.
+          if (error.status === 400 || error.status === 401 || error.status === 403 || error.status === 422) {
+            return { ok: false, reason: "invalid_credentials" };
+          }
+          return { ok: false, reason: "unavailable" };
         }
         throw error;
       }

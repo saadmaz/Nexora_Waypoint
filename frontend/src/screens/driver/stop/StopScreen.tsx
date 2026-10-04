@@ -13,6 +13,7 @@ import { useDriverApi, useT } from "../context/DriverContext";
 import { useDriverRun } from "../context/useDriverRun";
 import { runDate } from "../../../field/clock/runDate";
 import { buildOfflineBanner } from "../offlineBanner";
+import { cantReachStoreHref } from "../issues/problemLinks";
 import { DriverShell } from "../shell/DriverShell";
 import { dockLabel, isChilled, openMapsFor } from "../stopFormat";
 import styles from "./StopScreen.module.css";
@@ -108,11 +109,11 @@ export function StopScreen({ connectivityOverride, forceSaveError, forceJustSave
       {t("action.navigate")}
     </Button>
   );
-  // The dataset has no store phone number and none is invented (Contributing section 29), so the button says so instead of
-  // doing nothing when tapped.
+  // The dataset has no store phone number and none is invented (Contributing section 29), so the driver tells Dispatch
+  // instead: R6 opens on "Can't reach the store" for this stop, and Dispatch contacts the store.
   const callStoreAction = (
-    <Button variant="secondary" size="medium" icon="phone" disabled title={t("action.callStoreNone")} aria-label={`${t("action.callStore")}. ${t("action.callStoreNone")}`}>
-      {t("action.callStore")}
+    <Button variant="secondary" size="medium" icon="phone" onClick={() => navigate(cantReachStoreHref(stop.outletId))}>
+      {t("action.cantReachStore")}
     </Button>
   );
 

@@ -70,7 +70,7 @@ export function FlagStatus(props: FlagStatusProps) {
               <Icon name="cloud" size={28} />
             </span>
             <h2 className={styles.title}>Flag saved on this tablet</h2>
-            <p className={styles.lead}>It reaches Dispatch when back online. Call Dispatch if departure is under 30 min away.</p>
+            <p className={styles.lead}>It reaches Dispatch when back online. Ask Dispatch to call if departure is under 30 min away.</p>
             <p className={styles.fact}>
               <Icon name="clock" size={16} />
               <span>
@@ -85,7 +85,7 @@ export function FlagStatus(props: FlagStatusProps) {
               <p className={styles.detail}>{props.detail}</p>
             </div>
             <Button icon="phone" onClick={props.onCallDispatch}>
-              Call Dispatch
+              Ask Dispatch to call
             </Button>
             <p className={styles.desk}>{dockName} dispatch desk</p>
             <Button variant="ghost" onClick={props.onKeepWaiting}>
@@ -119,7 +119,7 @@ export function FlagStatus(props: FlagStatusProps) {
               {pill}
             </div>
             <p className={styles.helper}>
-              {props.held === false ? "" : "Don't load further. "}Call Dispatch if departure is under 30 min away.
+              {props.held === false ? "" : "Don't load further. "}Ask Dispatch to call if departure is under 30 min away.
             </p>
           </div>
         </>

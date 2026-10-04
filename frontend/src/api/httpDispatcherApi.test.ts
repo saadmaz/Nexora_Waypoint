@@ -197,6 +197,20 @@ describe("every operation, on the wire", () => {
     expect(calls[0]!.body).toEqual({ depot: "kandy" });
   });
 
+  it("notifyDeferrals with an orderId resends that one notice", async () => {
+    const { api, calls } = harness(json({ sent: 1 }));
+    expect(await api.notifyDeferrals({ depot: "peliyagoda", orderId: "ORD1020" })).toEqual({ sent: 1 });
+    expect(calls[0]!.body).toEqual({ depot: "peliyagoda", orderId: "ORD1020" });
+  });
+
+  it("contact posts who to ask and returns who was asked", async () => {
+    const { api, calls } = harness(json({ to: "dock", recipient: "Kandy dock", at: "2026-09-29T03:01:00+05:30" }));
+    const out = await api.contact({ to: "dock", depot: "kandy", about: "plan v4" });
+    expect(path(calls[0]!)).toBe("/api/v1/dispatcher/contact");
+    expect(calls[0]!.body).toEqual({ to: "dock", depot: "kandy", about: "plan v4" });
+    expect(out.recipient).toBe("Kandy dock");
+  });
+
   it("listAcknowledgements sends the version only when asked, and keeps a null banner", async () => {
     const { api, calls } = harness(json({ version: 3, acknowledged: 1, total: 2, rows: [{ person: "A", role: "Loader", place: "p", has: 3, state: "pending", at: null, note: null, departsIn: "n/a" }], banner: null }));
     const view = await api.listAcknowledgements({});

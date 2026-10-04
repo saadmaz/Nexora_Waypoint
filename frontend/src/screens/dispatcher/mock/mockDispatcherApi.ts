@@ -148,8 +148,9 @@ export function createMockDispatcherApi(now: () => Date, options: MockOptions = 
       );
     },
 
-    notifyDeferrals() {
+    notifyDeferrals({ orderId }) {
       return write(() => {
+        if (orderId) return { sent: 1 };
         const mm = m();
         if (!mm.noticesAt) world.noticesAt = now();
         const sets = deferralSets(world, m(), "peliyagoda");
@@ -205,6 +206,13 @@ export function createMockDispatcherApi(now: () => Date, options: MockOptions = 
           throw new ApiError("not_found", `Conflict ${id} was not found.`);
         },
       );
+    },
+
+    contact(request) {
+      return write(() => ({
+        recipient: request.to === "store" ? request.outletId : request.to === "driver" ? request.vehicleId : `${request.depot === "kandy" ? "Kandy" : "Peliyagoda"} dock`,
+        at: now().toISOString(),
+      }));
     },
 
     askStore(id) {

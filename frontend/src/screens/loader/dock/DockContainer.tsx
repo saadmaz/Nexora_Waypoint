@@ -5,7 +5,9 @@ import { runDate } from "../../../field/clock/runDate";
 import { useFieldClock, useNow } from "../../../field/clock/useClock";
 import { useConnectivity, useFieldQuery, type ConnectivityStatus, type FieldQueryResult } from "../../../field/offline";
 import { formatCountdown } from "../../../field/format";
-import { PinSheet, type ChipStatus } from "../../../field/components";
+import { BottomSheet, PinSheet, type ChipStatus } from "../../../field/components";
+import { Button } from "../../../shared/ui/Button";
+import { askDispatchFlag } from "../flag/askDispatch";
 import { DOCKS } from "../../../domain/field";
 import { usePeople } from "../usePeople";
 import { useLoader } from "../LoaderContext";
@@ -50,6 +52,7 @@ export function DockContainer({
   const own = useFieldQuery(shared ? null : `loader:dock:${dockId}`, useCallback(() => api.getDock(dockId), [api, dockId]));
   const query = shared ?? own;
   const [ackOpen, setAckOpen] = useState(false);
+  const [askOpen, setAskOpen] = useState(false);
 
   useEffect(() => {
     if (clock.fixed) return;
@@ -83,6 +86,7 @@ export function DockContainer({
         embedded={embedded}
         state="empty"
         emptyCheckedLabel={formatTime(query.updatedAt)}
+        dispatchRequest={view.dispatchRequest}
       />
     );
   }
@@ -138,7 +142,10 @@ export function DockContainer({
   const showsPinnedAcknowledge = !changed && !ack;
 
   if (query.stale) {
+    // "Ask Dispatch to call" goes out as a flag on a vehicle, so the dock picks which one it is about first.
+    const askable = view.vehicles.filter((v) => v.status !== "replaced");
     return (
+      <>
       <Dock
         dockLabel={dockLabel}
         nowLabel={formatTime(now)}
@@ -148,8 +155,32 @@ export function DockContainer({
         vehicles={vehicles}
         offlineVersion={view.planVersion}
         offlineAsOf={formatTime(query.updatedAt)}
-        onCallDispatch={() => undefined}
+        dispatchRequest={view.dispatchRequest}
+        onCallDispatch={() => setAskOpen(true)}
       />
+      <BottomSheet
+        open={askOpen}
+        onOpenChange={setAskOpen}
+        title="Ask Dispatch to call"
+        description="Pick the vehicle it is about. The request waits on this tablet and reaches Dispatch when it reconnects."
+      >
+        {askable.map((v) => {
+          const ask = askDispatchFlag(v.vehicle.id, v.activeTrip);
+          return (
+            <Button
+              key={v.vehicle.id}
+              variant="secondary"
+              onClick={() => {
+                setAskOpen(false);
+                navigate(ask.to, { state: ask.state });
+              }}
+            >
+              {v.vehicle.id} · Trip {v.activeTrip} · departs {v.departsAt}
+            </Button>
+          );
+        })}
+      </BottomSheet>
+      </>
     );
   }
 
@@ -162,6 +193,7 @@ export function DockContainer({
       state="ready"
       alert={alert}
       vehicles={vehicles}
+      dispatchRequest={view.dispatchRequest}
       pinnedAcknowledge={showsPinnedAcknowledge ? { label: `Acknowledge plan v${view.planVersion}`, onClick: () => setAckOpen(true) } : undefined}
     >
       {showsPinnedAcknowledge && (

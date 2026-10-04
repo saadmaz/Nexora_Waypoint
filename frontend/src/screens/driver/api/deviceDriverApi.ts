@@ -97,6 +97,7 @@ const SAME_MINUTE_ORDER: DriverNotice["kind"][] = [
   "went_offline",
   "orders_on_board",
   "plan_released",
+  "call_request",
 ];
 
 export function sortNotices(notices: readonly DriverNotice[]): DriverNotice[] {

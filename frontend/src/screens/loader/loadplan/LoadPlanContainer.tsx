@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { formatTime } from "../../../field/clock/clock";
 import { useFieldClock } from "../../../field/clock/useClock";
 import { PinSheet } from "../../../field/components";
@@ -8,6 +8,8 @@ import { usePeople } from "../usePeople";
 import { useLoader } from "../LoaderContext";
 import type { LoadPlanOrderRow } from "../types";
 import { FlagContainer } from "../flag/FlagContainer";
+import { askDispatchFlag } from "../flag/askDispatch";
+import type { FlagPrefill } from "../flag/FlagSheet";
 import { LoadPlan, type CapacityStat, type LoadPlanRow, type SwapBanner } from "./LoadPlan";
 import type { ChipStatus } from "../../../field/components";
 import { LOADER_POLL_MS } from "../poll";
@@ -55,6 +57,7 @@ export function LoadPlanContainer({ flagOpen = false, embedded = false, vehicleI
   const { api, dockId, currentPerson, setCurrentPerson } = useLoader();
   const people = usePeople();
   const navigate = useNavigate();
+  const location = useLocation();
   const clock = useFieldClock();
   const connectivity = useConnectivity();
   const [gateOpen, setGateOpen] = useState(false);
@@ -76,7 +79,7 @@ export function LoadPlanContainer({ flagOpen = false, embedded = false, vehicleI
   };
   const dockLabel = DOCK_LABEL[dockId] ?? dockId;
   const onBack = () => navigate("/loader/dock");
-  const goFlag = (prefill?: { type: string; orderId?: string; unitsShort?: number }) =>
+  const goFlag = (prefill?: FlagPrefill) =>
     navigate(`/loader/vehicles/${vehicleId}/trips/${trip}/flag`, { state: prefill });
   const closeFlag = () => navigate(`/loader/vehicles/${vehicleId}/trips/${trip}`, { replace: true });
 
@@ -172,7 +175,7 @@ export function LoadPlanContainer({ flagOpen = false, embedded = false, vehicleI
       onFlagShort={(orderId, units) => goFlag({ type: "Missing item", orderId, unitsShort: rows.find((r) => r.orderId === orderId)!.unitsExpected - units })}
       onFlagIssue={() => goFlag()}
       onConfirmGate={() => setGateOpen(true)}
-      onCallDispatch={() => undefined}
+      onCallDispatch={() => goFlag(askDispatchFlag(vehicleId, trip).state)}
       onBack={onBack}
       onRetry={query.retry}
     >
@@ -194,6 +197,8 @@ export function LoadPlanContainer({ flagOpen = false, embedded = false, vehicleI
       />
       {flagOpen && (
         <FlagContainer
+          // A new visit to the flag route (say "Ask Dispatch to call" from the queued screen) starts a fresh sheet.
+          key={location.key}
           vehicleId={vehicleId}
           trip={trip}
           view={view}

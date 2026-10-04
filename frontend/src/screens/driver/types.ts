@@ -64,7 +64,9 @@ export type DriverNoticeKind =
   | "plan_received"
   | "went_offline"
   | "orders_on_board"
-  | "plan_released";
+  | "plan_released"
+  /** Dispatch asked the driver to call back (`POST /dispatcher/contact`): the dataset has no phone numbers. */
+  | "call_request";
 
 /** One entry in R8.1 (field conventions section 15: server notices from `getNotices`, and
  * device-made sync notices such as "3 records synced" that never come from the server). */

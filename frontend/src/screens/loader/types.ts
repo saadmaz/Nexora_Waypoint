@@ -37,7 +37,11 @@ export type DockView = {
   /** A version newer than `acknowledgement.version` has been released. */
   newerVersionExists: boolean;
   vehicles: DockVehicleSummary[];
+  /** Dispatch's latest call-back request to this dock (`POST /dispatcher/contact`), shown as a banner on L1. */
+  dispatchRequest?: DockDispatchRequest;
 };
+
+export type DockDispatchRequest = { title: string; body: string; at: string };
 
 export type LoadCheckState = "todo" | "checked" | "short";
 

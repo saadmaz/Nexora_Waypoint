@@ -1,7 +1,7 @@
 """DispatcherApi routes (PRD §19). One function per endpoint, grouped by owner branch.
 
 Don't reorder or reformat other people's functions in this file (Contributing §2).
-Each body raises 501 until its branch builds it. Operation names are the PRD proposal (open decision O-6).
+Operation names are the PRD proposal (open decision O-6).
 """
 
 from __future__ import annotations
@@ -24,6 +24,8 @@ from ..schemas.dispatcher import (
     AcknowledgementsView,
     CapacityView,
     ConflictView,
+    ContactIn,
+    ContactOut,
     DecideExceptionIn,
     DeferralsView,
     DeferStopIn,
@@ -44,7 +46,7 @@ from ..schemas.dispatcher import (
     ResolveConflictIn,
     SaveMovesIn,
 )
-from ..services import conflicts, forecast, live_repo, live_views, planning, queue_repo, queue_views, stops
+from ..services import conflicts, contact, forecast, live_repo, live_views, planning, queue_repo, queue_views, stops
 from ..services import dispatcher_views as views
 from ..services import exceptions as exception_service
 from ..services import planning_repo as repo
@@ -207,7 +209,7 @@ def list_deferrals(db: Db, user: Dispatcher, depot: DepotId = DEPOT_Q) -> Deferr
 def notify_deferrals(body: NotifyDeferralsIn, db: Db, user: Dispatcher) -> NotifyDeferralsOut:
     """Sends the store notices for every deferral at the depot that has not been told yet."""
     service_date, _ = _day(db)
-    sent = planning.notify_deferrals(db, service_date, body.depot, actor=user.email)
+    sent = planning.notify_deferrals(db, service_date, body.depot, actor=user.email, order_id=body.order_id)
     db.commit()
     return NotifyDeferralsOut(sent=sent)
 
@@ -290,3 +292,14 @@ def decide_exception(exception_id: int, body: DecideExceptionIn, db: Db, user: D
     view = exception_service.decide(db, exception_id, body.defer_order_ids, actor=user.email, actor_name=user.display_name)
     db.commit()
     return view
+
+
+# ---- contact (fix/dead-buttons) ----------------------------------------------
+
+
+@router.post("/contact", operation_id="contact", response_model=ContactOut)
+def contact_someone(body: ContactIn, db: Db, user: Dispatcher) -> ContactOut:
+    """D5, D7 "Call": a call-back request in the store's updates, the driver's notifications or on the dock."""
+    out = contact.send(db, body, actor_name=user.display_name)
+    db.commit()
+    return out
