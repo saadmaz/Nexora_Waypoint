@@ -272,8 +272,11 @@ See [the v3 data model](docs/data-model.md) and [database validation](docs/datab
 ## 🎯 Judge Walkthrough
 
 The demo is one Tuesday morning of deliveries, played across the four roles. `e2e/` plays every step below against
-`docker compose up` on each push to `develop` and `main`: the store and dispatcher screens, and the driver's and
-loader's offline runs, are driven in a real browser, and the rest through the same API calls those screens make.
+`docker compose up` on each push to `develop` and `main`. Steps 1, 2, 6, 15 (the store's view) and 17 are driven through the
+screens in a real browser. The driver's offline run (steps 12, 14 and 15: offline, photos, reload, sync) and the loader's offline
+vehicle check (steps 7 and 9) have their own browser specs. Every other step, including the dispatcher's refused moves, release,
+swap, defer and keep-delivery, is checked through the same API calls those screens make, so a layout fault on those dispatcher
+screens is not caught by `e2e/`.
 
 **Accounts.** All four use the password `waypoint-demo`: `store@waypoint.demo`, `dispatcher@waypoint.demo`, `loader@waypoint.demo`, `driver@waypoint.demo`. Open `/start` to sign in as each role in its own tab. The loader enters a PIN for each action: **Priya `1234`** at Peliyagoda, **Ruwan `5678`** at Kandy. Use phone width for the store, loader and driver, and a laptop for Dispatch.
 
