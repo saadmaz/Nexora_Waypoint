@@ -12,7 +12,7 @@ from typing import Any
 from . import messages as msg
 from .calc import hhmm, planned_clock, planned_fuel, trip_load, trip_minutes
 from .model import Order, RefData, Trip, Vehicle, VehicleDay
-from .vocab import FRESH_BUDGET_MIN, MAX_TRIPS_PER_VEHICLE, STYLE_TECH_BUDGET_MIN, Brand, RuleId, Temp
+from .vocab import FRESH_BUDGET_MIN, MAX_TRIPS_PER_VEHICLE, STYLE_TECH_BUDGET_MIN, Brand, RuleId
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,7 +40,7 @@ def order_vehicle_violations(
     """Can this vehicle carry this order at all? (temperature, van access, depot, availability)."""
     outlet = ref.outlets[order.outlet_id]
     out: list[Violation] = []
-    if order.temp is Temp.CHILLED and not vehicle.is_reefer:
+    if order.temp.needs_reefer and not vehicle.is_reefer:
         out.append(Violation(RuleId.TEMP, msg.needs_reefer(vehicle.id)))
     if outlet.van_only and not vehicle.is_van:
         out.append(Violation(RuleId.VAN, msg.van_only(outlet.id, vehicle.id)))

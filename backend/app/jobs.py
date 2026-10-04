@@ -88,10 +88,10 @@ def _save_scripted_draft(db: Session, event: ScenarioEvent, now: datetime, ops: 
     latest = repo.latest_version(db, service_date)
     if latest is None or latest.state is PlanState.RELEASED:
         return
-    moves: list[tuple[str, tuple[str, int] | None]] = []
+    moves: list[tuple[str, tuple[str, int] | None, str | None]] = []
     for m in (event.payload or {}).get("moves", []):
         to = m.get("to")
-        moves.append((m["orderId"], None if to in (None, "deferred") else (to["vehicleId"], int(to["trip"]))))
+        moves.append((m["orderId"], None if to in (None, "deferred") else (to["vehicleId"], int(to["trip"])), m.get("reason")))
     planning.save_moves(db, service_date, moves, note=note, actor=SYSTEM, actor_name="Kumari", skip_refused=True)
 
 

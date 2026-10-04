@@ -107,6 +107,22 @@ export function TripCard(props: TripCardProps) {
                   <Mono>
                     <span className={styles.arrival}>{stop.arrival}</span>
                   </Mono>
+                  {stop.window && (
+                    <span className={styles.stopWindow}>
+                      window{" "}
+                      <Mono>
+                        {stop.window.start}–{stop.window.end}
+                      </Mono>
+                    </span>
+                  )}
+                  {/* A rear dock is the usual case; anything else (street, mall bay, van only, mall hours) is worth a glance. */}
+                  {stop.access
+                    ?.filter((tag) => tag !== "Rear dock")
+                    .map((tag) => (
+                      <Chip key={tag} tone="outlineMuted" small>
+                        {tag}
+                      </Chip>
+                    ))}
                   {stop.note && <span className={styles.stopNote}>{stop.note}</span>}
                   {!readOnly && (
                     <span className={styles.stopActions}>

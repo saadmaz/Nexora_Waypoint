@@ -100,7 +100,9 @@ def test_the_cutoff_is_16_00_on_the_last_operating_day_before():
 def test_plan_view_lists_the_depots_vehicles_and_trips():
     view = views.plan_view(_day(), "peliyagoda")
     ids = {lane.vehicle_id: lane for lane in view.lanes}
-    assert set(ids) == {"VEH003", "VEH035", "VEH036", "VEH037"}
+    # Every vehicle at the depot, so the dispatcher can start a run on one with nothing planned (VEH011 here).
+    assert set(ids) == {"VEH003", "VEH011", "VEH035", "VEH036", "VEH037"}
+    assert ids["VEH011"].status == "idle" and ids["VEH011"].trips == [] and ids["VEH011"].next_trip == 1
     assert ids["VEH036"].status == "workshop" and ids["VEH036"].workshop_until == "02:45"
     assert ids["VEH003"].trips[0].departs == "03:30"
     trip = ids["VEH003"].trips[0]

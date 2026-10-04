@@ -7,7 +7,7 @@ import { BrandChip, Chip, TempChip } from "../ui/Chip";
 import { Mono } from "../../../shared/ui/Mono";
 import { cx } from "../ui/cx";
 import styles from "./MoveToDialog.module.css";
-import { tripKey } from "./types";
+import { newTripOf, tripKey } from "./types";
 
 /** "Window: planned arrival 08:06 is after OUT007's window closes at 08:00." as the dialog says it: one short line per refusal. */
 function shortReason(text: string): string {
@@ -49,11 +49,18 @@ export function MoveToDialog({ open, onOpenChange, api, plan, orderId, deferred,
     let alive = true;
     const targets: { key: string; target: MoveTarget; title: string }[] = [];
     for (const lane of plan.lanes) {
+      // "VEH003 · Nimal · Trip 1": each vehicle has one driver, so the run is theirs.
+      const who = lane.driver ? `${lane.vehicleId} · ${lane.driver}` : lane.vehicleId;
       for (const trip of lane.trips) {
         const key = tripKey(trip.vehicleId, trip.trip);
-        if (key !== currentKey) targets.push({ key, target: { vehicleId: trip.vehicleId, trip: trip.trip }, title: `${trip.vehicleId} · Trip ${trip.trip}` });
+        if (key !== currentKey) targets.push({ key, target: { vehicleId: trip.vehicleId, trip: trip.trip }, title: `${who} · Trip ${trip.trip}` });
       }
+      // A run the planner did not make: the vehicle's next trip, checked like any other target.
+      const next = newTripOf(lane);
+      if (next !== null) targets.push({ key: tripKey(lane.vehicleId, next), target: { vehicleId: lane.vehicleId, trip: next }, title: `${who} · New trip ${next}` });
     }
+    // An order on a trip can also wait for the next run; the reason is asked before it is saved.
+    if (currentTrip) targets.push({ key: "deferred", target: "deferred", title: "Defer to the next run" });
     void Promise.all(targets.map((t) => api.validateMove({ orderId, to: t.target }))).then((results) => {
       if (!alive) return;
       const list: Option[] = targets.map((t, i) => ({ ...t, result: results[i] ?? null, current: false }));

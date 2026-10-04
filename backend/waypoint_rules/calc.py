@@ -79,7 +79,8 @@ def _on_day(day_anchor: datetime, t: time) -> datetime:
 def planned_clock(trip: Trip, orders: dict[str, Order], ref: RefData) -> TripClock:
     """Arrival, wait and handling per stop.
 
-    Arrival = departure + outbound + inter-stop hops + handling at earlier stops + waiting.
+    Arrival = departure + outbound + inter-stop hops + handling at earlier stops + waiting. The driving legs follow
+    ``ref.travel`` (the hour's traffic on this day); ``trip_minutes``, the booklet's budget formula, stays free flow.
     An early arrival waits for the window; handling starts at the later of arrival and
     window open. Orders at one outlet are handled one after the other.
     """
@@ -88,12 +89,13 @@ def planned_clock(trip: Trip, orders: dict[str, Order], ref: RefData) -> TripClo
     stops = _group_stops(trip.order_ids, orders)
     first_outlet = ref.outlets[stops[0][0]]
     district = ref.district_of(first_outlet)
-    now = trip.depart_at + timedelta(minutes=district.outbound_min)
+    # Each leg is driven at the speed of the hour it starts in (traffic, monsoon, road conditions; free flow without data).
+    now = trip.depart_at + timedelta(minutes=ref.leg_minutes(district.name, trip.depart_at, district.outbound_min))
     timings: list[StopTiming] = []
     for i, (outlet_id, oids) in enumerate(stops):
         outlet: Outlet = ref.outlets[outlet_id]
         if i > 0:
-            now = now + timedelta(minutes=district.inter_stop_min)
+            now = now + timedelta(minutes=ref.leg_minutes(district.name, now, district.inter_stop_min))
         arrival = now
         start = max(arrival, _on_day(trip.depart_at, outlet.effective_open))
         end = start + timedelta(minutes=ref.allowance(outlet) * len(oids))
@@ -111,7 +113,7 @@ def planned_clock(trip: Trip, orders: dict[str, Order], ref: RefData) -> TripClo
     return TripClock(
         stops=tuple(timings),
         last_handling_end=now,
-        back_at_depot=now + timedelta(minutes=district.outbound_min),
+        back_at_depot=now + timedelta(minutes=ref.leg_minutes(district.name, now, district.outbound_min)),
     )
 
 

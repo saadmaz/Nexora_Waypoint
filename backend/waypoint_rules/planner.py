@@ -43,7 +43,7 @@ from .constraints import (
 from .deferrals import Frees, Impact, classify_deferral, frees, impact_on_store
 from .model import Order, Plan, RefData, Trip, Vehicle, VehicleDay
 from .schedule import next_operating_day
-from .vocab import MAX_TRIPS_PER_VEHICLE, Binding, Brand, DeferralType, RuleId, Temp
+from .vocab import MAX_TRIPS_PER_VEHICLE, Binding, Brand, DeferralType, RuleId
 
 #: A trip stops looking for more orders after this many in a row did not fit (it is full; the rest are lower priority).
 MAX_MISSES_PER_TRIP = 12
@@ -177,6 +177,24 @@ def _back_at_depot(trip: Trip, orders: dict[str, Order], ref: RefData) -> dateti
     return planned_clock(trip, orders, ref).back_at_depot
 
 
+def new_trip_departure(
+    order_ids: list[str],
+    orders: dict[str, Order],
+    ref: RefData,
+    service_date: date,
+    previous: Trip | None,
+) -> datetime:
+    """When a trip the dispatcher starts by hand leaves: the same rule the planner uses for its own trips.
+
+    Fresh leaves at 03:30 (later if its first window opens late); Style and Tech leave to reach the first window as it
+    opens. A second trip never leaves before the first one is back at the depot.
+    """
+    sequence = _sequence(order_ids, orders, ref)
+    brand = ref.outlets[orders[sequence[0]].outlet_id].brand
+    not_before = _back_at_depot(previous, orders, ref) if previous is not None and previous.order_ids else None
+    return _departure(sequence, orders, ref, service_date, brand, not_before)
+
+
 def _fill(
     state: _VehicleState,
     candidates: list[str],
@@ -289,7 +307,7 @@ def _capacity_reason(order: Order, ref: RefData, depot: str) -> str:
     able = [v for v in ref.vehicles.values() if v.depot == depot and not order_vehicle_violations(order, v, ref)]
     largest = max(able, key=lambda v: (v.weight_cap_kg, v.volume_cap_m3, v.id), default=None)
     if largest is None:
-        needs.append("chilled" if order.temp is Temp.CHILLED else f"{order.weight_kg:,.0f} kg")
+        needs.append(order.temp.value if order.temp.needs_reefer else f"{order.weight_kg:,.0f} kg")
         return msg.no_legal_vehicle(needs, None, None, depot)
     if order.weight_kg > largest.weight_cap_kg:
         needs.append(f"{order.weight_kg:,.0f} kg")
@@ -357,12 +375,12 @@ def _plan_depot(
     chilled_outlets = {
         (ref.outlets[pool[o].outlet_id].brand, ref.outlets[pool[o].outlet_id].district, pool[o].outlet_id)
         for o in placeable
-        if pool[o].temp is Temp.CHILLED
+        if pool[o].temp.needs_reefer
     }
     groups: dict[tuple[Brand, str, bool], list[str]] = {}
     for oid in placeable:
         outlet = ref.outlets[pool[oid].outlet_id]
-        with_chilled = pool[oid].temp is Temp.CHILLED or (outlet.brand, outlet.district, outlet.id) in chilled_outlets
+        with_chilled = pool[oid].temp.needs_reefer or (outlet.brand, outlet.district, outlet.id) in chilled_outlets
         groups.setdefault((outlet.brand, outlet.district, with_chilled), []).append(oid)
 
     # The heaviest group leads (or the lightest, under the other strategy); chilled groups always come first.
@@ -376,7 +394,7 @@ def _plan_depot(
         brand = key[0]
         # Step 4: priority inside the group.
         remaining = sorted(groups[key], key=lambda o: _priority(o, pool, ref))
-        has_chilled = any(pool[o].temp is Temp.CHILLED for o in remaining)
+        has_chilled = any(pool[o].temp.needs_reefer for o in remaining)
         group_trips: list[tuple[_VehicleState, Trip]] = []
         if not key[2]:
             remaining = _top_up(states, remaining, pool, ref, service_date, brand, key[1], group_trips)
@@ -465,7 +483,7 @@ def draft_plan(
         placeable: list[str] = []
         for oid in by_depot[depot]:
             if classify_deferral(pool[oid], ref, vdays) is DeferralType.CAPACITY:
-                defer(oid, DeferralType.CAPACITY, _capacity_binding(pool[oid], ref), _capacity_reason(pool[oid], ref, depot))
+                defer(oid, DeferralType.CAPACITY, capacity_binding(pool[oid], ref), _capacity_reason(pool[oid], ref, depot))
             else:
                 placeable.append(oid)
 
@@ -501,7 +519,7 @@ def draft_plan(
     )
 
 
-def _capacity_binding(order: Order, ref: RefData) -> Binding:
+def capacity_binding(order: Order, ref: RefData) -> Binding:
     """The resource that forced a capacity deferral: van access first, then weight, then volume."""
     if ref.outlets[order.outlet_id].van_only:
         return Binding.VAN_ACCESS

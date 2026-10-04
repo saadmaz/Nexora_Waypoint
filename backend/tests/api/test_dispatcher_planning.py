@@ -163,13 +163,98 @@ def test_saving_an_accepted_move_writes_the_next_draft(client, auth, reseed):
     before = get_plan(client, auth)
     placed = next(s["orderIds"][0] for lane in before["lanes"] for t in lane["trips"] for s in t["stops"] if not s["protected"])
     res = client.post(
-        "/api/v1/dispatcher/plan/moves", json={"moves": [{"orderId": placed, "to": {"deferred": True}}], "note": "Absorb the shortfall"},
+        "/api/v1/dispatcher/plan/moves",
+        json={"moves": [{"orderId": placed, "to": {"deferred": True}, "reason": "Over capacity"}], "note": "Absorb the shortfall"},
         headers=auth("dispatcher"),
     )
     assert res.status_code == 200, res.text
     after = res.json()
     assert after["version"]["number"] == 2 and after["version"]["note"] == "Absorb the shortfall"
     assert after["deferredTotal"] == before["deferredTotal"] + 1
+
+
+# --------------------------------------------------------------------------- the dispatcher's own hand
+
+
+def _idle_lane(plan: dict) -> dict:
+    return next(lane for lane in plan["lanes"] if lane["status"] == "idle" or (lane["nextTrip"] == 1 and not lane["trips"]))
+
+
+def test_a_dispatcher_can_draft_the_plan_once_the_queue_has_closed(client, auth, reseed):
+    early = client.post("/api/v1/dispatcher/plan/redraft" + DEPOT, headers=auth("dispatcher"))
+    assert early.status_code == 409 and early.json()["code"] == "not_ready"  # before the 16:00 cutoff nothing is confirmed
+
+    advance(client, auth, "2026-09-28T16:01:00+05:30")
+    res = client.post("/api/v1/dispatcher/plan/redraft" + DEPOT, headers=auth("dispatcher"))
+    assert res.status_code == 200, res.text
+    assert res.json()["version"]["number"] == 1
+
+
+def test_every_lane_names_its_driver_and_the_trip_a_move_would_start(client, auth, reseed):
+    advance(client, auth, "2026-09-28T16:06:00+05:30")
+    plan = get_plan(client, auth)
+    for lane in plan["lanes"]:
+        assert lane["driver"], lane["vehicleId"]
+        if lane["status"] in ("active", "idle", "spare", "workshop"):
+            assert lane["nextTrip"] == (len(lane["trips"]) + 1 if len(lane["trips"]) < 2 else None), lane["vehicleId"]
+
+
+def test_a_move_can_start_a_new_trip_and_saving_it_adds_the_trip(client, auth, reseed):
+    advance(client, auth, "2026-09-28T16:06:00+05:30")
+    plan = get_plan(client, auth)
+    # An ambient order on a trip, moved to an ambient vehicle's next trip: a run the planner did not make.
+    lane = next(lane for lane in plan["lanes"] if not lane["reefer"] and lane["nextTrip"])
+    target = {"vehicleId": lane["vehicleId"], "trip": lane["nextTrip"]}
+    candidates = [s["orderIds"][0] for other in plan["lanes"] for t in other["trips"] for s in t["stops"] if not s["protected"]]
+    accepted = None
+    for order in candidates:
+        res = client.post("/api/v1/dispatcher/plan/validate-move", json={"orderId": order, "to": target}, headers=auth("dispatcher"))
+        assert res.status_code == 200, res.text
+        body = res.json()
+        assert body["opensTrip"], body  # every one of these starts a trip, legal or not
+        if body["ok"]:
+            accepted = order
+            assert body["preview"]["note"].startswith(f"Starts {lane['vehicleId']} · Trip {lane['nextTrip']}")
+            break
+    assert accepted is not None, "no order fits the new trip"
+
+    saved = client.post("/api/v1/dispatcher/plan/moves", json={"moves": [{"orderId": accepted, "to": target}]}, headers=auth("dispatcher"))
+    assert saved.status_code == 200, saved.text
+    after = next(x for x in saved.json()["lanes"] if x["vehicleId"] == lane["vehicleId"])
+    assert any(t["trip"] == lane["nextTrip"] and any(accepted in s["orderIds"] for s in t["stops"]) for t in after["trips"])
+
+
+def test_a_trip_number_out_of_order_is_a_409(client, auth, reseed):
+    advance(client, auth, "2026-09-28T16:06:00+05:30")
+    plan = get_plan(client, auth)
+    lane = next(lane for lane in plan["lanes"] if lane["nextTrip"])
+    skip = lane["nextTrip"] + 1
+    res = client.post(
+        "/api/v1/dispatcher/plan/validate-move",
+        json={"orderId": "ORD1012", "to": {"vehicleId": lane["vehicleId"], "trip": skip}},
+        headers=auth("dispatcher"),
+    )
+    assert res.status_code == 409 and res.json()["code"] == "no_such_trip"
+
+
+def test_a_dispatcher_deferral_needs_a_reason_and_keeps_it(client, auth, reseed):
+    advance(client, auth, "2026-09-28T16:06:00+05:30")
+    plan = get_plan(client, auth)
+    placed = next(s["orderIds"][0] for lane in plan["lanes"] for t in lane["trips"] for s in t["stops"] if not s["protected"])
+
+    missing = client.post("/api/v1/dispatcher/plan/moves", json={"moves": [{"orderId": placed, "to": {"deferred": True}}]}, headers=auth("dispatcher"))
+    assert missing.status_code == 422 and missing.json()["code"] == "reason_required"
+    assert get_plan(client, auth)["version"]["number"] == 1  # nothing saved
+
+    ok = client.post(
+        "/api/v1/dispatcher/plan/moves",
+        json={"moves": [{"orderId": placed, "to": {"deferred": True}, "reason": "Store asked to move it"}]},
+        headers=auth("dispatcher"),
+    )
+    assert ok.status_code == 200, ok.text
+    view = client.get("/api/v1/dispatcher/deferrals" + DEPOT, headers=auth("dispatcher")).json()
+    card = next(c for c in view["capacity"] + view["policy"] if c["orderId"] == placed)
+    assert card["reason"]["detail"] == "Store asked to move it"
 
 
 # --------------------------------------------------------------------------- D5 release
@@ -280,3 +365,23 @@ def test_the_planning_endpoints_are_dispatcher_only(client, auth):
 def test_an_unknown_plan_version_is_a_404(client, auth):
     res = client.get(PLAN + DEPOT + "&version=99", headers=auth("dispatcher"))
     assert res.status_code == 404 and res.json()["code"] == "not_found"
+
+
+def test_emptying_a_vehicles_first_trip_renumbers_its_second(client, auth, reseed):
+    from datetime import datetime
+
+    from app.services.plan_logic import renumbered
+    from waypoint_rules import Plan, Trip
+
+    plan = Plan(
+        datetime(2026, 9, 29).date(),
+        {
+            ("VEH003", 1): Trip("VEH003", 1, datetime(2026, 9, 29, 3, 30), []),
+            ("VEH003", 2): Trip("VEH003", 2, datetime(2026, 9, 29, 6, 9), ["ORD1013"]),
+            ("VEH035", 1): Trip("VEH035", 1, datetime(2026, 9, 29, 3, 30), ["ORD1023"]),
+        },
+    )
+    out = renumbered(plan)
+    assert set(out.trips) == {("VEH003", 1), ("VEH035", 1)}
+    assert out.trips[("VEH003", 1)].order_ids == ["ORD1013"] and out.trips[("VEH003", 1)].trip_no == 1
+    assert ("VEH003", 2) in plan.trips  # the plan passed in is untouched

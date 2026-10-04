@@ -11,6 +11,7 @@ const BRANDS: Brand[] = ["Fresh", "Style", "Tech"];
 const TEMPS: { value: OrderTemp; label: string }[] = [
   { value: "chilled", label: "Chilled" },
   { value: "ambient", label: "Ambient" },
+  { value: "frozen", label: "Frozen" },
 ];
 const STATUSES: OrderStatus[] = ["Ordered", "Confirmed", "Planned", "Deferred"];
 const TAGS: QueueFilterTag[] = ["Carry-over", "After cutoff", "Van only", "Mall dock"];

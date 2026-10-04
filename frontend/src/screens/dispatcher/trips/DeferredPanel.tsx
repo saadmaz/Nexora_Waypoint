@@ -4,6 +4,7 @@ import type { DeferredCard, DepotId } from "../../../api/DispatcherApi";
 import { Mono } from "../../../shared/ui/Mono";
 import { ROUTES, withDepot } from "../chrome/routes";
 import { BrandChip, Chip, TempChip } from "../ui/Chip";
+import { tempLabel } from "../ui/temp";
 import { cx } from "../ui/cx";
 import styles from "./Trips.module.css";
 
@@ -83,7 +84,7 @@ export function DeferredPanel(props: DeferredPanelProps) {
                   <Mono>
                     {card.orderId} · {card.outletId} ·
                   </Mono>{" "}
-                  {card.brand} · {card.district} · {card.temp === "chilled" ? "Chilled" : "Ambient"} · {card.dock} ·{" "}
+                  {card.brand} · {card.district} · {tempLabel(card.temp)} · {card.dock} ·{" "}
                   <Mono>
                     {card.window.start}–{card.window.end} · {card.kg} kg · {card.m3.toFixed(1)} m³
                   </Mono>

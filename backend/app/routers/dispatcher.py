@@ -11,7 +11,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query
 
-from waypoint_rules import Move
+from waypoint_rules import Move, NoSuchTrip
 from waypoint_rules import validate_move as check_move
 from waypoint_rules.vocab import Brand, OrderStatus, Temp
 
@@ -44,7 +44,17 @@ from ..schemas.dispatcher import (
     ResolveConflictIn,
     SaveMovesIn,
 )
-from ..services import conflicts, forecast, live_repo, live_views, planning, queue_repo, queue_views, stops
+from ..services import (
+    calendar_views,
+    conflicts,
+    forecast,
+    live_repo,
+    live_views,
+    planning,
+    queue_repo,
+    queue_views,
+    stops,
+)
 from ..services import dispatcher_views as views
 from ..services import exceptions as exception_service
 from ..services import planning_repo as repo
@@ -98,6 +108,13 @@ def _target(request: MoveRequest) -> tuple[str, int] | None:
     return (to.vehicle_id, to.trip)
 
 
+def _reason(request: MoveRequest) -> str | None:
+    """Why the dispatcher is deferring this order, trimmed; the service requires it for an accepted deferral."""
+    if not request.to.deferred:
+        return None
+    return (request.reason or "").strip() or None
+
+
 # ---- queue and history (feature/order-management) ---------------------------
 
 
@@ -127,7 +144,8 @@ def get_queue(
         district=tuple(district or ()),
         search=search or "",
     )
-    return queue_views.queue_view(queue_repo.load_queue(db, run, now), depot, filters)
+    view = queue_views.queue_view(queue_repo.load_queue(db, run, now), depot, filters)
+    return view.model_copy(update={"day": calendar_views.service_day_info(db, run)})
 
 
 @router.get("/orders/{order_id}/history", operation_id="getOrderHistory", response_model=OrderHistory)
@@ -147,7 +165,8 @@ def get_order_history(order_id: str, db: Db, user: Dispatcher) -> OrderHistory:
 @router.get("/capacity", operation_id="getCapacity", response_model=CapacityView)
 def get_capacity(db: Db, user: Dispatcher, depot: DepotId = DEPOT_Q) -> CapacityView:
     """D2: binding resource, availability and the headline sentence."""
-    return views.capacity_view(_day(db)[1], depot)
+    service_date, day = _day(db)
+    return views.capacity_view(day, depot).model_copy(update={"day": calendar_views.service_day_info(db, service_date)})
 
 
 @router.get("/plan", operation_id="getPlan", response_model=PlanView)
@@ -175,9 +194,10 @@ def validate_move(body: MoveRequest, db: Db, user: Dispatcher) -> MoveResult:
         raise not_found(f"Order {body.order_id}")
     move = Move(body.order_id, _target(body))
     plan = plan_of(day)
-    if move.to is not None and move.to not in plan.trips:
-        raise ApiError(409, "no_such_trip", f"{move.to[0]} · Trip {move.to[1]} is not in this plan")
-    result = check_move(plan, move, day.orders, day.ref, day.vehicle_days)
+    try:
+        result = check_move(plan, move, day.orders, day.ref, day.vehicle_days)
+    except NoSuchTrip as e:
+        raise ApiError(409, "no_such_trip", str(e.args[0])) from e
     return views.move_result_view(day, move, result, after_move(plan, move, day.orders, result))
 
 
@@ -188,7 +208,7 @@ def save_moves(body: SaveMovesIn, db: Db, user: Dispatcher, depot: DepotId = VIE
     planning.save_moves(
         db,
         service_date,
-        [(m.order_id, _target(m)) for m in body.moves],
+        [(m.order_id, _target(m), _reason(m)) for m in body.moves],
         note=body.note,
         actor=user.email,
         actor_name=user.display_name,
