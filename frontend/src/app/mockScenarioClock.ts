@@ -28,7 +28,7 @@ export function createScenarioClock(at: string | null, date: string | null = nul
   const hours = Number(match[1]);
   const day =
     date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : hours < MORNING_ENDS_HOUR ? HERO_MORNING : HERO_EVENING;
-  const start = new Date(`${day}T${String(hours).padStart(2, "0")}:${match[2]}:00`).getTime();
+  const start = new Date(`${day}T${String(hours).padStart(2, "0")}:${match[2]}:00+05:30`).getTime();
   const loadedAt = Date.now();
   let jumped = 0;
   const now = () => new Date(start + (Date.now() - loadedAt) + jumped);

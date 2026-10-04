@@ -69,13 +69,15 @@ def load(db: Session) -> dict[str, int]:
             "vehicles": len(ref.VEHICLES), "calendar": calendar}
 
 
-def extend_calendar(db: Session) -> int:
+def extend_calendar(db: Session, *, through: date | None = None) -> int:
     """Add the scenario weeks the calendar lacks and return how many days were added. Loaded rows win.
 
-    ``calendar.csv`` ends on Sun 28 Jun 2026, before the scenario week, so the CSV seed needs this too.
+    ``calendar.csv`` ends on Sun 28 Jun 2026, before the scenario week, so the CSV seed needs this too. ``through`` is the
+    last day to cover (the scenario service date plus a fortnight); at least ``CALENDAR_DAYS`` days are always added.
     """
     added = 0
-    for i in range(CALENDAR_DAYS):
+    days = max(CALENDAR_DAYS, ((through - CALENDAR_FROM).days + 1) if through else 0)
+    for i in range(days):
         d = CALENDAR_FROM + timedelta(days=i)
         if db.get(CalendarDay, d) is not None:
             continue

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, CheckConstraint, ForeignKey, Integer, Text
+from sqlalchemy import BigInteger, CheckConstraint, Float, ForeignKey, Integer, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..db import Base
@@ -50,15 +50,29 @@ class AuditEvent(Base):
 
 
 class Clock(Base):
-    """A single row (id 1): the scenario clock (PRD §13)."""
+    """A single row (id 1): the scenario clock (PRD §13, DP-26).
+
+    Scenario time is ``anchor_scenario + (wall now - anchor_wall) * rate``. ``rate`` 1 is real time, 0 is paused.
+    """
 
     __tablename__ = "clock"
     __table_args__ = (CheckConstraint("id = 1", name="single_row"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
-    scenario_now: Mapped[datetime] = mapped_column(TZ)
+    anchor_scenario: Mapped[datetime] = mapped_column(TZ)
+    anchor_wall: Mapped[datetime] = mapped_column(TZ)
+    rate: Mapped[float] = mapped_column(Float, default=1.0)
     checkpoint: Mapped[datetime] = mapped_column(TZ)
     updated_at: Mapped[datetime] = mapped_column(TZ)
+
+
+class JobRun(Base):
+    """A job that has run. The key is unique, so a restart, a second worker or a replay cannot run it twice."""
+
+    __tablename__ = "job_runs"
+
+    key: Mapped[str] = mapped_column(Text, primary_key=True)
+    ran_at: Mapped[datetime] = mapped_column(TZ)
 
 
 class ScenarioEvent(Base):

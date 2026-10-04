@@ -12,18 +12,19 @@ from fastapi import APIRouter
 
 from ..deps import Db, Driver
 from ..schemas.driver import DriverHistoryRowOut, NoticeOut, RunOut
-from ..services import field_views as views
+from ..services import driver as views
 
 router = APIRouter(prefix="/driver", tags=["driver"])
 
 
 @router.get("/runs/{day}", operation_id="getRun", response_model=RunOut)
-def get_run(day: date, db: Db, user: Driver) -> RunOut:
+def get_run(day: date, db: Db, user: Driver, trip: int | None = None) -> RunOut:
     """The route package: the current plan version and each order's server state after sync.
 
     ``DriverApi.getRun`` and ``DriverApi.downloadRun`` are the same endpoint; ``downloadRun`` also caches it.
+    Without ``trip`` it is the earliest trip not finished yet. On a day with no run, ``state`` is ``no_run`` and says why.
     """
-    return views.run(db, user, day)
+    return views.run(db, user, day, trip)
 
 
 @router.get("/notices", operation_id="getNotices", response_model=list[NoticeOut])

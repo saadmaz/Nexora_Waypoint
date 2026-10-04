@@ -13,7 +13,8 @@ import { LoadingSkeleton, StateScreen } from "../../../shared/ui/StateScreen";
 import { Tag } from "../../../shared/ui/Tag";
 import { useDriverApi, useT } from "../context/DriverContext";
 import { useDriverRun } from "../context/useDriverRun";
-import { RECENT_RECEIVERS, RUN_DATE } from "../fixtures";
+import { runDate } from "../../../field/clock/runDate";
+import { devMocks } from "../../../devMocks/registry";
 import { buildOfflineBanner } from "../offlineBanner";
 import { DriverShell } from "../shell/DriverShell";
 import type { TFn } from "../stopFormat";
@@ -77,7 +78,7 @@ export function OutcomeScreen({ connectivityOverride, stopIdOverride, subviewOve
   const liveConnectivity = useConnectivity();
   const connectivity = connectivityOverride ?? liveConnectivity;
   const now = useNow();
-  const { run } = useDriverRun(RUN_DATE);
+  const { run } = useDriverRun(runDate());
 
   const [subview, setSubview] = useState<Subview>(subviewOverride ?? "form");
   const [sameOutcome, setSameOutcome] = useState(initial?.sameOutcome ?? true);
@@ -164,7 +165,7 @@ export function OutcomeScreen({ connectivityOverride, stopIdOverride, subviewOve
 
     setSaving(true);
     try {
-      await api.recordOutcome(RUN_DATE, stop.outletId, inputs);
+      await api.recordOutcome(runDate(), stop.outletId, inputs);
     } finally {
       setSaving(false);
     }
@@ -215,7 +216,7 @@ export function OutcomeScreen({ connectivityOverride, stopIdOverride, subviewOve
           outletId={stop.outletId}
           initialName={receiverName}
           // The suggestions are demo names; against the real API there is no history of receivers to suggest from yet.
-          recentNames={roleApiMode("driver") === "api" ? [] : (RECENT_RECEIVERS[stop.outletId] ?? [])}
+          recentNames={roleApiMode("driver") === "api" ? [] : (devMocks().driverFixtures.RECENT_RECEIVERS[stop.outletId] ?? [])}
           onSave={(name) => {
             setReceiverName(name);
             setSubview("form");
@@ -242,6 +243,7 @@ export function OutcomeScreen({ connectivityOverride, stopIdOverride, subviewOve
     </OfflineBanner>,
   );
 
+  const sameOutcomeLabel = stop.orders.length === 2 ? t("outcome.sameOutcome") : t("outcome.sameOutcomeAll", { count: stop.orders.length });
   const needsProofChosen = sameOutcome ? stopOutcome === "Delivered" || stopOutcome === "Damaged" : stop.orders.some((o) => {
     const oc = orderDraft(stop, o.id).outcome;
     return oc === "Delivered" || oc === "Damaged";
@@ -329,8 +331,8 @@ export function OutcomeScreen({ connectivityOverride, stopIdOverride, subviewOve
     >
       {stop.orders.length > 1 && (
         <div className={styles.switchRow}>
-          <span className={styles.label}>{t("outcome.sameOutcome")}</span>
-          <FieldSwitch checked={sameOutcome} onCheckedChange={setSameOutcome} label={t("outcome.sameOutcome")} />
+          <span className={styles.label}>{sameOutcomeLabel}</span>
+          <FieldSwitch checked={sameOutcome} onCheckedChange={setSameOutcome} label={sameOutcomeLabel} />
         </div>
       )}
 

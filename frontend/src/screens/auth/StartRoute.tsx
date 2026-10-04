@@ -49,7 +49,7 @@ export function StartRoute() {
                   <span className={styles.body}>
                     <span className={styles.app}>{account.appName}</span>
                     <span className={styles.who}>
-                      {session?.displayName ?? account.displayName} · {ROLE_LABEL[account.role]}
+                      {session ? `${session.displayName} · ${ROLE_LABEL[account.role]}` : account.role === "loader" ? `${account.displayName} · ${ROLE_LABEL[account.role]}` : ROLE_LABEL[account.role]}
                     </span>
                     <span className={styles.state}>
                       {session ? (

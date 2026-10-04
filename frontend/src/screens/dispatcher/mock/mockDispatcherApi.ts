@@ -29,8 +29,12 @@ import { orderHistory, queueView } from "./queue";
 import { acknowledgements } from "./release";
 import { at } from "./time";
 import { SCRIPT, createWorld, milestones, type World } from "./world";
+import { EVENING, MORNING } from "./time";
 
 /** What a dev address can make the mock do (`?state=`): reads hang, fail or come back empty. */
+/** The days the mock scenario runs between (PRD v3 section 2), for the presenter control in mock mode. */
+export const MOCK_SCENARIO_DAYS = { planningDay: EVENING, serviceDate: MORNING } as const;
+
 export type MockMode = "normal" | "loading" | "error" | "empty";
 
 export type MockOptions = { mode?: MockMode; calm?: boolean; delayMs?: number };

@@ -125,7 +125,8 @@ def test_the_dock_waits_for_the_plan_without_failing(client, auth, reseed):
     advance(client, auth, "2026-09-28T15:41:00+05:30")
     view = dock(client, auth, "kandy")
     assert view == {"dock": "kandy", "planVersion": 0, "acknowledged": False, "vehicles": [],
-                    "people": [{"id": RUWAN, "name": "Ruwan", "dock": "kandy"}]}
+                    "people": [{"id": RUWAN, "name": "Ruwan", "dock": "kandy"}],
+                    "planReleasedAt": None, "acknowledgedVersion": None, "acknowledgedBy": None, "acknowledgedAt": None}
     assert [p["name"] for p in dock(client, auth, "peliyagoda")["people"]] == ["Priya"]
 
 
@@ -161,9 +162,44 @@ def test_the_dock_shows_the_released_plan_and_takes_an_acknowledgement(client, a
         [record("loader.ack", {"date": DAY, "version": 3, "dockId": "kandy", "personId": RUWAN, "personName": "Ruwan"}, "04:15", 3, actor="Ruwan")],
     )
     assert [a["result"] for a in answers] == ["accepted"], answers
-    assert dock(client, auth, "kandy")["acknowledged"] is True
+    after = dock(client, auth, "kandy")
+    assert after["acknowledged"] is True
+    # L1.3 "Acknowledged by Ruwan 04:15", read from the server rather than from the tablet's own copy.
+    assert after["acknowledgedVersion"] == 3
+    assert after["acknowledgedBy"] == "Ruwan"
+    assert hm(after["acknowledgedAt"]) == "04:15"
+    # L1's "Released 23:40.", which the banner prints.
+    assert hm(after["planReleasedAt"]) == "23:40"
     # The acknowledgement belongs to one dock: Peliyagoda has not acknowledged anything.
-    assert dock(client, auth, "peliyagoda")["acknowledged"] is False
+    peliyagoda = dock(client, auth, "peliyagoda")
+    assert peliyagoda["acknowledged"] is False
+    assert peliyagoda["acknowledgedVersion"] is None
+
+
+def test_an_acknowledgement_of_an_older_version_still_shows(client, auth, reseed):
+    """L1.5: Priya acknowledged v3, the swap released v4, so the dock says the plan changed and wants a review."""
+    release(client, auth)
+    advance(client, auth, "2026-09-29T00:10:00+05:30")
+    answers = dock_sync(
+        client, auth,
+        [record("loader.ack", {"date": DAY, "version": 3, "dockId": "peliyagoda", "personId": PRIYA, "personName": "Priya"}, "00:10", 3, actor="Priya")],
+        device="tablet-peliyagoda",
+    )
+    assert [a["result"] for a in answers] == ["accepted"], answers
+    assert dock(client, auth, "peliyagoda")["acknowledged"] is True
+
+    flag_id = flag_veh003(client, auth)
+    advance(client, auth, "2026-09-29T03:00:00+05:30")
+    assert client.post(
+        f"/api/v1/dispatcher/exceptions/{flag_id}/decide", json={"decision": "swap_vehicle", "deferOrderIds": []}, headers=auth("dispatcher")
+    ).status_code == 200
+
+    after = dock(client, auth, "peliyagoda")
+    assert after["planVersion"] == 4
+    assert after["acknowledged"] is False
+    # The older acknowledgement is still reported, which is what tells the screen a review is due.
+    assert after["acknowledgedVersion"] == 3
+    assert after["acknowledgedBy"] == "Priya"
 
 
 def test_a_flagged_vehicle_is_held_on_the_dock(client, auth, reseed):
@@ -339,6 +375,26 @@ def test_the_decision_carries_the_keys_the_sheet_reads(client, auth, reseed):
     assert decision["decision"] == "swap_vehicle"
     assert decision["by"] and decision["at"] == "03:00"
     assert decision["replacement"] == replacement_of("VEH003")
+
+
+def test_a_swap_says_which_vehicle_stands_in_for_which(client, auth, reseed):
+    """The dock and the load list name both ends of a swap, so the screen needs no vehicle id of its own."""
+    release(client, auth)
+    flag_id = flag_veh003(client, auth)
+    advance(client, auth, "2026-09-29T03:00:00+05:30")
+    assert client.post(
+        f"/api/v1/dispatcher/exceptions/{flag_id}/decide", json={"decision": "swap_vehicle", "deferOrderIds": []}, headers=auth("dispatcher")
+    ).status_code == 200
+    replacement = replacement_of("VEH003")
+    assert replacement is not None
+
+    dock = client.get("/api/v1/loader/docks/peliyagoda", headers=auth("loader")).json()
+    by_vehicle = {v["vehicleId"]: v for v in dock["vehicles"]}
+    assert by_vehicle[replacement]["replaces"] == "VEH003"
+    assert all(v["replaces"] is None for k, v in by_vehicle.items() if k != replacement)
+
+    plan = client.get(f"/api/v1/loader/vehicles/{replacement}/trips/{by_vehicle[replacement]['tripNo']}", headers=auth("loader")).json()
+    assert plan["replaces"] == "VEH003"
 
 
 # ---- L4: what changed between two released versions -------------------------

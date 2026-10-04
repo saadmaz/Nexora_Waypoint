@@ -15,6 +15,12 @@ import type { DeferralType, OrderStatus } from "./status";
 
 export type DepotId = "peliyagoda" | "kandy";
 
+/** The two docks the loader can sit at. */
+export const DOCKS: Depot[] = [
+  { id: "peliyagoda", name: "Peliyagoda" },
+  { id: "kandy", name: "Kandy" },
+];
+
 export type Depot = {
   id: DepotId;
   /** "Peliyagoda", "Kandy". */

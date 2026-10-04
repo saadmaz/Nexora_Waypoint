@@ -79,7 +79,8 @@ function StoreApp() {
     <StoreProvider>
       <StoreRoot>
         <StoreRoutes />
-        <PresenterControl />
+        {/* The store presenter moves a local mock clock: development only. On the API the dispatcher owns the clock. */}
+        {import.meta.env.DEV && <PresenterControl />}
       </StoreRoot>
     </StoreProvider>
   );

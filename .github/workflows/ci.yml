@@ -3,7 +3,7 @@ name: CI
 # Contributing §17: the same commands you run before opening a PR. A failure blocks the merge.
 on:
   push:
-    branches: [feature/postgres18-v3-schema-alignment]
+    branches: [develop, main]
   pull_request:
     branches: [develop, main]
 
@@ -27,7 +27,14 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
+      # Every date and time a person reads is Asia/Colombo, so the unit tests must pass wherever the judge's laptop is (DP-26).
+      - run: npm test
+      - run: npm test
+        env:
+          TZ: America/New_York
       - run: npm run build
+      # The production build must carry no mock, persona name or date written in the code (DP-26).
+      - run: npm run check:bundle
 
   backend:
     runs-on: ubuntu-latest
@@ -72,6 +79,8 @@ jobs:
           PGPASSWORD=waypoint psql -h localhost -U waypoint -d waypoint_test -c "CREATE DATABASE waypoint_seed"
           alembic upgrade 0001
           alembic upgrade 0002
+          # then every later migration, so the database is at head before the drift check
+          alembic upgrade head
           alembic check
           python -m seed.run
       - run: pytest
@@ -104,3 +113,42 @@ jobs:
       - name: Remove only this job's disposable project
         if: always()
         run: docker compose -p waypoint-schema-${{ github.run_id }}-${{ github.run_attempt }} down --volumes
+
+  # PRD section 17 "End to end": the judge walkthrough, played in a real browser against `docker compose up` on a clean checkout.
+  e2e:
+    runs-on: ubuntu-latest
+    needs: [compose]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+      - name: Start the system with a clock that holds still
+        env:
+          COMPOSE_PROJECT_NAME: waypoint-e2e-${{ github.run_id }}-${{ github.run_attempt }}
+          # The steps move the scenario clock themselves; real time passing between them would make them flaky.
+          CLOCK_RATE: "0"
+        run: docker compose up --build --wait --wait-timeout 240
+      - run: npm ci
+        working-directory: e2e
+      - run: npx playwright install --with-deps chromium
+        working-directory: e2e
+      - name: Play the walkthrough and the offline test
+        working-directory: e2e
+        env:
+          E2E_BASE_URL: http://localhost:8080
+        run: npm test
+      - name: Upload traces and screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results
+          path: e2e/test-results
+      - name: Logs
+        if: always()
+        run: docker compose -p waypoint-e2e-${{ github.run_id }}-${{ github.run_attempt }} logs --no-color --tail 200
+      - name: Remove only this job's disposable project
+        if: always()
+        run: docker compose -p waypoint-e2e-${{ github.run_id }}-${{ github.run_attempt }} down --volumes

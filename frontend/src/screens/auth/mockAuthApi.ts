@@ -5,6 +5,9 @@ import { DEMO_PASSWORD, accountFor } from "./AuthApi";
 import { clearSession, readSession, writeSession } from "./session";
 import type { Session, SignInResult } from "./types";
 
+/** Who the demo accounts are in the mock (the design's cast). The real API sends the name with the sign-in. */
+const MOCK_NAMES: Record<Role, string> = { dispatcher: "Kumari", loader: "Dock tablet", driver: "Nimal", store: "Anusha" };
+
 /**
  * The sign-in mock (prompt 06 section 8).
  *
@@ -44,7 +47,7 @@ export const mockAuthApi: AuthApi = {
     const session: Session = {
       role: account.role,
       email: account.email,
-      displayName: account.displayName,
+      displayName: MOCK_NAMES[account.role],
       token: demoToken(account.role),
       signedInAt: new Date().toISOString(),
     };

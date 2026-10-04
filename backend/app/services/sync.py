@@ -17,11 +17,13 @@ Callers commit.
 from __future__ import annotations
 
 import logging
+import uuid
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from waypoint_rules import DeviceRecord as RuleRecord
@@ -206,6 +208,12 @@ def _device_time(rec: SyncRecordIn) -> datetime:
     return rec.device_time if rec.device_time.tzinfo is not None else rec.device_time.replace(tzinfo=COLOMBO)
 
 
+def _colombo_iso(value: datetime | None) -> str | None:
+    """An ISO time with the Asia/Colombo offset. The database hands times back in UTC, and a screen that shows the clock part
+    of an ISO string ("05:21") must not show the UTC one ("23:51")."""
+    return value.astimezone(COLOMBO).isoformat() if value is not None else None
+
+
 def _hm(value: datetime | None) -> str:
     return value.astimezone(COLOMBO).strftime("%H:%M") if value else ""
 
@@ -388,7 +396,7 @@ def _open_conflict(
                 "status": "deferred",
                 "planVersion": version.number,
                 "type": d.type.value,
-                "decidedAt": d.decided_at.isoformat() if d.decided_at else None,
+                "decidedAt": _colombo_iso(d.decided_at),
                 "decidedBy": (d.decided_by or "Dispatch").split(" · ")[0],
                 "reason": d.reason_text,
                 "reachedDriver": (rec.plan_version_on_device or 0) >= version.number,
@@ -396,13 +404,13 @@ def _open_conflict(
             device_snapshot={
                 "vehicleId": vehicle,
                 "outcome": outcome.value,
-                "deviceTime": _device_time(rec).isoformat(),
+                "deviceTime": _colombo_iso(_device_time(rec)),
                 "receivedBy": rec.payload.get("receiverName"),
                 "photo": bool(rec.payload.get("photoBlobId")),
                 "planVersionOnDevice": rec.plan_version_on_device,
-                "arrivedAt": arrived.isoformat() if arrived else None,
-                "offlineSince": offline.isoformat() if offline else None,
-                "syncedAt": b.now.isoformat(),
+                "arrivedAt": _colombo_iso(arrived),
+                "offlineSince": _colombo_iso(offline),
+                "syncedAt": _colombo_iso(b.now),
                 "unitsByOrder": {},
             },
             recommendation=ruling_rec,
@@ -707,10 +715,29 @@ def _reason(exc: Exception) -> str:
     return "The server could not apply this record"
 
 
+def _fresh(db: Session, client_id: uuid.UUID, *, lock: bool = False) -> f.DeviceRecord | None:
+    """The stored record as the database has it now, not as this session first saw it (another request may have written it)."""
+    return db.get(f.DeviceRecord, client_id, populate_existing=True, with_for_update=lock)
+
+
+def _taken(db: Session, client_id: uuid.UUID) -> SyncResultOut | None:
+    """``duplicate`` when another request has already answered this record; ``None`` when it is still ours to answer."""
+    current = _fresh(db, client_id)
+    if current is not None and current.result is not SyncResultKind.ERROR:
+        return _duplicate(db, current)
+    return None
+
+
 def _one(db: Session, b: Batch, rec: SyncRecordIn) -> SyncResultOut:
     stored = db.get(f.DeviceRecord, rec.client_id)
     if stored is not None and stored.result is not SyncResultKind.ERROR:
         return _duplicate(db, stored)
+    if stored is not None:
+        # A retried error. The same phone open in two tabs retries it twice at once: lock it, so the second request waits
+        # for the first and then answers duplicate instead of applying the record again.
+        stored = _fresh(db, rec.client_id, lock=True)
+        if stored is not None and stored.result is not SyncResultKind.ERROR:
+            return _duplicate(db, stored)
     try:
         with db.begin_nested():
             row = stored if stored is not None else f.DeviceRecord(client_id=rec.client_id)
@@ -725,20 +752,38 @@ def _one(db: Session, b: Batch, rec: SyncRecordIn) -> SyncResultOut:
             db.flush()  # the record exists before a photo points at it
             _link_blobs(db, rec)
             db.flush()
+    except IntegrityError as exc:
+        # Another request stored this clientId at the same moment (two tabs sending the same outbox). Its answer stands.
+        taken = _taken(db, rec.client_id)
+        if taken is not None:
+            return taken
+        return _error(db, b, rec, _reason(exc))
     except Exception as exc:  # one bad record never fails the batch
-        reason = _reason(exc)
+        taken = _taken(db, rec.client_id)
+        if taken is not None:
+            return taken
+        return _error(db, b, rec, _reason(exc))
+    return SyncResultOut(
+        client_id=rec.client_id, result=answer.result, reason=answer.reason, conflict_id=answer.conflict_id, server_payload=answer.server_payload
+    )
+
+
+def _error(db: Session, b: Batch, rec: SyncRecordIn, reason: str) -> SyncResultOut:
+    """Keeps the record as ``error`` so the phone retries it. Never overwrites an answer another request has stored."""
+    try:
         with db.begin_nested():
-            row = db.get(f.DeviceRecord, rec.client_id) or f.DeviceRecord(client_id=rec.client_id)
+            row = _fresh(db, rec.client_id) or f.DeviceRecord(client_id=rec.client_id)
             _fill(row, b, rec)
             row.order_ids = []
             row.result = SyncResultKind.ERROR
             row.result_reason = reason
             db.add(row)
             db.flush()
-        return SyncResultOut(client_id=rec.client_id, result=SyncResultKind.ERROR, reason=reason)
-    return SyncResultOut(
-        client_id=rec.client_id, result=answer.result, reason=answer.reason, conflict_id=answer.conflict_id, server_payload=answer.server_payload
-    )
+    except IntegrityError:
+        taken = _taken(db, rec.client_id)
+        if taken is not None:
+            return taken
+    return SyncResultOut(client_id=rec.client_id, result=SyncResultKind.ERROR, reason=reason)
 
 
 def _hear(db: Session, b: Batch) -> None:

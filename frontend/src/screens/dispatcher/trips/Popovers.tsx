@@ -137,7 +137,7 @@ export function RefusalPopover({ result, card, onKeep, onTryAnother, keepLabel }
       {guard && (
         <div className={styles.guardLine}>
           <Mono>
-            <b>{result.orderId} · OUT012</b>
+            <b>{result.orderId}</b>
           </Mono>
           <Chip tone="outlineInk" small icon={<Lock size={12} />}>
             Protected

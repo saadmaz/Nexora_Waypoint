@@ -20,6 +20,22 @@ class LoginIn(ApiModel):
     password: str
 
 
+class Window(ApiModel):
+    start: str = Field(examples=["05:30"])
+    end: str = Field(examples=["08:00"])
+
+
+class OutletInfo(ApiModel):
+    """The outlet a store account manages, as the store's own screens name it."""
+
+    id: str
+    name: str
+    brand: str
+    district: str
+    dock: str
+    window: Window
+
+
 class MeOut(ApiModel):
     id: int
     email: str
@@ -27,6 +43,7 @@ class MeOut(ApiModel):
     display_name: str
     depot: str | None = None
     outlet_id: str | None = None
+    outlet: OutletInfo | None = Field(default=None, description="The store account's outlet; absent for every other role")
     vehicle_id: str | None = None
 
 
@@ -43,6 +60,9 @@ class ClockOut(ApiModel):
     now: datetime
     checkpoint: datetime
     service_date: date = Field(description="The delivery day an order placed now counts for")
+    run_date: date = Field(description="The delivery run the apps are working on: today's until midday, then the next operating day")
+    rate: float = Field(description="Scenario seconds per wall second: 1 is real time, 0 is paused")
+    server_wall: datetime = Field(description="The server's wall clock when this was read, for extrapolating between polls")
 
 
 class AdvanceIn(ApiModel):
@@ -53,11 +73,6 @@ class AdvanceIn(ApiModel):
 class ResetOut(ApiModel):
     clock: ClockOut
     seeded: bool
-
-
-class Window(ApiModel):
-    start: str = Field(examples=["05:30"])
-    end: str = Field(examples=["08:00"])
 
 
 class Violation(ApiModel):

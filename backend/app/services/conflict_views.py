@@ -144,7 +144,7 @@ def conflict_view(live: LiveDay, c: ConflictRow) -> s.ConflictView:
     view = s.ConflictView(
         id=str(c.id),
         outlet_id=outlet.id,
-        outlet_name=outlet.name,
+        outlet_name=outlet.name if outlet.name and outlet.name != outlet.id else f"Waypoint {outlet.brand.value}",
         district=outlet.district,
         orders=[s.ConflictOrder(id=o, temp=day.orders[o].temp, units=day.orders[o].units) for o in c.order_ids],
         state=_state(c),  # type: ignore[arg-type]

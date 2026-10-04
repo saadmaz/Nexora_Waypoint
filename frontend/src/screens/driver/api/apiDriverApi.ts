@@ -21,12 +21,13 @@ import type { DriverApi } from "./DriverApi";
 import {
   applyConflict,
   consumeFailNextUpload,
-  createMockDriverApi,
+  createDeviceOps,
   readDeviceState,
+  registerDeviceNoticeSync,
   writeDeviceState,
   sortNotices,
-} from "./mockDriverApi";
-import { conflictFromServer, mapNotice, mapRun, SERVER_NOTICE_PREFIX } from "./runMapper";
+} from "./deviceDriverApi";
+import { conflictFromServer, mapNotice, mapRun, requireRun, SERVER_NOTICE_PREFIX } from "./runMapper";
 
 type RunOut = components["schemas"]["RunOut"];
 type MeOut = components["schemas"]["MeOut"];
@@ -114,7 +115,14 @@ async function readServerNoticeIds(date: string): Promise<Set<string>> {
  */
 export function createApiDriverApi(now: () => number): DriverApi {
   // The device-side half: acknowledge, start route, arrival, outcome, mark read, went offline. All local, none simulated.
-  const device = createMockDriverApi(now);
+  // The kilometres come from the plan; nothing is tracked by GPS here, so the planned distance stands (DP-14).
+  const device = createDeviceOps(now, {
+    getRun: (date) => getRun(date),
+    distanceBasis: async (date) => {
+      const { run } = await packageFor(date);
+      return { trackedLegsKm: null, plannedKm: run.plannedKm ?? 0, kmPerL: run.vehicle?.kmPerL ?? 0 };
+    },
+  });
   const inflight = new Map<string, Promise<RunPackage>>();
 
   async function fetchPackage(date: string): Promise<RunPackage> {
@@ -159,7 +167,7 @@ export function createApiDriverApi(now: () => number): DriverApi {
     const pkg = await refresh(date);
     onProgress?.(2, 2);
     const local = await readDeviceState(date);
-    local.downloadedVersion = pkg.run.planVersion;
+    local.downloadedVersion = requireRun(pkg.run).planVersion;
     await writeDeviceState(date, local, now());
   }
 
@@ -185,6 +193,8 @@ export function createApiDriverApi(now: () => number): DriverApi {
       const outletId = typeof notice.link?.outletId === "string" ? notice.link.outletId : undefined;
       if (notice.tag !== "resolved" || !outletId || local.resolutions[outletId]) continue;
       const link = notice.link ?? {};
+      // Keeping the deferral is not a kept delivery. The notice still lists it; the stop has no screen for it yet.
+      if (link.decision === "keep_deferral") continue;
       local.resolutions[outletId] = {
         decision: link.decision === "keep_partial" ? "keep_partial" : "keep_delivery",
         by: typeof link.by === "string" ? link.by : "Dispatch",
@@ -211,7 +221,7 @@ export function createApiDriverApi(now: () => number): DriverApi {
    * screen: it shows today alone, and never the fixture weeks.
    */
   async function getHistory(date: string): Promise<DriverHistoryDay[]> {
-    const today = (await device.getHistory(date)).filter((day) => day.date === date);
+    const today = (await device.getTodayHistory(date)).filter((day) => day.date === date);
     let rows: DriverHistoryRowOut[] = [];
     try {
       rows = await request<DriverHistoryRowOut[]>("driver.getHistory");
@@ -240,4 +250,12 @@ export function createApiDriverApi(now: () => number): DriverApi {
     getFinishedRun: device.getFinishedRun,
     finishRun: device.finishRun,
   };
+}
+
+/** The phone's own notices ("N records synced", a failed photo) for the real run: the photo notice names the stop from the downloaded route. */
+export function registerApiDeviceNotices(date: string, now: () => number): void {
+  registerDeviceNoticeSync(date, now, async (outletId) => {
+    const pkg = (await getCache<RunPackage>(packageKey(date)))?.value;
+    return pkg?.run.stops?.find((stop) => stop.outletId === outletId)?.seq;
+  });
 }

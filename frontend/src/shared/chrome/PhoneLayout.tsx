@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { useContext, type ReactNode } from "react";
+import { StoreContext } from "../../app/StoreContext";
 import type { BellProps } from "./BellButton";
 import { TopBar, type SyncState } from "./TopBar";
 import { TabBar } from "./TabBar";
@@ -6,7 +7,7 @@ import { ConnectivityBar } from "./ConnectivityBar";
 import styles from "./PhoneLayout.module.css";
 
 export type PhoneLayoutProps = {
-  /** "OUT084 · Waypoint Fresh". Defaults to Anusha's outlet; S2.9 shows OUT009's view. */
+  /** "OUT084 · Waypoint Fresh". Defaults to the signed-in store's outlet; S2.9 shows another outlet's view. */
   outlet?: string;
   /** "Kandy" */
   place?: string;
@@ -27,10 +28,10 @@ export type PhoneLayoutProps = {
   children: ReactNode;
 };
 
-/** The store's phone frame: OUT084 · Waypoint Fresh, Kandy unless told otherwise. */
+/** The store's phone frame, naming the signed-in store's outlet unless told otherwise. */
 export function PhoneLayout({
-  outlet = "OUT084 · Waypoint Fresh",
-  place = "Kandy",
+  outlet: outletProp,
+  place: placeProp,
   placeMono,
   sync = "synced",
   waiting,
@@ -41,6 +42,9 @@ export function PhoneLayout({
   hideTabs,
   children,
 }: PhoneLayoutProps) {
+  const store = useContext(StoreContext);
+  const outlet = outletProp ?? (store ? `${store.outlet.id} · ${store.outlet.brand}` : "");
+  const place = placeProp ?? store?.outlet.district ?? "";
   return (
     <div className={styles.shell}>
       <TopBar

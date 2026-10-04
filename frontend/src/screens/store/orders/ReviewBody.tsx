@@ -4,8 +4,9 @@ import { Mono } from "../../../shared/ui/Mono";
 import { Tag } from "../../../shared/ui/Tag";
 import type { OrderKind } from "../../../domain/order";
 import { unitsLabel } from "../../../domain/estimate";
-import { OUTLET, WINDOW_LABEL } from "../../../domain/outlet";
+import { windowLabel } from "../../../domain/outlet";
 import styles from "./ReviewBody.module.css";
+import { useStore } from "../../../app/StoreContext";
 
 export type ReviewLine = { kind: OrderKind; units: number };
 
@@ -18,6 +19,7 @@ export type ReviewBodyProps = {
 
 /** The content of S1.2 (phone sheet) and S1.6 B (desktop modal): "Check your orders". */
 export function ReviewBody({ lines, dateLabel, onEdit, onConfirm }: ReviewBodyProps) {
+  const { outlet } = useStore();
   return (
     <div className={styles.body}>
       <ul className={styles.list}>
@@ -32,7 +34,7 @@ export function ReviewBody({ lines, dateLabel, onEdit, onConfirm }: ReviewBodyPr
       <p className={styles.when}>
         <Icon name="calendar" size={20} />
         <span>
-          {dateLabel} · window <Mono>{WINDOW_LABEL}</Mono> · {OUTLET.dock}
+          {dateLabel} · window <Mono>{windowLabel(outlet)}</Mono> · {outlet.dock}
         </span>
       </p>
       <div className={styles.actions}>

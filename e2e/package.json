@@ -1,0 +1,14 @@
+{
+  "name": "waypoint-e2e",
+  "private": true,
+  "type": "module",
+  "description": "Plays the judge walkthrough (PRD section 16) in a real browser against the running system.",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.0"
+  }
+}

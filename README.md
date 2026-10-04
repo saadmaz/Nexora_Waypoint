@@ -185,6 +185,20 @@ The complete workflow can be demonstrated using the seeded accounts:
 
 See the deployed application and `/docs` for the full walkthrough.
 
+**The clock.** Scenario time starts at 15:30 the day before the delivery day and **ticks in real time**, so countdowns and
+"last heard" ages move on their own, and the 16:00 cutoff and the 16:05 draft happen when the clock reaches them. You do not
+have to wait: open the presenter control from the dispatcher's avatar menu (or add `?presenter=1`) to **Pause clock** and
+**Resume clock**, jump with **Go to next step** (it never goes backwards), or **Reset demo**. Set `CLOCK_RATE=60` in `.env` for
+a minute a second, or `0` to hold still. `SCENARIO_SERVICE_DATE` picks the delivery day (it must be an operating day). See
+departure DP-26 in `waypoint-prd-v3.md`.
+
+**Play it automatically.** `e2e/` plays this walkthrough in a real browser, including a driver who loses the network, records two deliveries with photos, reloads the page offline and syncs when the network returns:
+
+```bash
+CLOCK_RATE=0 docker compose up --build -d
+cd e2e && npm ci && npx playwright install chromium && npm test
+```
+
 ---
 
 ## 🛠️ Tech Stack
@@ -318,7 +332,10 @@ Older entries below name the files by the paths they had when the phase landed;
 | 7 | Routes, the state gallery and the scenario clock: the full route set, `/store/_states` (48 frames, each openable full screen with `?frame=`), one clock (`?at=` infers the day, `?date=` overrides) read through one `useNow()`, `data-theme="light"` on the store root, no clipping at 320 px | Done |
 | 8 | README (walkthrough, departures, run and gallery), accessibility pass, a full browser pass of every gallery frame against Figma, the hero flow end to end, typecheck, lint and build | Done |
 
-### The store's part of the judge walkthrough (mock mode)
+### The store's part of the judge walkthrough
+
+The steps below are written for mock mode, which needs no backend. In API mode the same steps play the same
+way; what differs is under "The store against the real API" just after.
 
 PRD v3 section 16 steps 1, 2, 3, 6, 8, 13, 15, 16 and 17, the Anusha (store) side, in one browser
 tab with no backend. The scenario clock starts at Mon 28 Sep 15:40 and the **presenter control**
@@ -366,6 +383,70 @@ asks for a reason and the order reads Partial), **Report issue** (S3.3, S3.4, th
 S3.7), an order placed after 16:00 (S1.4, placed for Wed), going offline while ordering or
 confirming (S1.5 A, S3.S C; both send on reconnect), and every state in the gallery at
 `/store/_states`.
+
+### The store against the real API
+
+All twelve `StoreApi` routes are built, so the store runs on the real backend. Mock mode is still the
+default; `VITE_STORE_API=api` switches over.
+
+```bash
+CORS_ORIGINS='["http://localhost:8080","http://localhost:5173"]' docker compose up -d --build db api
+cd frontend
+VITE_AUTH_API=api VITE_STORE_API=api npm run dev -- --port 5173 --strictPort
+# then sign in as store@waypoint.demo (password waypoint-demo)
+```
+
+Two scripts prove it. Each runs against the API in Docker and the app above, and each resets the demo at the
+start and the end, so run them on a database you do not mind re-seeding:
+
+| Command | Proves |
+|---|---|
+| `npm run test:api-store` | The data. Drives the app's own `createApiStoreApi` through the hero day (S1 to S4), so a reply the mappers reject fails it. Asserts on the values the PRD fixes, not on HTTP 200 |
+| `npm run test:store-live` | The product. Plays the store's part of PRD §16 through the rendered screens: place and review (S1.1 to S1.3), Edit order and Cancel order offered, Edit withdrawn after 16:00, S1.4 rolled to Wed, S2.1 to S2.8 with Got it reaching D4 and the S2.7 question answered, the receipt with the report sheet and a short count, S3.7, S4.1 with Mark all read, S4.2. Then the browser goes offline, the `api` container is really stopped (the error state and its Try again), and the screen recovers. `--skip-offline` leaves out the part that stops the container |
+
+Pass `--base` when the app is not on `:5173`, and add that origin to `CORS_ORIGINS`.
+
+**Both scripts currently report failures against `develop`** (10 from `test:api-store`, 1 from
+`test:store-live`). They are differences between the backend and the contract the mock and the PRD set, not
+faults in the scripts, and they are listed in the pull request. The four that matter:
+
+- **Timestamps carry an offset.** `receivedAt` and `updatedAt` come back as `2026-09-28T15:40:00+05:30`; §19
+  and the mock both say naive local ISO with no offset. `clockTime()` renders with `getHours()`, so the store
+  shows the right time only in Asia/Colombo: in Europe/London the same reply reads `11:10` instead of `15:40`.
+- **A shortfall is accepted with no reason.** PRD A50 says "Confirm with a shortfall" asks for a reason before
+  it sends. The sheet does ask, but `POST /store/receipts` takes a 9 of 12 with no reason and returns Partial,
+  so the rule lives only in the screen (§19: the frontend never re-implements a rule).
+- **The review question appears before Dispatch asks.** PRD A51 says the explanation ("Why you're seeing this")
+  shows on its own, and the question ("Did you receive this delivery?" with its two buttons) only once Dispatch
+  has asked. At 06:41, before any ask, the reply carries the `review` block and S2.7 draws the question.
+- **The journey can read Departed pending while Delivered is done**, and the proof's `driver` comes back empty.
+
+**What differs from the mock.**
+
+- **Two clocks.** In API mode the store still runs its own `?at=` clock and does not read the server's
+  `/clock` (the dispatcher does). The server decides what each reply says, so its clock has to be moved with
+  the presenter control or `/demo/advance`. A screen opened at an `?at=` the server has not reached shows the
+  earlier state. Both scripts move the two together. Reading `/clock` in `StoreProvider`, as the dispatcher
+  does, would remove the problem; it was left alone because it changes the shared provider and the mock path.
+- **`?state=`, `?preset=` and `?preview=` do nothing**, as "API mode" says. Every state is reached by the day
+  actually happening on the server. The gallery stays a mock-mode tool.
+- **The outlet name.** The top bar reads "OUT084 · Waypoint Fresh Kandy" from the frontend's own `OUTLET`
+  constant. S2 and S3 print `outletName` from the reply, which is `OUT084` on the fallback seed because
+  `outlets.name` is NULL there. With the competition CSVs both show the real name.
+- **S2.4 and S2.5 on the fallback seed.** The planner puts OUT084 on VEH040 there, and the demo phone is
+  bound to VEH039, so in the scripts the truck never departs and those two states are skipped with a message.
+  On the competition data, or on the small world the backend tests use, they run.
+- **No neutral values.** Unlike the driver and loader clients, `apiStoreApi` fills nothing in.
+  `storeMappers.ts` fails a reply that lacks a field as `unexpected_reply`. Both scripts ran without hitting
+  one, so the store has no gap list.
+
+**Open points.**
+
+- `Outlet.units_to_kg` / `units_to_m3` is one pair per outlet, not one per temperature. It is unpopulated in
+  the seed, so the A14 and A42 fallbacks ship and chilled and dry differ correctly. If it were filled, both
+  temperatures would collapse to one factor. A `feature/backend-foundation` question.
+- `outlets.name` is NULL in the fallback seed, so `outletName` is the outlet id there (see above).
+- "A store account with no outlet is 403" is implemented but untested, because the seed has no such account.
 
 ### Checks run (phase 8)
 
@@ -1108,8 +1189,8 @@ npm run compare -- driver R1.1 R3.1   # frame screenshots beside Figma (needs th
 npm run test:hero        # the hero path end to end against a running dev server (see "Checks run")
 npm run test:hero -- --partial   # the same, ending with the presenter's "Keep as Partial (10 of 12)"
 npm test                 # vitest, 55 tests
-npm run build && npm run preview   # then, in another terminal:
-npm run test:offline -- --base http://localhost:4173   # the production build opens with no network
+VITE_API_BASE=http://localhost:8000 npm run build && npm run preview   # then, in another terminal (the API on :8000, :4173 in CORS_ORIGINS):
+npm run test:offline -- --base http://localhost:4173   # the production build works with no network, then syncs
 ```
 
 Add `?presenter=1` to any driver URL to get the presenter controls in the Outbox sheet (see "The Outbox").
@@ -1191,7 +1272,7 @@ R8.1 (`notices/NotificationsScreen.tsx`, route `/driver/notifications`) lists on
 
 ### Real devices, the service worker and the iOS note (driver prompt 4, O6)
 
-- **Offline after one visit.** The production build registers a service worker (`vite-plugin-pwa`). `npm run test:offline` checks it: after one visit it sets the browser offline, reloads, and checks that the cached run is on screen, that a departure recorded offline survives a reload, and that the Me tab shows storage used. This passes on desktop Chromium.
+- **Offline after one visit.** The production build registers a service worker (`vite-plugin-pwa`). `npm run test:offline` checks it against the real API (a production build runs nothing else): after one visit it sets the browser offline, reloads, and checks that the cached run is on screen, that a departure recorded offline survives a reload and has not reached the server, that the Me tab shows storage used, and that once the network returns the departure reaches the server. It resets the demo first. This passes on desktop Chromium.
 - **Storage.** `startFieldRuntime` asks `navigator.storage.persist()` at first run; the browser decides, and desktop Chromium usually says no for a new origin. The Me tab shows "N MB used" from `navigator.storage.estimate()`.
 - **iOS has no Background Sync API.** Safari on iPhone will not wake the app to send records. Syncing happens only while the app is open: on the `online` event, on the 30 s timer, and on "Send now". A driver who records a stop in a dead zone and closes the app sends nothing until the app is opened again with coverage. The app does not register a background sync on Android either, so it behaves the same way there.
 - **The physical-phone check has not been done.** It needs a person with a phone. Checklist, on a production build served over HTTPS (`npm run build`, then any HTTPS host):
@@ -1298,7 +1379,7 @@ All 20 dispatcher routes answer from the database. Nothing a dispatcher sees in 
 - **The scenario clock drives the day.** `app/jobs.py` runs inside `POST /demo/advance`, in the same transaction: cutoff (Ordered to Confirmed, notices to stores), the draft, the scripted events in `backend/seed/scenario_events.yaml`.
 - **Every move is checked by the rules package.** `validate-move` returns the refusal text from `waypoint_rules`; the screens show it and never re-derive it.
 - **Every state change writes an `audit_events` row** in the same transaction.
-- **The day.** With no `data/*.csv` the seed generates the rest of the day (`backend/seed/generated.py`, A41): 60 vehicles, Peliyagoda 212 orders and Kandy 62 for Tue 29 Sep, the same on every run. `SEED_GENERATED_ORDERS=false` keeps only the small story world, which the API tests use.
+- **The day.** With no `data/*.csv` the seed generates the rest of the day (`backend/seed/generated.py`, A41): 60 vehicles, Peliyagoda 212 orders and Kandy 62 for Tue 29 Sep, the same on every run. That full-size day is opt-in (`SEED_GENERATED_ORDERS=true`); the default is the small story world the walkthrough and the API tests use, because the walkthrough names pinned orders and vehicles that the planner places differently once 274 more orders compete for the same trips (DP-29).
 
 ### Run it
 
@@ -1402,7 +1483,8 @@ CORS_ORIGINS='["http://localhost:8080","http://localhost:5173","http://localhost
 | `npm run test:api-roles -- --base http://localhost:5192` | the API (with `:5192` in `CORS_ORIGINS`), the app with all four flags | Each role's first screen read goes to the real route with that role's own token; the transport gets a live 200 from `/me`, the server's own 404 from `driver.getRun` while no plan is released, hands a record to `/sync`, and makes no request offline (run it on a freshly seeded database) |
 | `npm run test:api-dispatcher -- --base http://localhost:5173` | the API, the app with `VITE_AUTH_API=api VITE_DISPATCHER_API=api` | All 20 dispatcher operations: 401 with no token, 403 with a driver token, the typed 501 with a dispatcher token (or the real answer, compared with the mock's view, for a route that has landed); the same 20 through the app's client; the 501 on each of the nine screens' own error states; offline and recovery on the live board; the presenter control against `/demo/advance` and `/demo/reset`; a rejected token. It resets the demo at the end |
 | `npm run test:api-sync` | the API (`docker compose up -d --build db api`); no app | The offline path over HTTP: the gate confirmation, the phone's start, a store-request deferral at 05:21, then a 06:40 sync on the old plan that comes back accepted plus one conflict per deferred stop; the same batch again is all duplicate; the photo uploads once; D7 recommends and keeps the delivery; a dock acknowledgement of the replaced plan is a conflict. ORD2001 + ORD2002 are placed by the store, so until `POST /store/orders` lands it defers the first stop of VEH039 trip 1 instead and skips the board checks. It resets the demo at the start and the end |
-| `npm run test:hero`, `npm run test:offline` | the app in mock mode | The mock path is unchanged |
+| `npm run test:hero` | the app in mock mode (`npm run dev`) | The mock path is unchanged |
+| `npm run test:offline -- --base http://localhost:4173` | the API, and a production build with `VITE_API_BASE=http://localhost:8000` in `npm run preview` | The shipped build works offline after one visit and its offline record reaches the server once back online. It resets the demo first |
 
 ### What the backend answers today (3 Oct)
 

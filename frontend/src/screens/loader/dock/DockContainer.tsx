@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { colomboMs, formatTime, HERO_DATE, minutesUntil } from "../../../field/clock/clock";
+import { colomboMs, formatTime, minutesUntil } from "../../../field/clock/clock";
+import { runDate } from "../../../field/clock/runDate";
 import { useFieldClock, useNow } from "../../../field/clock/useClock";
 import { useConnectivity, useFieldQuery, type ConnectivityStatus, type FieldQueryResult } from "../../../field/offline";
 import { formatCountdown } from "../../../field/format";
 import { PinSheet, type ChipStatus } from "../../../field/components";
-import { DOCKS } from "../fixtures";
+import { DOCKS } from "../../../domain/field";
 import { usePeople } from "../usePeople";
 import { useLoader } from "../LoaderContext";
 import type { DepotId } from "../../../domain/field";
 import type { DockView as DockViewModel, DockVehicleSummary } from "../types";
 import { Dock, type DockAlertModel } from "./Dock";
 import type { VehicleCardProps } from "./VehicleCard";
+import { LOADER_POLL_MS } from "../poll";
 
 function chipStatus(status: ConnectivityStatus): ChipStatus {
   return status === "online" ? "synced" : status;
@@ -47,7 +49,7 @@ export function DockContainer({
 
   useEffect(() => {
     if (clock.fixed) return;
-    const id = window.setInterval(() => query.refresh(), 15_000);
+    const id = window.setInterval(() => query.refresh(), LOADER_POLL_MS);
     return () => window.clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clock.fixed, query.refresh]);
@@ -120,7 +122,7 @@ export function DockContainer({
     buildCard(v, {
       locked,
       lockedVersion: view.planVersion,
-      changeTag: showChangeTags ? (v.vehicle.id === "VEH003" || v.vehicle.id === "VEH036" ? "Changed" : "No change") : undefined,
+      changeTag: showChangeTags ? (v.status === "held" || v.status === "replaced" || v.replaces ? "Changed" : "No change") : undefined,
       primary: !locked && v.vehicle.id === nextToLoad?.vehicle.id,
       embedded,
       selected: v.vehicle.id === selectedVehicleId,
@@ -189,8 +191,9 @@ function buildCard(
     navigate: ReturnType<typeof useNavigate>;
   },
 ): VehicleCardProps {
-  const minutes = minutesUntil(colomboMs(HERO_DATE, v.departsAt), opts.now);
-  const inLabel = formatCountdown(minutes);
+  const minutes = minutesUntil(colomboMs(runDate(), v.departsAt), opts.now);
+  // Once the departure time has passed the card says so, rather than "in 0 min" all morning.
+  const inLabel = minutes >= 0 ? formatCountdown(minutes) : v.status === "loaded" ? "Cleared to depart" : "Departure time passed";
   const goTo = opts.goToId
     ? { label: `Go to ${opts.goToId}`, onClick: () => opts.navigate(`/loader/vehicles/${opts.goToId}/trips/1`) }
     : undefined;

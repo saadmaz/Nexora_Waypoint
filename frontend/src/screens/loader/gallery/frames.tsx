@@ -1,6 +1,6 @@
 import type { GalleryFrame } from "../../../field/gallery/StateGallery";
 import { PinSheet } from "../../../field/components";
-import { HERO_DATE, HERO_EVENING_DATE } from "../../../field/clock/clock";
+import { HERO_DATE, HERO_EVENING_DATE } from "../../../field/clock/mockClock";
 import { Dock, type DockAlertModel } from "../dock/Dock";
 import type { VehicleCardProps } from "../dock/VehicleCard";
 import { Mono } from "../../../shared/ui/Mono";

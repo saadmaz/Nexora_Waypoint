@@ -8,14 +8,11 @@
 export const TIME_ZONE = "Asia/Colombo";
 const OFFSET = "+05:30";
 
-/** The hero day (Tue 29 Sep 2026), the date used when `?date=` is absent. */
-export const HERO_DATE = "2026-09-29";
-/** The evening before it, when plan v3 is drafted and released. */
-export const HERO_EVENING_DATE = "2026-09-28";
-
 export type FieldClock = {
   /** Epoch milliseconds of the scenario "now". */
   nowMs: () => number;
+  /** The delivery run (YYYY-MM-DD) the app is working on. The server says on the real API; the URL's `?date=` in mock mode. */
+  runDate: () => string;
   /** Jumps forward to `to` (epoch ms). It never goes backwards. Absent on a fixed clock. */
   advanceTo?: (to: number) => void;
   /** A fixed clock does not tick: used by the state gallery so a frame stays at its own moment. */
@@ -27,55 +24,6 @@ export function colomboMs(date: string, time: string): number {
   const hhmmss = /^\d{1,2}:\d{2}$/.test(time) ? `${time}:00` : time;
   const padded = hhmmss.replace(/^(\d):/, "0$1:");
   return Date.parse(`${date}T${padded}${OFFSET}`);
-}
-
-/** A clock frozen at one moment. */
-export function createFixedClock(date: string, time: string): FieldClock {
-  const at = colomboMs(date, time);
-  return { nowMs: () => at, fixed: true };
-}
-
-/** A clock that starts at one moment and then keeps ticking in real time. `advanceTo` jumps it forward. */
-export function createRunningClock(startMs: number): FieldClock {
-  const loadedAt = Date.now();
-  let jumped = 0;
-  const nowMs = () => startMs + (Date.now() - loadedAt) + jumped;
-  return {
-    nowMs,
-    fixed: false,
-    advanceTo(to) {
-      const gap = to - nowMs();
-      if (gap > 0) jumped += gap;
-    },
-  };
-}
-
-export type ClockOptions = {
-  /** `?at=HH:MM`. */
-  at?: string | null;
-  /** `?date=YYYY-MM-DD`. Defaults to the hero day. */
-  date?: string | null;
-  /** Where the clock starts when `?at=` is absent: the role's first frame time. Real time when absent too. */
-  start?: { date: string; time: string };
-};
-
-/**
- * Builds the clock from the URL parameters. `?at=05:26` starts the clock there and lets it tick;
- * `?date=2026-09-28` picks the day (default 2026-09-29, so Monday evening times need it). With
- * no `?at=`, it starts at the role's first frame time, or runs in real time if none is given.
- */
-export function createFieldClock(options: ClockOptions = {}): FieldClock {
-  const at = options.at && /^\d{1,2}:\d{2}$/.test(options.at) ? options.at : null;
-  const date = options.date && /^\d{4}-\d{2}-\d{2}$/.test(options.date) ? options.date : HERO_DATE;
-  if (at) return createRunningClock(colomboMs(date, at));
-  if (options.start) return createRunningClock(colomboMs(options.start.date, options.start.time));
-  return { nowMs: () => Date.now(), fixed: false };
-}
-
-/** Reads `?at=` and `?date=` from a query string. */
-export function clockOptionsFromSearch(search: string, start?: ClockOptions["start"]): ClockOptions {
-  const params = new URLSearchParams(search);
-  return { at: params.get("at"), date: params.get("date"), start };
 }
 
 const timeFormat = new Intl.DateTimeFormat("en-GB", {

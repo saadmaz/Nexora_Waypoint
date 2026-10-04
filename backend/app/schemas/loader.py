@@ -34,6 +34,8 @@ class DockVehicleOut(ApiModel):
     tags: list[str] = Field(default_factory=list, description="Held, Replaced, Acknowledged...")
     orders: int
     kg: float
+    replaces: str | None = Field(default=None, description="The vehicle this one stands in for, once Dispatch has swapped them")
+    replaced_by: str | None = Field(default=None, description="The vehicle that took this one's trips")
 
 
 class DockOut(ApiModel):
@@ -42,6 +44,13 @@ class DockOut(ApiModel):
     acknowledged: bool
     people: list[PinPersonOut]
     vehicles: list[DockVehicleOut]
+    #: When the current plan was released, for L1's "Acknowledge before loading. Released 23:40."
+    plan_released_at: datetime | None = None
+    #: The newest released version this dock has acknowledged, which may be older than ``plan_version``:
+    #: that is L1.5 "Plan changed, review". ``None`` when the dock has acknowledged nothing.
+    acknowledged_version: int | None = None
+    acknowledged_by: str | None = None
+    acknowledged_at: datetime | None = None
 
 
 class LoadLineOut(ApiModel):
@@ -61,6 +70,8 @@ class LoadPlanOut(ApiModel):
     depart_at: datetime
     lines: list[LoadLineOut]
     confirmed_at: datetime | None = None
+    replaces: str | None = Field(default=None, description="The vehicle this one stands in for, once Dispatch has swapped them")
+    replaced_by: str | None = Field(default=None, description="The vehicle that took this one's trips")
 
 
 class LoaderExceptionOut(ApiModel):

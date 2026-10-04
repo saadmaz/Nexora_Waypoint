@@ -87,8 +87,52 @@ export interface paths {
         /**
          * Advance Clock
          * @description The presenter control's "Go to next step". Refuses to go backwards (409 ``clock_backwards``).
+         *
+         *     Dispatcher only, like ``/demo/reset``: the clock is shared by every role, so moving it changes
+         *     cutoffs and plan state for everyone. The presenter control that calls this is the dispatcher's
+         *     (PRD §13); the store's own control moves a local scenario clock and never reaches the server.
          */
         post: operations["advanceClock"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/demo/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause Clock
+         * @description Freeze scenario time where it is (DP-26). Countdowns stop and no timed job comes due until it is resumed.
+         */
+        post: operations["pauseClock"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/demo/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume Clock
+         * @description Let scenario time run again at the configured ``CLOCK_RATE`` (real time if that is 0).
+         */
+        post: operations["resumeClock"];
         delete?: never;
         options?: never;
         head?: never;
@@ -888,6 +932,7 @@ export interface paths {
          * @description The route package: the current plan version and each order's server state after sync.
          *
          *     ``DriverApi.getRun`` and ``DriverApi.downloadRun`` are the same endpoint; ``downloadRun`` also caches it.
+         *     Without ``trip`` it is the earliest trip not finished yet. On a day with no run, ``state`` is ``no_run`` and says why.
          */
         get: operations["getRun"];
         put?: never;
@@ -1116,6 +1161,18 @@ export interface components {
          * @enum {string}
          */
         Brand: "Fresh" | "Style" | "Tech";
+        /**
+         * CalendarOut
+         * @description R10.1: a monsoon day runs slower. The speed indexes are null until ``traffic_speed`` is mapped.
+         */
+        CalendarOut: {
+            /** Monsoon */
+            monsoon: boolean;
+            /** Speedindex */
+            speedIndex?: number | null;
+            /** Normalindex */
+            normalIndex?: number | null;
+        };
         /** CapacityBinding */
         CapacityBinding: {
             /** Resource */
@@ -1194,6 +1251,23 @@ export interface components {
              * @description The delivery day an order placed now counts for
              */
             serviceDate: string;
+            /**
+             * Rundate
+             * Format: date
+             * @description The delivery run the apps are working on: today's until midday, then the next operating day
+             */
+            runDate: string;
+            /**
+             * Rate
+             * @description Scenario seconds per wall second: 1 is real time, 0 is paused
+             */
+            rate: number;
+            /**
+             * Serverwall
+             * Format: date-time
+             * @description The server's wall clock when this was read, for extrapolating between polls
+             */
+            serverWall: string;
         };
         /** ClosestCard */
         ClosestCard: {
@@ -1679,7 +1753,20 @@ export interface components {
             people: components["schemas"]["PinPersonOut"][];
             /** Vehicles */
             vehicles: components["schemas"]["DockVehicleOut"][];
+            /** Planreleasedat */
+            planReleasedAt?: string | null;
+            /** Acknowledgedversion */
+            acknowledgedVersion?: number | null;
+            /** Acknowledgedby */
+            acknowledgedBy?: string | null;
+            /** Acknowledgedat */
+            acknowledgedAt?: string | null;
         };
+        /**
+         * DockType
+         * @enum {string}
+         */
+        DockType: "rear_dock" | "street" | "mall_bay";
         /** DockVehicleOut */
         DockVehicleOut: {
             /** Vehicleid */
@@ -1702,6 +1789,16 @@ export interface components {
             orders: number;
             /** Kg */
             kg: number;
+            /**
+             * Replaces
+             * @description The vehicle this one stands in for, once Dispatch has swapped them
+             */
+            replaces?: string | null;
+            /**
+             * Replacedby
+             * @description The vehicle that took this one's trips
+             */
+            replacedBy?: string | null;
         };
         /** DriverChip */
         DriverChip: {
@@ -2219,6 +2316,31 @@ export interface components {
             lines: components["schemas"]["LoadLineOut"][];
             /** Confirmedat */
             confirmedAt?: string | null;
+            /**
+             * Replaces
+             * @description The vehicle this one stands in for, once Dispatch has swapped them
+             */
+            replaces?: string | null;
+            /**
+             * Replacedby
+             * @description The vehicle that took this one's trips
+             */
+            replacedBy?: string | null;
+        };
+        /**
+         * LoaderConfirmationOut
+         * @description R1.3 B: "Confirmed by Ruwan · 04:50".
+         */
+        LoaderConfirmationOut: {
+            /** By */
+            by?: string | null;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Shortfalls */
+            shortfalls?: components["schemas"]["ShortfallOut"][];
         };
         /** LoaderExceptionOut */
         LoaderExceptionOut: {
@@ -2286,6 +2408,8 @@ export interface components {
             depot?: string | null;
             /** Outletid */
             outletId?: string | null;
+            /** @description The store account's outlet; absent for every other role */
+            outlet?: components["schemas"]["app__schemas__common__OutletInfo"] | null;
             /** Vehicleid */
             vehicleId?: string | null;
         };
@@ -2370,6 +2494,16 @@ export interface components {
             estimatedKg: number;
             /** Estimatedm3 */
             estimatedM3: number;
+        };
+        /** NoRunOut */
+        NoRunOut: {
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "sunday" | "holiday" | "not_released" | "no_trip";
+            /** Nextplanat */
+            nextPlanAt?: string | null;
         };
         /** NoticeCounts */
         NoticeCounts: {
@@ -2530,17 +2664,6 @@ export interface components {
          * @enum {string}
          */
         OrderStatus: "ordered" | "confirmed" | "planned" | "deferred" | "loaded" | "departed" | "delivered" | "partial" | "issue" | "conflict" | "pending_sync";
-        /** OutletInfo */
-        OutletInfo: {
-            /** Id */
-            id: string;
-            brand?: components["schemas"]["Brand"] | null;
-            /** Dock */
-            dock?: string | null;
-            window?: components["schemas"]["TimeRange"] | null;
-            /** Note */
-            note?: string | null;
-        };
         /** OverMeter */
         OverMeter: {
             /** Used */
@@ -2818,7 +2941,7 @@ export interface components {
              * @enum {string}
              */
             kind: "carry" | "other" | "outlet";
-            outlet?: components["schemas"]["OutletInfo"] | null;
+            outlet?: components["schemas"]["app__schemas__dispatcher__OutletInfo"] | null;
             /** Orders */
             orders: components["schemas"]["QueueOrder"][];
         };
@@ -3011,7 +3134,9 @@ export interface components {
         };
         /**
          * RunOut
-         * @description The route package the phone caches for offline use.
+         * @description The route package the phone caches for offline use, or why there is no run that day.
+         *
+         *     With ``state`` ``no_run`` the run fields are null and ``no_run`` says why.
          */
         RunOut: {
             /**
@@ -3019,25 +3144,41 @@ export interface components {
              * Format: date
              */
             date: string;
+            /**
+             * State
+             * @default run
+             * @enum {string}
+             */
+            state: "run" | "no_run";
+            noRun?: components["schemas"]["NoRunOut"] | null;
+            calendar?: components["schemas"]["CalendarOut"] | null;
             /** Vehicleid */
-            vehicleId: string;
+            vehicleId?: string | null;
             /** Tripno */
-            tripNo: number;
+            tripNo?: number | null;
+            /** Trips */
+            trips?: number[];
             /** Planversion */
-            planVersion: number;
+            planVersion?: number | null;
+            /** Planreleasedat */
+            planReleasedAt?: string | null;
+            /** Plannote */
+            planNote?: string | null;
             /** Driver */
             driver?: string | null;
-            /**
-             * Departat
-             * Format: date-time
-             */
-            departAt: string;
+            vehicle?: components["schemas"]["RunVehicleOut"] | null;
+            /** Departat */
+            departAt?: string | null;
             /** Plannedkm */
-            plannedKm: number;
+            plannedKm?: number | null;
             /** Stops */
-            stops: components["schemas"]["RunStopOut"][];
-            /** Acknowledged */
+            stops?: components["schemas"]["RunStopOut"][];
+            /**
+             * Acknowledged
+             * @default false
+             */
             acknowledged: boolean;
+            loaderConfirmation?: components["schemas"]["LoaderConfirmationOut"] | null;
             /**
              * Servertime
              * Format: date-time
@@ -3063,6 +3204,31 @@ export interface components {
             status: components["schemas"]["OrderStatus"];
             /** Tags */
             tags?: string[];
+            brand?: components["schemas"]["Brand"] | null;
+            /** District */
+            district?: string | null;
+            dock?: components["schemas"]["DockType"] | null;
+            /** Parkingnote */
+            parkingNote?: string | null;
+            /** Unloadminutes */
+            unloadMinutes?: number | null;
+            /** Weightkg */
+            weightKg?: number | null;
+            /** Volumem3 */
+            volumeM3?: number | null;
+        };
+        /** RunVehicleOut */
+        RunVehicleOut: {
+            kind: components["schemas"]["VehicleType"];
+            temperature: components["schemas"]["VehicleTemp"];
+            /** Weightcapkg */
+            weightCapKg: number;
+            /** Volumecapm3 */
+            volumeCapM3: number;
+            /** Kmperl */
+            kmPerL: number;
+            /** Tags */
+            tags?: string[];
         };
         /** SaveMovesIn */
         SaveMovesIn: {
@@ -3070,6 +3236,13 @@ export interface components {
             moves: components["schemas"]["MoveRequest"][];
             /** Note */
             note?: string | null;
+        };
+        /** ShortfallOut */
+        ShortfallOut: {
+            /** Orderid */
+            orderId: string;
+            /** Shortby */
+            shortBy: number;
         };
         /** SideDriver */
         SideDriver: {
@@ -3303,6 +3476,16 @@ export interface components {
             /** Inworkshop */
             inWorkshop: number;
         };
+        /**
+         * VehicleTemp
+         * @enum {string}
+         */
+        VehicleTemp: "reefer" | "ambient";
+        /**
+         * VehicleType
+         * @enum {string}
+         */
+        VehicleType: "truck" | "van";
         /** VerifyPinIn */
         VerifyPinIn: {
             /** Personid */
@@ -3355,6 +3538,34 @@ export interface components {
              * @example 08:00
              */
             end: string;
+        };
+        /**
+         * OutletInfo
+         * @description The outlet a store account manages, as the store's own screens name it.
+         */
+        app__schemas__common__OutletInfo: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Brand */
+            brand: string;
+            /** District */
+            district: string;
+            /** Dock */
+            dock: string;
+            window: components["schemas"]["Window"];
+        };
+        /** OutletInfo */
+        app__schemas__dispatcher__OutletInfo: {
+            /** Id */
+            id: string;
+            brand?: components["schemas"]["Brand"] | null;
+            /** Dock */
+            dock?: string | null;
+            window?: components["schemas"]["TimeRange"] | null;
+            /** Note */
+            note?: string | null;
         };
     };
     responses: never;
@@ -3410,8 +3621,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3479,8 +3699,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3544,8 +3773,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3609,8 +3847,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3678,8 +3925,165 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    pauseClock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClockOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    resumeClock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClockOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3743,8 +4147,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3810,8 +4223,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3879,8 +4301,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3950,8 +4381,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4015,8 +4455,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4083,8 +4532,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4150,8 +4608,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4218,8 +4685,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4283,8 +4759,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4352,8 +4837,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4417,8 +4911,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4486,8 +4989,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4555,8 +5067,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4620,8 +5141,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4683,8 +5213,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4760,8 +5299,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4827,8 +5375,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4895,8 +5452,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4964,8 +5530,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5032,8 +5607,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5101,8 +5685,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5173,8 +5766,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5241,8 +5843,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5310,8 +5921,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5382,8 +6002,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5449,8 +6078,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5517,8 +6155,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5587,8 +6234,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5656,8 +6312,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5721,8 +6386,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5788,8 +6462,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5855,8 +6538,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5926,8 +6618,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5993,8 +6694,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6064,8 +6774,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6131,8 +6850,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6200,8 +6928,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6268,8 +7005,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6335,8 +7081,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6405,8 +7160,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6427,7 +7191,9 @@ export interface operations {
     };
     getRun: {
         parameters: {
-            query?: never;
+            query?: {
+                trip?: number | null;
+            };
             header?: never;
             path: {
                 day: string;
@@ -6472,8 +7238,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6539,8 +7314,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6604,8 +7388,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6673,8 +7466,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6742,8 +7544,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Unprocessable Content */
+            /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

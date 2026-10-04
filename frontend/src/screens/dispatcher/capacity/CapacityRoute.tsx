@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ArrowRight, ChartNoAxesCombined, ChevronRight, CircleAlert, Eye, Lock, RefreshCw, Truck, TriangleAlert } from "lucide-react";
 import type { CapacityView, DepotId } from "../../../api/DispatcherApi";
+import { dayLabel } from "../../../domain/format";
 import { Mono } from "../../../shared/ui/Mono";
 import { AppBar } from "../chrome/AppBar";
 import { PageHeader } from "../chrome/PageHeader";
@@ -21,7 +22,7 @@ import styles from "./Capacity.module.css";
 
 /** D2: supply against demand per scarce resource, naming the binding one (PRD v3 section 3). */
 export function CapacityRoute() {
-  const { api } = useDispatcher();
+  const { api, scenarioDays } = useDispatcher();
   const navigate = useNavigate();
   const [depot, setDepot] = useDepot();
   const load = useLoad(() => api.getCapacity({ depot }), [depot]);
@@ -37,7 +38,7 @@ export function CapacityRoute() {
   const header = (
     <PageHeader
       overline={overline}
-      title="Supply vs demand for Tue 29 Sep"
+      title={`Supply vs demand for ${dayLabel(view?.serviceDate ?? scenarioDays.serviceDate)}`}
       actions={
         released ? (
           <Btn variant="routeOutline" iconRight={<ArrowRight size={15} />} onClick={toLive}>

@@ -18,6 +18,17 @@ export type DispatcherContextValue = {
    * Absent for the mock, where the control reloads the page.
    */
   resetDemo?: () => Promise<void>;
+  /** The scenario clock is frozen (DP-26). Only the real API can pause. */
+  paused?: boolean;
+  /** Freezes scenario time (the presenter control's Pause). Absent for the mock. */
+  pauseClock?: () => Promise<void>;
+  /** Lets scenario time run again. Absent for the mock. */
+  resumeClock?: () => Promise<void>;
+  /**
+   * The two days the walkthrough runs between, as ISO dates: the planning day (the clock starts there at 15:30) and the
+   * service date. They come from the server, so the presenter control never writes a date.
+   */
+  scenarioDays: { planningDay: string; serviceDate: string };
   /** Bumped after every write, so every screen re-reads what it shows. */
   dataVersion: number;
   /** Call after a write. */

@@ -8,6 +8,8 @@ import { AppBar } from "../chrome/AppBar";
 import { PageHeader } from "../chrome/PageHeader";
 import { ROUTES } from "../chrome/routes";
 import { Screen } from "../chrome/Screen";
+import { dayLabel } from "../../../domain/format";
+import { nextOperatingDayAfter } from "../../../domain/schedule";
 import { useDispatcher } from "../context";
 import { useLoad } from "../hooks";
 import { Btn, LinkButton } from "../ui/Btn";
@@ -127,7 +129,7 @@ function StatusPill({ status }: { status: LiveStop["status"] | LiveRow["status"]
 
 /** D6: what needs Kumari now, the four counts, and the vehicles that need attention first (PRD v3 section 3: exception first, no map). */
 export function LiveRoute() {
-  const { api, offline, invalidate } = useDispatcher();
+  const { api, offline, invalidate, scenarioDays } = useDispatcher();
   const navigate = useNavigate();
   const toast = useToast();
   const [params] = useSearchParams();
@@ -265,6 +267,7 @@ export function LiveRoute() {
           vehicleId={active.row.vehicleId}
           offlineSince={active.row.risk === "Unknown · offline" ? active.row.lastHeard.time : undefined}
           nextVersion={nextVersion}
+          nextRun={scenarioDays.serviceDate ? `${dayLabel(nextOperatingDayAfter(scenarioDays.serviceDate))} · from ${active.stop.window.start}` : ""}
           busy={busy}
           error={deferError}
           onConfirm={(r) => void confirmDefer(r)}
