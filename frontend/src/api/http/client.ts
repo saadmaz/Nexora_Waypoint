@@ -80,7 +80,13 @@ export function createHttpClient(config: HttpClientConfig): HttpClient {
   const timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
   async function request(method: Method, template: string, options: RequestOptions<never> | undefined): Promise<unknown> {
-    const opts = (options ?? {}) as { path?: Record<string, unknown>; query?: Record<string, unknown>; body?: unknown; signal?: AbortSignal };
+    const opts = (options ?? {}) as {
+      path?: Record<string, unknown>;
+      query?: Record<string, unknown>;
+      body?: unknown;
+      signal?: AbortSignal;
+      timeoutMs?: number;
+    };
     const headers: Record<string, string> = { Accept: "application/json" };
 
     if (config.role) {
@@ -108,7 +114,7 @@ export function createHttpClient(config: HttpClientConfig): HttpClient {
     const timer = setTimeout(() => {
       timedOut = true;
       controller.abort();
-    }, timeoutMs);
+    }, opts.timeoutMs ?? timeoutMs);
     const forwardAbort = () => controller.abort();
     if (opts.signal?.aborted) controller.abort();
     else opts.signal?.addEventListener("abort", forwardAbort, { once: true });

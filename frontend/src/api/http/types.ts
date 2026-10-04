@@ -31,6 +31,11 @@ export type RequestOptions<O> = ([PathOf<O>] extends [never] ? { path?: undefine
   ([BodyOf<O>] extends [never] ? { body?: undefined } : { body: BodyOf<O> }) & {
     /** Aborts the request. A caller's abort is not reported as a network failure. */
     signal?: AbortSignal;
+    /**
+     * Milliseconds before this one request is given up, over the client's default. For the routes that
+     * run the planner over the whole fleet: drafting a day takes well over the default on a full seed.
+     */
+    timeoutMs?: number;
   };
 
 /** The options argument is required only when the route has a required path param or body. */
