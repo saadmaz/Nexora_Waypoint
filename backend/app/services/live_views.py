@@ -38,10 +38,6 @@ def _ago(now: datetime, then: datetime) -> str:
     return f"{total // 60} h {total % 60} min" if total >= 60 else f"{total} min"
 
 
-def _rules_trip(t: TripRow) -> Trip:
-    return Trip(t.vehicle_id, t.trip_no, t.depart_at, list(t.order_ids))
-
-
 @dataclass(slots=True)
 class _Facts:
     """What the board works out once per vehicle."""
@@ -59,6 +55,20 @@ class _Facts:
     held: bool
     all_done: bool
     pending_stop: str | None
+
+
+def _driven_trip(f: _Facts) -> Trip:
+    """The trip as it is actually being driven: the planned legs re-anchored on the real departure (A27).
+
+    ``planned_clock`` measures every arrival from ``trip.depart_at``, the plan's commitment, so on its own the
+    board keeps reporting the planned ETA however late the truck left. A run that departed after its planned
+    time shifts every remaining leg by the same amount. One that left early keeps the plan's times: the outlet
+    windows are what the stores were promised, and the driver waits for them anyway.
+    """
+    t = f.trip
+    departed = f.run.departed_at if f.run is not None else None
+    depart_at = max(t.depart_at, departed) if departed is not None else t.depart_at
+    return Trip(t.vehicle_id, t.trip_no, depart_at, list(t.order_ids))
 
 
 def _statuses(live: LiveDay, ids: tuple[str, ...] | list[str]) -> list[OrderStatus]:
@@ -162,7 +172,7 @@ def _resolved_tooltip(live: LiveDay, ids: list[str]) -> str | None:
 
 def _live_stops(live: LiveDay, f: _Facts) -> list[s.LiveStop]:
     day = live.day
-    clock = planned_clock(_rules_trip(f.trip), day.orders, day.ref)
+    clock = planned_clock(_driven_trip(f), day.orders, day.ref)
     arrival = {st.outlet_id: st for st in clock.stops}
     latest_deferred = {d.order_id: d for d in day.deferrals}
     out: list[s.LiveStop] = []
@@ -207,7 +217,7 @@ def _live_stops(live: LiveDay, f: _Facts) -> list[s.LiveStop]:
 
 def _next_stop(live: LiveDay, f: _Facts) -> str:
     day = live.day
-    clock = planned_clock(_rules_trip(f.trip), day.orders, day.ref)
+    clock = planned_clock(_driven_trip(f), day.orders, day.ref)
     if not f.departed:
         return f"Loading · departs {hm(f.trip.depart_at)}"
     if f.pending_stop is None:
@@ -222,7 +232,7 @@ def _next_stop(live: LiveDay, f: _Facts) -> str:
 
 def _risk(live: LiveDay, f: _Facts) -> str:
     day = live.day
-    clock = planned_clock(_rules_trip(f.trip), day.orders, day.ref)
+    clock = planned_clock(_driven_trip(f), day.orders, day.ref)
     remaining = [
         RemainingStop(st.outlet_id, st.arrival, st.window_close)
         for st in clock.stops
