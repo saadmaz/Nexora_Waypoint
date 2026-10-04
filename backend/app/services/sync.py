@@ -206,6 +206,12 @@ def _device_time(rec: SyncRecordIn) -> datetime:
     return rec.device_time if rec.device_time.tzinfo is not None else rec.device_time.replace(tzinfo=COLOMBO)
 
 
+def _colombo_iso(value: datetime | None) -> str | None:
+    """An ISO time with the Asia/Colombo offset. The database hands times back in UTC, and a screen that shows the clock part
+    of an ISO string ("05:21") must not show the UTC one ("23:51")."""
+    return value.astimezone(COLOMBO).isoformat() if value is not None else None
+
+
 def _hm(value: datetime | None) -> str:
     return value.astimezone(COLOMBO).strftime("%H:%M") if value else ""
 
@@ -388,7 +394,7 @@ def _open_conflict(
                 "status": "deferred",
                 "planVersion": version.number,
                 "type": d.type.value,
-                "decidedAt": d.decided_at.isoformat() if d.decided_at else None,
+                "decidedAt": _colombo_iso(d.decided_at),
                 "decidedBy": (d.decided_by or "Dispatch").split(" · ")[0],
                 "reason": d.reason_text,
                 "reachedDriver": (rec.plan_version_on_device or 0) >= version.number,
@@ -396,13 +402,13 @@ def _open_conflict(
             device_snapshot={
                 "vehicleId": vehicle,
                 "outcome": outcome.value,
-                "deviceTime": _device_time(rec).isoformat(),
+                "deviceTime": _colombo_iso(_device_time(rec)),
                 "receivedBy": rec.payload.get("receiverName"),
                 "photo": bool(rec.payload.get("photoBlobId")),
                 "planVersionOnDevice": rec.plan_version_on_device,
-                "arrivedAt": arrived.isoformat() if arrived else None,
-                "offlineSince": offline.isoformat() if offline else None,
-                "syncedAt": b.now.isoformat(),
+                "arrivedAt": _colombo_iso(arrived),
+                "offlineSince": _colombo_iso(offline),
+                "syncedAt": _colombo_iso(b.now),
                 "unitsByOrder": {},
             },
             recommendation=ruling_rec,

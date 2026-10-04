@@ -467,3 +467,30 @@ def test_a_problem_thread_and_the_run_finish_land_as_the_phone_sends_them(client
         run = db.scalars(select(Run)).first()
         assert run is not None and run.finished_at is not None
         assert (run.gps_km, run.gps_gap_filled_km, run.fuel_l_est) == (19.4, 0.0, 3.9)
+
+
+# --------------------------------------------------------------------------- what the screens read back (UX audit, 4 Oct)
+
+
+def test_the_synced_conflict_reads_back_in_colombo_time_with_names(client, auth, reseed):
+    """The live board says the deferral was at 05:21 (not 23:51, its UTC clock), the caption counts what it shows, D7 names the
+    outlet, and the store's proof names the driver even though the stop is on no trip in the latest plan."""
+    _, _, answers = to_the_sync(client, auth)
+    cid = answers[1]["conflictId"]
+
+    inbox = client.get("/api/v1/dispatcher/inbox", headers=auth("dispatcher")).json()["items"]
+    text = next(i for i in inbox if i["id"] == f"c{cid}")["text"]
+    assert "05:21" in text and "23:51" not in text, text
+
+    import re
+
+    caption = board(client, auth)["caption"]
+    match = re.fullmatch(r"(\d+) of (\d+) vehicles shown · needing attention first", caption)
+    assert match is not None and int(match.group(1)) <= int(match.group(2)), caption
+
+    conflict = client.get(f"/api/v1/dispatcher/conflicts/{cid}", headers=auth("dispatcher")).json()
+    assert conflict["outletName"] and conflict["outletName"] != conflict["outletId"]
+
+    days = client.get("/api/v1/store/deliveries?from=2026-09-29&to=2026-09-29", headers=auth("store")).json()
+    proof = next(d for d in days if d["date"] == "2026-09-29")["proof"]
+    assert proof["driver"] == "Nimal" and proof["vehicle"] == "VEH039", proof

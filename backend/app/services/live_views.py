@@ -431,10 +431,8 @@ def live_board_view(live: LiveDay, depot: str, *, show_all: bool = False) -> s.L
         issues_foot = "nothing reported"
 
     n_dep, n_load = len(departed_trips), len(loading)
-    caption = (
-        f"{len(shown)} of {n_dep} departed shown · needing attention first" if n_dep
-        else f"{len(shown)} of {n_load or len(rows)} loading shown · needing attention first"
-    )
+    # The rows shown are the ones needing attention first, departed or not, so count them against every row on the board.
+    caption = f"{len(shown)} of {len(rows)} vehicles shown · needing attention first"
     view = s.LiveBoardView(
         as_of=hm(day.now),
         date=day_label(day.service_date),

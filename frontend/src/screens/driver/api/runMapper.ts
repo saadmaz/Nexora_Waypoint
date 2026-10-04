@@ -1,6 +1,6 @@
 import { statusFromApi, temperatureFromApi } from "../../../api/vocab";
 import type { components } from "../../../api/schema";
-import type { Brand, DepotId, OrderTag, PlannedOrder } from "../../../domain/field";
+import type { Brand, DepotId, OrderTag, PlannedOrder, VehicleTag } from "../../../domain/field";
 import { formatTime } from "../../../field/clock/clock";
 import type { ConflictDetail, DriverNotice, DriverNoticeKind, DriverRun, DriverStop } from "../types";
 import type { LocalRunState } from "./deviceDriverApi";
@@ -13,25 +13,13 @@ type NoticeOut = components["schemas"]["NoticeOut"];
  * (arrivals, outcomes, departure, the plan the driver acknowledged, any conflict). The server's run is per order; the driver's
  * screens are per stop, so orders at one outlet are grouped.
  *
- * CONTRACT GAPS. `RunOut` does not carry everything `DriverRun` needs. What is missing is listed in `RUN_GAPS` and each
- * is filled with a visibly neutral value, never a plausible-looking one, until the backend sends it:
- *   - the vehicle's kind, capacities and tags (the driver screens read only its id). Its temperature class is inferred: a run
- *     with a chilled order is on a reefer, since nothing else may carry one
- *   - each stop's brand, district, dock type, parking note and unloading minutes
- *   - each order's weight and volume
- *   - when the plan version was released, and its one-line note
- *   - who confirmed the load, when, and any shortfall (only "every order is loaded" can be read, from the order statuses)
- *   - the depot (read from `GET /me`, which does carry it)
- * The brand is read from the outlet's name when it contains one, since outlets are named for their brand ("Waypoint Fresh").
- * That is an inference from naming, not from the contract.
+ * The server now sends each stop's brand, district, dock, parking note and unloading minutes, each order's weight and volume,
+ * the vehicle, when the plan version was released and its note, and who confirmed the load (`RunOut`). Where an older server
+ * leaves one empty, a visibly neutral value stands in, never a plausible-looking one. The depot comes from `GET /me`.
+ * An outlet with no name in the data is named for its brand ("Waypoint Fresh"), as the server's own views do.
  */
-export const RUN_GAPS = [
-  "vehicle: kind, capacities, kmPerL, tags (temperature is inferred from the orders)",
-  "stop: brand (read from the outlet name), district, dock, parkingNote, unloadMinutes",
-  "order: weightKg, volumeM3",
-  "plan version: releasedAt, note",
-  "loader confirmation: by, at, shortfalls",
-] as const;
+/** What an older server may still leave out; each is filled with a neutral value when it does. */
+export const RUN_GAPS = ["the depot (read from GET /me)"] as const;
 
 const BRANDS: readonly Brand[] = ["Fresh", "Style", "Tech"];
 
@@ -56,6 +44,8 @@ const LOADED_OR_LATER = new Set(["Loaded", "Departed", "Delivered", "Partial", "
 function brandOf(outletName: string): Brand {
   return BRANDS.find((brand) => outletName.includes(brand)) ?? "Fresh";
 }
+
+const VEHICLE_TAGS: readonly VehicleTag[] = ["Available", "In workshop", "Held", "Replaced"];
 
 /** A run package that is a run: `state` "run" with its run fields present. */
 type ServerRun = RunOut & { vehicleId: string; tripNo: number; planVersion: number; stops: RunStop[] };
@@ -92,8 +82,8 @@ function mapOrder(stop: RunStop): PlannedOrder {
     id: stop.orderId,
     outletId: stop.outletId,
     units: stop.units,
-    weightKg: 0,
-    volumeM3: 0,
+    weightKg: stop.weightKg ?? 0,
+    volumeM3: stop.volumeM3 ?? 0,
     temperature: temperatureFromApi(stop.temp),
     status: statusFromApi(stop.status),
     tags: (stop.tags ?? []).filter((tag): tag is OrderTag => tag in ORDER_TAGS),
@@ -108,16 +98,20 @@ export function mapStops(out: ServerRun): DriverStop[] {
 
   return [...byOutlet.values()].map((group, index): DriverStop => {
     const first = group[0];
-    const name = first.outletName ?? first.outletId;
+    const brand = first.brand ?? brandOf(first.outletName ?? "");
+    // An outlet with no name in the data is named for its brand, never shown as its id twice ("OUT090 · OUT090").
+    const name = first.outletName || `Waypoint ${brand}`;
     return {
       number: index + 1,
       outletId: first.outletId,
       outletName: name,
-      brand: brandOf(name),
-      district: "",
-      dock: "rear_dock",
+      brand,
+      district: first.district ?? "",
+      dock: first.dock ?? "rear_dock",
       window: { open: first.window.start, close: first.window.end },
       plannedArrival: hhmm(first.plannedArrival),
+      ...(first.parkingNote ? { parkingNote: first.parkingNote } : {}),
+      ...(first.unloadMinutes != null ? { unloadMinutes: first.unloadMinutes } : {}),
       orders: group.map(mapOrder),
       outcomes: {},
     };
@@ -142,10 +136,21 @@ export function mapRun(pkg: RunOut, depot: DepotId, local: LocalRunState): Drive
 
   return {
     runNo: out.tripNo,
-    vehicle: { id: out.vehicleId, depot, kind: "truck", temperature: stops.some((s) => s.orders.some((o) => o.temperature === "chilled")) ? "reefer" : "ambient", weightCapKg: 0, volumeCapM3: 0, kmPerL: 0, tags: [] },
+    vehicle: out.vehicle
+      ? {
+          id: out.vehicleId,
+          depot,
+          kind: out.vehicle.kind,
+          temperature: out.vehicle.temperature,
+          weightCapKg: out.vehicle.weightCapKg,
+          volumeCapM3: out.vehicle.volumeCapM3,
+          kmPerL: out.vehicle.kmPerL,
+          tags: (out.vehicle.tags ?? []).filter((tag): tag is VehicleTag => (VEHICLE_TAGS as readonly string[]).includes(tag)),
+        }
+      : { id: out.vehicleId, depot, kind: "truck", temperature: stops.some((s) => s.orders.some((o) => o.temperature === "chilled")) ? "reefer" : "ambient", weightCapKg: 0, volumeCapM3: 0, kmPerL: 0, tags: [] },
     depot,
     date: out.date,
-    currentVersion: { v: out.planVersion, releasedAt: "", note: "" },
+    currentVersion: { v: out.planVersion, releasedAt: out.planReleasedAt ?? "", note: out.planNote ?? "" },
     nextPlanReleaseAt: "",
     downloadedVersion: local.downloadedVersion,
     acknowledgedVersion: local.acknowledgedVersion ?? (out.acknowledged ? out.planVersion : null),

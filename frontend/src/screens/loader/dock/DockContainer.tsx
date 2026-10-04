@@ -192,7 +192,8 @@ function buildCard(
   },
 ): VehicleCardProps {
   const minutes = minutesUntil(colomboMs(runDate(), v.departsAt), opts.now);
-  const inLabel = formatCountdown(minutes);
+  // Once the departure time has passed the card says so, rather than "in 0 min" all morning.
+  const inLabel = minutes >= 0 ? formatCountdown(minutes) : v.status === "loaded" ? "Cleared to depart" : "Departure time passed";
   const goTo = opts.goToId
     ? { label: `Go to ${opts.goToId}`, onClick: () => opts.navigate(`/loader/vehicles/${opts.goToId}/trips/1`) }
     : undefined;
