@@ -51,7 +51,7 @@ export function Lane({ lane, hover, ...rest }: LaneProps) {
                   {m.used} / {m.limit} {m.unit}
                 </Mono>
               </div>
-              <Meter value={m.used} max={m.limit} height={5} tone="route" />
+              <Meter value={m.used} max={m.limit} height={5} tone="route" label={`${m.label}: ${m.used} of ${m.limit} ${m.unit}`} />
             </div>
           ))
         )}

@@ -101,26 +101,26 @@ function Row({ order, closed, onOpen }: { order: QueueOrder; closed: boolean; on
       }}
       aria-label={`Order ${order.id}, ${order.outletId}`}
     >
-      <div className={styles.td}>
+      <div role="cell" className={styles.td}>
         <div className={styles.idCell}>
           <Mono>{order.id}</Mono>
           {order.justIn && <span className={styles.justInLabel}>Just in</span>}
         </div>
       </div>
-      <div className={cx(styles.td, styles.outlet)}>
+      <div role="cell" className={cx(styles.td, styles.outlet)}>
         <Mono>{order.outletId}</Mono>
       </div>
-      <div className={styles.td}>
+      <div role="cell" className={styles.td}>
         <BrandChip brand={order.brand} small />
       </div>
-      <div className={styles.td}>{order.district}</div>
-      <div className={styles.td}>
+      <div role="cell" className={styles.td}>{order.district}</div>
+      <div role="cell" className={styles.td}>
         <TempChip temp={order.temp} small />
       </div>
-      <div className={styles.td}>
+      <div role="cell" className={styles.td}>
         <Access order={order} />
       </div>
-      <div className={styles.td}>
+      <div role="cell" className={styles.td}>
         {order.mallWindow ? (
           <Chip tone="outlineInk" small mono>
             Mall {order.window.start}–{order.window.end}
@@ -131,19 +131,19 @@ function Row({ order, closed, onOpen }: { order: QueueOrder; closed: boolean; on
           </Mono>
         )}
       </div>
-      <div className={cx(styles.td, styles.num)}>
+      <div role="cell" className={cx(styles.td, styles.num)}>
         <Mono>{order.units} units</Mono>
       </div>
-      <div className={cx(styles.td, styles.num)}>
+      <div role="cell" className={cx(styles.td, styles.num)}>
         <Mono>{num(order.kg)} kg</Mono>
       </div>
-      <div className={cx(styles.td, styles.num)}>
+      <div role="cell" className={cx(styles.td, styles.num)}>
         <Mono>{order.m3.toFixed(1)} m³</Mono>
       </div>
-      <div className={styles.td}>
+      <div role="cell" className={styles.td}>
         <StatusCell order={order} />
       </div>
-      <div className={cx(styles.td, styles.center, styles.received, !closed && styles.receivedOpen)}>
+      <div role="cell" className={cx(styles.td, styles.center, styles.received, !closed && styles.receivedOpen)}>
         <Received order={order} />
       </div>
     </div>
@@ -235,7 +235,7 @@ export function QueueTable(props: QueueTableProps) {
   const closed = view.cutoff.closed;
   const hidden = view.hiddenCarryOvers;
   return (
-    <div className={styles.card} role="table" aria-label="Confirmed orders">
+    <div className={styles.card}>
       {closed ? (
         <Toolbar {...props} />
       ) : (
@@ -264,15 +264,18 @@ export function QueueTable(props: QueueTableProps) {
           </button>
         </div>
       )}
-      <HeadRow columns={HEAD} />
-      {view.groups.map((group) => (
-        <div key={group.key} role="rowgroup">
-          {closed && <GroupRow group={group} />}
-          {group.orders.map((o) => (
-            <Row key={o.id} order={o} closed={closed} onOpen={onOpen} />
-          ))}
-        </div>
-      ))}
+      {/* The table role wraps only the header and the rows: a toolbar or a banner inside it would be an invalid child. */}
+      <div role="table" aria-label="Confirmed orders" style={{ display: "contents" }}>
+        <HeadRow columns={HEAD} />
+        {view.groups.map((group) => (
+          <div key={group.key} role="rowgroup">
+            {closed && <GroupRow group={group} />}
+            {group.orders.map((o) => (
+              <Row key={o.id} order={o} closed={closed} onOpen={onOpen} />
+            ))}
+          </div>
+        ))}
+      </div>
       <div className={styles.footer}>
         <span>
           {props.filtering
@@ -296,8 +299,9 @@ export function KandyTable(props: QueueTableProps) {
   const { view, onOpen } = props;
   const columns = ["Order record", "Handling", "Window", "Units", "Kg", "M³", "Status", "Received"];
   return (
-    <div className={styles.card} role="table" aria-label="Kandy orders grouped by outlet">
+    <div className={styles.card}>
       <Toolbar {...props} />
+      <div role="table" aria-label="Kandy orders grouped by outlet" style={{ display: "contents" }}>
       <div className={cx(styles.head, styles.kcols)} role="row">
         {columns.map((h) => (
           <div key={h} role="columnheader" className={cx(styles.th, NUM.has(h) && styles.num, h === "Received" && styles.center)}>
@@ -351,36 +355,37 @@ export function KandyTable(props: QueueTableProps) {
               aria-label={`Order ${o.id}, ${o.outletId}`}
             >
               <span className={cx(styles.connector, index === group.orders.length - 1 && styles.connectorLast)} aria-hidden />
-              <div className={cx(styles.td, styles.recordCell)}>
+              <div role="cell" className={cx(styles.td, styles.recordCell)}>
                 <Mono>{o.id}</Mono>
               </div>
-              <div className={styles.td}>
+              <div role="cell" className={styles.td}>
                 <TempChip temp={o.temp} dry={o.temp === "ambient"} />
               </div>
-              <div className={styles.td}>
+              <div role="cell" className={styles.td}>
                 <Mono>
                   {o.window.start}–{o.window.end}
                 </Mono>
               </div>
-              <div className={cx(styles.td, styles.num)}>
+              <div role="cell" className={cx(styles.td, styles.num)}>
                 <Mono>{o.units} units</Mono>
               </div>
-              <div className={cx(styles.td, styles.num)}>
+              <div role="cell" className={cx(styles.td, styles.num)}>
                 <Mono>{num(o.kg)} kg</Mono>
               </div>
-              <div className={cx(styles.td, styles.num)}>
+              <div role="cell" className={cx(styles.td, styles.num)}>
                 <Mono>{o.m3.toFixed(1)} m³</Mono>
               </div>
-              <div className={styles.td}>
+              <div role="cell" className={styles.td}>
                 <StatusChip status={o.status} small />
               </div>
-              <div className={cx(styles.td, styles.center, styles.received)}>
+              <div role="cell" className={cx(styles.td, styles.center, styles.received)}>
                 <Mono>{o.receivedAt}</Mono>
               </div>
             </div>
           ))}
         </div>
       ))}
+      </div>
       <div className={styles.footer}>
         <span>
           Showing {view.shown} of {view.total} Kandy orders
