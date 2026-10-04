@@ -58,6 +58,11 @@ class OrderDraftOut(ApiModel):
     unit_factors: dict[Temp, UnitFactor]
     default_units: dict[Temp, int]
     orders: list[OrderOut]
+    #: ``HH:MM`` the queue for ``delivery_date`` closes (R-CUTOFF). The screen shows this rather than its own 16:00.
+    cutoff_at: str
+    #: ``Mon 16:00`` or ``16:00``: when the orders on this day can no longer be edited, with the day when it is not today.
+    #: Absent once it has passed.
+    editable_until: str | None = None
 
 
 class NewOrderLine(ApiModel):
@@ -92,6 +97,8 @@ class DeliveryOrderOut(ApiModel):
     status: OrderStatus
     issue: str | None = None
     received: int | None = None
+    #: What the dock counted onto the truck, when it is fewer than ``units``. The store staffs for this.
+    loaded_units: int | None = None
 
 
 class ArrivalRange(ApiModel):
@@ -119,6 +126,18 @@ class DeliveryDeferralOut(ApiModel):
     next_run: str
     next_run_short: str
     acknowledged: bool
+
+
+class ReviewOut(ApiModel):
+    """Why the store sees "Under review" (S2.7, S3.1). Stores never see the word "Conflict"."""
+
+    asked_at: str
+    delivered_at: str
+    received_by: str
+    conflict_id: str
+    #: A51: true only once Dispatch has asked ("Review with store first", D7.2). The explanation shows
+    #: either way; the question "Did you receive this delivery?" waits for this.
+    asked: bool = False
 
 
 class ProofOfDeliveryOut(ApiModel):
@@ -166,7 +185,7 @@ class DeliveryOut(ApiModel):
     last_update: str | None = None
     receivers_cue: bool
     deferral: DeliveryDeferralOut | None = None
-    review: dict[str, str] | None = None
+    review: ReviewOut | None = None
     proof: ProofOfDeliveryOut | None = None
     tags: list[str] = Field(default_factory=list)
     withdrawn_note: str | None = None

@@ -11,7 +11,7 @@
  * plan, defers the stop and settles the review; the dock tablet and the phone sync through `/sync`.
  *
  *   1. Mon 15:40, the order form opens on Tue 29 Sep, before the cutoff, with both unit factors (S1.1).
- *   2. Anusha places chilled 12 and dry 8: ORD2001 and ORD2002, naive local `receivedAt` (S1.3, H1).
+ *   2. Anusha places chilled 12 and dry 8: ORD2001 and ORD2002, `receivedAt` with its Colombo offset (S1.3, H1).
  *   3. 15:59 an edit is taken and 16:01 the same edit is the typed `CutoffError` (S1.5).
  *   4. The feed has its "Order received" row and the bell counts it (S4).
  *   5. The night and the run, read from S2 as the store sees it: 23:41 the arrival range, 04:51 loaded,
@@ -53,8 +53,8 @@ const MONDAY = "2026-09-28";
 const HERO = ["ORD2001", "ORD2002"];
 /** "05:42": what the store's screens print as a clock time. */
 const HHMM = /^\d{2}:\d{2}$/;
-/** The store's own timestamps are naive local ISO, with no offset (§19). */
-const NAIVE_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/;
+/** The store's own timestamps are an instant with its Asia/Colombo offset (§10). */
+const COLOMBO_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+05:30$/;
 /** The five tags S4 may use (PRD §4b, Store feed). */
 const FEED_TAGS = ["Order", "Plan", "Delivery", "Deferral", "Review"];
 
@@ -169,7 +169,7 @@ type Delivery = {
   lastUpdate?: string;
   receiversCue: boolean;
   deferral?: { type: string; headline: string; subline?: string; reason: string; decidedBy: string; decidedAt: string; nextRunLabel: string; nextRun: string; nextRunShort: string; acknowledged: boolean };
-  review?: { askedAt: string; deliveredAt: string; receivedBy: string };
+  review?: { askedAt: string; deliveredAt: string; receivedBy: string; asked: boolean };
   proof?: { receivedBy: string; at: string; driver: string; vehicle: string; units: number[] };
   tags: string[];
   withdrawnNote?: string;
@@ -257,16 +257,16 @@ async function main() {
     "both are Ordered and neither is after the cutoff",
     placed.map((o) => o.status),
   );
-  check(placed[0].receivedAt === `${MONDAY}T15:40:00`, `receivedAt is the naive local time the store placed it (${placed[0].receivedAt})`);
-  check(NAIVE_ISO.test(placed[0].receivedAt), "the store's timestamps carry no offset (§19)", placed[0].receivedAt);
+  check(placed[0].receivedAt === `${MONDAY}T15:40:00+05:30`, `receivedAt is the moment the store placed it, with its offset (${placed[0].receivedAt})`);
+  check(COLOMBO_ISO.test(placed[0].receivedAt), "the store's timestamps carry the Colombo offset (§10)", placed[0].receivedAt);
   check(placed.every((o) => o.updatedAt === undefined), "an order nobody has edited has no updatedAt");
 
   // ---- 3. the edit, and the cutoff ------------------------------------------------------------------------------------
   await advance(at("15:59", MONDAY));
   const edited = await value<Order>(page, "editOrder", HERO[0], { units: 14, estimatedKg: 81.7, estimatedM3: 0.82 });
   check(edited.line.units === 14, `15:59 the edit is taken (${edited.line.units} units)`);
-  check(edited.updatedAt === `${MONDAY}T15:59:00`, `the edit stamps updatedAt (${edited.updatedAt})`);
-  check(edited.receivedAt === `${MONDAY}T15:40:00`, "editing does not touch the time it was placed");
+  check(edited.updatedAt === `${MONDAY}T15:59:00+05:30`, `the edit stamps updatedAt (${edited.updatedAt})`);
+  check(edited.receivedAt === `${MONDAY}T15:40:00+05:30`, "editing does not touch the time it was placed");
   // Back to 12, so the rest of the day is the hero one: 12 + 8.
   const restored = await value<Order>(page, "editOrder", HERO[0], { units: 12, estimatedKg: 70.0, estimatedM3: 0.7 });
   check(restored.line.units === 12, "the order goes back to 12 units for the hero day");
@@ -435,9 +435,15 @@ async function main() {
   check(review.receivedAnswered === false, "the store has not answered yet");
   check(review.proof?.receivedBy === "S. Fernando" && review.proof?.at === "05:42", "the proof says the goods are at the store", review.proof);
   check(review.proof?.units.join() === "12,8" && review.proof?.driver === "Nimal" && review.proof?.vehicle === "VEH039", "the proof names the units, the driver and the vehicle", review.proof);
-  check(stepAt(review, "Delivered")?.at === "05:42", "the Delivered step is stamped 05:42");
-  check(currentStep(review) === "Receipt confirmed", "the step waiting on the store is the current one (A45)", currentStep(review));
-  check(review.review === undefined, "no question is shown until Dispatch asks (A51)");
+  // Under review nothing is settled, so Delivered waits on Dispatch; what did happen keeps its times.
+  check(stepAt(review, "Loaded")?.at === "04:50", "a deferral does not undo the morning: the truck was still loaded at 04:50", review.journey);
+  // Only when a departure was recorded at all: on the fallback seed the stop rides a vehicle the demo phone is
+  // not bound to, so `driver.startRoute` never ran and there is no departure to keep (see S2.4 above).
+  if (phoneDrivesTheStop) check(stepAt(review, "Departed")?.at === "05:10", "nor that it left at 05:10", stepAt(review, "Departed"));
+  check(stepAt(review, "Delivered")?.state === "pending", "Delivered waits while Dispatch chooses which record to keep", stepAt(review, "Delivered"));
+  // A51 and PRD §3 S2.7: the explanation shows from 06:41; only the question waits for "Review with store first".
+  check(review.review !== undefined && review.review.asked === false, "the store is told why, but is not asked yet (A51)", review.review);
+  check(review.review?.askedAt === "05:21", "the explanation quotes the store's own 05:21 call to hold the delivery", review.review?.askedAt);
 
   // ---- 6. the store answers the review question -------------------------------------------------------------------------
   const conflictId = ((await ok("dispatcher", "GET", "/dispatcher/inbox")) as { items: { id: string }[] }).items.map((i) => i.id).find((id) => id.startsWith("c"));
@@ -446,6 +452,7 @@ async function main() {
   await ok("dispatcher", "POST", `/dispatcher/conflicts/${cid}/ask-store`);
   const asked = await theDay(page);
   check(asked.review?.receivedBy === "S. Fernando" && asked.review?.deliveredAt === "05:42" && HHMM.test(asked.review?.askedAt ?? ""), "S2.7 asks the store about the record it has", asked.review);
+  check(asked.review?.asked === true, "now Dispatch has asked, S3.5 draws the question (A51)", asked.review?.asked);
 
   const answered = await store(page, "answerReceivedQuestion", { outletId: OUTLET, date: DAY, answer: "received" });
   // The route is keyed by the review's conflictId, which the client reads out of the reply. Reaching the server at all

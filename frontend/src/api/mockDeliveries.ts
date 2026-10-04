@@ -229,8 +229,10 @@ export function deriveDelivery(
       : {}),
     receiversCue: released && (stage === "planned" || stage === "loaded" || stage === "departed"),
     ...(deferral ? { deferral } : {}),
+    // A51: the hero run is D7.4 A ("Confirm, keep delivery"), so Dispatch never asks and `asked` stays
+    // false: the store sees "Why you're seeing this" without the question. S3.5 is reached with `?preview=asked`.
     ...(hero && stage === "review"
-      ? { review: { askedAt: HERO.askedAt, deliveredAt: HERO.deliveredAt, receivedBy: HERO.receivedBy } }
+      ? { review: { askedAt: HERO.askedAt, deliveredAt: HERO.deliveredAt, receivedBy: HERO.receivedBy, asked: false } }
       : {}),
     ...(hasProof
       ? {

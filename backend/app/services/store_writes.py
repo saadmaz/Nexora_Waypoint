@@ -6,13 +6,14 @@ transaction (PRD §9 principle 3). Callers commit.
 
 from __future__ import annotations
 
+import logging
 import re
 from datetime import date, datetime, time
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from waypoint_rules import OrderEvent, OrderStatus
+from waypoint_rules import OrderEvent, OrderStatus, receipts, units
 from waypoint_rules.schedule import service_day_for
 from waypoint_rules.vocab import Temp
 
@@ -39,12 +40,20 @@ from . import planning_repo as repo
 from . import store_views as views
 from .dispatcher_views import day_label
 
+log = logging.getLogger(__name__)
+
 #: The ids the scenario reserves for the next two orders from the hero outlet (seed/fixtures/pinned_orders.yaml).
 _RESERVED = {Temp.CHILLED: "ORD2001", Temp.AMBIENT: "ORD2002"}
 _ID = re.compile(r"^ORD(\d+)$")
 
 #: What a store may report (``frontend/src/domain/issue.ts``); "Short" is a tag the server derives, never chosen.
 REPORTABLE = {"Missing", "Damaged", "Wrong item", "Arrived warm", "Late", "Other"}
+
+
+def _factor(factors: dict[Temp, s.UnitFactor], kind: Temp) -> units.UnitFactor:
+    """The outlet's factor for one kind, as the rules package wants it."""
+    f = factors[kind]
+    return units.UnitFactor(kg=f.kg, m3=f.m3)
 
 
 def _order(db: Session, user: CurrentUser, order_id: str) -> om.Order:
@@ -86,6 +95,10 @@ def place(db: Session, user: CurrentUser, body: s.PlaceOrdersIn) -> list[s.Order
     placed: list[om.Order] = []
     taken: set[str] = set()
     kinds: set[Temp] = set()
+    # The weight and volume an order carries decide which vehicles can legally take it (R-KG, R-M3) and how
+    # the planner packs the day, so the server computes them from the outlet's factors. The request still
+    # carries the screen's estimate; it is only compared, never stored (§19: rules live in one place).
+    factors, _ = views.unit_factors(db, outlet)
     for line in body.orders:
         require_outlet(user, line.outlet_id)
         if line.line.kind in kinds:
@@ -101,9 +114,15 @@ def place(db: Session, user: CurrentUser, body: s.PlaceOrdersIn) -> list[s.Order
         after = service.after_cutoff and day == service.service_date
         order_id = _next_id(db, line.line.kind, taken)
         taken.add(order_id)
+        figure = units.estimate(line.line.units, _factor(factors, line.line.kind))
+        if units.disagrees(line.line.estimated_kg, line.line.estimated_m3, figure):
+            log.info(
+                "order estimate differs from the server's: outlet=%s kind=%s units=%s client=(%s, %s) server=(%s, %s)",
+                outlet.id, line.line.kind.value, line.line.units, line.line.estimated_kg, line.line.estimated_m3, figure.kg, figure.m3,
+            )
         order = om.Order(
             id=order_id, outlet_id=outlet.id, service_date=day, temp=line.line.kind, units=line.line.units,
-            weight_kg=line.line.estimated_kg, volume_m3=line.line.estimated_m3, status=ServerStatus.ORDERED,
+            weight_kg=figure.kg, volume_m3=figure.m3, status=ServerStatus.ORDERED,
             tags=["After cutoff"] if after else [], received_at=now, placed_by=user.display_name, after_cutoff=after, row_version=1,
         )
         db.add(order)
@@ -137,7 +156,14 @@ def edit(db: Session, user: CurrentUser, order_id: str, body: s.EditOrderIn) -> 
     order = _order(db, user, order_id)
     now = _require_editable(db, order)
     before = {"units": order.units, "kg": order.weight_kg, "m3": order.volume_m3}
-    order.units, order.weight_kg, order.volume_m3 = body.units, body.estimated_kg, body.estimated_m3
+    factors, _ = views.unit_factors(db, views.outlet_of(db, user))
+    figure = units.estimate(body.units, _factor(factors, order.temp))
+    if units.disagrees(body.estimated_kg, body.estimated_m3, figure):
+        log.info(
+            "edited estimate differs from the server's: order=%s units=%s client=(%s, %s) server=(%s, %s)",
+            order.id, body.units, body.estimated_kg, body.estimated_m3, figure.kg, figure.m3,
+        )
+    order.units, order.weight_kg, order.volume_m3 = body.units, figure.kg, figure.m3
     audit.record(
         db, actor=user.display_name, entity_type="order", entity_id=order.id, type=AuditType.ORDER_EDITED,
         payload={"before": before, "after": {"units": order.units, "kg": order.weight_kg, "m3": order.volume_m3}}, at=now,
@@ -242,7 +268,14 @@ def confirm_receipt(db: Session, user: CurrentUser, body: s.ConfirmReceiptIn) ->
         if views.status_of(order) not in views.DELIVERED_LIKE:
             raise ApiError(409, "not_delivered", f"{order.id} has not been delivered yet, so there is nothing to confirm.")
 
+    # A50: a short count has to say why, and the reason is one of the four the sheet offers. The rule is
+    # ``waypoint_rules.receipts``, so the screen and the API refuse the same thing (§19: rules live in one place).
     reason = (body.reason or "").strip() or None
+    if receipts.needs_reason([(line.received, orders[line.order_id].units) for line in body.lines]):
+        if reason is None:
+            raise ApiError(422, "reason_required", receipts.reason_missing(), {"rule": "A50", "reasons": list(receipts.SHORTFALL_REASONS)})
+        if reason not in receipts.SHORTFALL_REASONS:
+            raise ApiError(422, "unknown_reason", receipts.unknown_reason(reason), {"rule": "A50", "reasons": list(receipts.SHORTFALL_REASONS)})
     for line in body.lines:
         order = orders[line.order_id]
         short = line.received < order.units

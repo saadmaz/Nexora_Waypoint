@@ -97,6 +97,8 @@
 
 .marker {
   position: relative;
+  /* As wide as "100%", not the column: a full-width span shifted by `left` stuck out past the card and the page. */
+  align-self: flex-start;
   color: var(--ink-muted);
   font: 600 12px / 16px var(--font-mono);
   white-space: nowrap;

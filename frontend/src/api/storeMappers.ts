@@ -75,6 +75,8 @@ export function mapOrderDraft(out: Schemas["OrderDraftOut"]): OrderDraft {
     afterCutoff: out.afterCutoff,
     window: { start: out.window.start, end: out.window.end },
     dock: out.dock,
+    cutoffAt: out.cutoffAt,
+    ...(out.editableUntil != null ? { editableUntil: out.editableUntil } : {}),
     unitFactors,
     defaultUnits: { chilled: units("chilled"), dry: units("ambient") },
     orders: out.orders.map(mapOrder),
@@ -129,6 +131,7 @@ function mapDeliveryOrder(out: Schemas["DeliveryOrderOut"]): DeliveryOrder {
     status: statusFromApi(out.status),
     ...(out.issue != null ? { issue: issueType(out.issue) } : {}),
     ...(out.received != null ? { received: out.received } : {}),
+    ...(out.loadedUnits != null ? { loadedUnits: out.loadedUnits } : {}),
   };
 }
 
@@ -154,7 +157,14 @@ export function mapDelivery(out: Schemas["DeliveryOut"]): Delivery {
     receiversCue: out.receiversCue,
     ...(out.deferral ? { deferral: mapDeferral(out.deferral) } : {}),
     ...(out.review
-      ? { review: { askedAt: field(out.review, "askedAt", "review"), deliveredAt: field(out.review, "deliveredAt", "review"), receivedBy: field(out.review, "receivedBy", "review") } }
+      ? {
+          review: {
+            askedAt: field(out.review, "askedAt", "review"),
+            deliveredAt: field(out.review, "deliveredAt", "review"),
+            receivedBy: field(out.review, "receivedBy", "review"),
+            asked: out.review.asked ?? false,
+          },
+        }
       : {}),
     ...(out.proof ? { proof: { receivedBy: out.proof.receivedBy, at: out.proof.at, driver: out.proof.driver, vehicle: out.proof.vehicle, units: out.proof.units } } : {}),
     tags: (out.tags ?? []).map((tag) => oneOf(Object.keys(DELIVERY_TAGS) as DeliveryTag[], tag, "delivery tag")),

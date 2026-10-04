@@ -194,20 +194,27 @@ start and the end, so run them on a database you do not mind re-seeding:
 
 Pass `--base` when the app is not on `:5173`, and add that origin to `CORS_ORIGINS`.
 
-**Both scripts currently report failures against `develop`** (10 from `test:api-store`, 1 from
-`test:store-live`). They are differences between the backend and the contract the mock and the PRD set, not
-faults in the scripts, and they are listed in the pull request. The four that matter:
+**The four contract breaks the scripts caught are fixed.** They were differences between the backend and the
+contract the mock and the PRD set, not faults in the scripts. What changed:
 
-- **Timestamps carry an offset.** `receivedAt` and `updatedAt` come back as `2026-09-28T15:40:00+05:30`; §19
-  and the mock both say naive local ISO with no offset. `clockTime()` renders with `getHours()`, so the store
-  shows the right time only in Asia/Colombo: in Europe/London the same reply reads `11:10` instead of `15:40`.
-- **A shortfall is accepted with no reason.** PRD A50 says "Confirm with a shortfall" asks for a reason before
-  it sends. The sheet does ask, but `POST /store/receipts` takes a 9 of 12 with no reason and returns Partial,
-  so the rule lives only in the screen (§19: the frontend never re-implements a rule).
-- **The review question appears before Dispatch asks.** PRD A51 says the explanation ("Why you're seeing this")
+- **Timestamps did not say which zone they meant.** `receivedAt` and `updatedAt` were briefly made naive local
+  ISO, on the reading that `clockTime()` renders with `getHours()`. That stopped being true once `clockTime()`
+  formatted the instant in Asia/Colombo through `Intl` whatever zone the browser sits in: a naive string is then
+  read as the browser's own wall clock, so the same reply said `15:40` from Colombo and `21:10` from a UTC
+  runner, which is how CI failed the walkthrough. `store_views.stamp()` emits `2026-09-28T15:40:00+05:30`, which
+  is PRD §10 (stored in UTC, shown in Asia/Colombo) and what `ClockOut` already documented. `/sync` was fixed
+  the same way, in `_colombo_iso()`.
+- **A shortfall was accepted with no reason.** PRD A50 says "Confirm with a shortfall" asks for a reason before
+  it sends. The sheet asked, but `POST /store/receipts` took a 9 of 12 with no reason and returned Partial, so
+  the rule lived only in the screen (§19: the frontend never re-implements a rule). It now lives in
+  `waypoint_rules/receipts.py`, and the route refuses a short count with no reason or one of its own words.
+- **The review question appeared before Dispatch asked.** PRD A51 says the explanation ("Why you're seeing this")
   shows on its own, and the question ("Did you receive this delivery?" with its two buttons) only once Dispatch
-  has asked. At 06:41, before any ask, the reply carries the `review` block and S2.7 draws the question.
-- **The journey can read Departed pending while Delivered is done**, and the proof's `driver` comes back empty.
+  has asked. `DeliveryOut.review` is now a typed `ReviewOut` carrying `asked`, true only while the conflict is
+  `awaiting_store` (D7.2). Its `askedAt` is the store's own 05:21 call to hold the delivery, not the 06:40 sync.
+- **The journey could read Departed pending behind a finished Delivered**, and the proof's `driver` came back
+  empty. Both came from keying off the newest released plan; the run and the gate are now found by the vehicle
+  on the driver's record.
 
 **What differs from the mock.**
 

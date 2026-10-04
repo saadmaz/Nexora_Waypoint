@@ -81,7 +81,7 @@ def test_the_store_places_edits_and_cancels_its_orders(client, auth, reseed):
     assert [(o["id"], o["line"]["kind"], o["line"]["units"], o["status"]) for o in orders] == [
         ("ORD2001", "chilled", 12, "ordered"), ("ORD2002", "ambient", 8, "ordered"),
     ]
-    assert orders[0]["receivedAt"].startswith("2026-09-28T15:40") and orders[0]["afterCutoff"] is False and orders[0]["dock"] == "rear_dock"
+    assert orders[0]["receivedAt"] == "2026-09-28T15:40:00+05:30" and orders[0]["afterCutoff"] is False and orders[0]["dock"] == "rear_dock"
     # The form now lists them, and the units they were placed with become the form's starting quantities.
     again = get(client, auth, "store", f"{STORE}/order-form")
     assert [o["id"] for o in again["orders"]] == ["ORD2001", "ORD2002"] and again["defaultUnits"] == {"chilled": 12, "ambient": 8}
@@ -263,11 +263,21 @@ def test_the_hero_degradation_as_the_store_sees_it(client, auth, reseed):
 
     d = day(client, auth)
     assert d["status"] == "conflict"  # the store screens print this as "Under review", never "Conflict"
-    assert d["review"] == {"askedAt": "06:40", "deliveredAt": "05:42", "receivedBy": "S. Fernando", "conflictId": str(cid)}
+    # askedAt is the store's own call to hold the delivery (05:21, H10 to H11), which is what the
+    # "Why you're seeing this" notice quotes back; it is not the moment the outbox synced.
+    assert d["review"] == {"askedAt": "05:21", "deliveredAt": "05:42", "receivedBy": "S. Fernando", "conflictId": str(cid), "asked": False}
     assert d["proof"]["receivedBy"] == "S. Fernando" and d["proof"]["at"] == "05:42" and d["proof"]["units"] == [12, 8]
     assert (d["proof"]["driver"], d["proof"]["vehicle"]) == ("Nimal", "VEH039") and d["receivedAnswered"] is False
+    # Departed keeps its 05:10 time even though v5 moved the orders off the trip that drove: the run is
+    # found by the vehicle on the driver's record. Delivered waits, because under review nothing is settled.
+    assert d["journey"][4]["at"] == "05:10" and [s["state"] for s in d["journey"][4:6]] == ["current", "pending"]
     review = get(client, auth, "store", f"{STORE}/updates")["updates"][0]
     assert review["tag"] == "Review" and review["resolvedAt"] is None
+
+    # D7.2 "Review with store first": now the store is asked, and only now does S3.5 draw the question.
+    asked = client.post(f"/api/v1/dispatcher/conflicts/{cid}/ask-store", headers=auth("dispatcher"))
+    assert asked.status_code == 200, asked.text
+    assert day(client, auth)["review"]["asked"] is True
 
     # "Yes, we received it": recorded for Dispatch, and it settles the delivery for the store at once (S2.8).
     post(client, auth, "store", f"{STORE}/reviews/{cid}/answer", {"answer": "received"}, status=204)
@@ -283,16 +293,28 @@ def test_the_hero_degradation_as_the_store_sees_it(client, auth, reseed):
     assert d["deferral"] is None and d["review"] is None and d["journey"][5]["at"] == "05:42" and d["journey"][6]["state"] == "current"
     assert get(client, auth, "store", f"{STORE}/updates")["updates"][0]["title"] == "Deliveries updated"
 
-    # S3: confirm receipt with a shortfall, then report a problem.
+    # S3: confirm receipt with a shortfall, then report a problem. A50: a short count has to say why,
+    # in one of the four words the sheet offers, and the API refuses it without one.
+    no_reason = client.post(f"{STORE}/receipts", headers=auth("store"), json={
+        "date": DAY, "lines": [{"orderId": "ORD2001", "received": 11}, {"orderId": "ORD2002", "received": 8}]})
+    assert no_reason.status_code == 422 and no_reason.json()["code"] == "reason_required"
+    assert no_reason.json()["details"]["reasons"] == ["Missing", "Damaged", "Wrong item", "Other"]
+    prose = client.post(f"{STORE}/receipts", headers=auth("store"), json={
+        "date": DAY, "lines": [{"orderId": "ORD2001", "received": 11}], "reason": "One carton was crushed"})
+    assert prose.status_code == 422 and prose.json()["code"] == "unknown_reason"
+
     short = post(
         client, auth, "store", f"{STORE}/receipts",
-        {"date": DAY, "lines": [{"orderId": "ORD2001", "received": 11}, {"orderId": "ORD2002", "received": 8}], "reason": "One carton was crushed", "deviceTime": "07:30"},
+        {"date": DAY, "lines": [{"orderId": "ORD2001", "received": 11}, {"orderId": "ORD2002", "received": 8}], "reason": "Damaged", "deviceTime": "07:30"},
         status=201,
     )
     assert short["status"] == "partial" and "Receipt confirmed" in short["tags"] and short["receiptConfirmedAt"] == "07:30"
-    assert short["receiptBy"] == "Anusha" and short["shortfallReason"] == "One carton was crushed"
+    assert short["receiptBy"] == "Anusha" and short["shortfallReason"] == "Damaged"
     assert [(o["id"], o["status"], o["received"]) for o in short["orders"]] == [("ORD2001", "partial", 11), ("ORD2002", "delivered", None)]
     assert short["journey"][6]["at"] == "07:30" and short["journey"][6]["state"] == "done"
+    # A full count needs no reason at all.
+    full = post(client, auth, "store", f"{STORE}/receipts", {"date": DAY, "lines": [{"orderId": "ORD2002", "received": 8}]}, status=201)
+    assert full["receiptConfirmedAt"] is not None
     too_many = client.post(f"{STORE}/receipts", headers=auth("store"), json={"date": DAY, "lines": [{"orderId": "ORD2002", "received": 9}]})
     assert too_many.status_code == 422
 
@@ -329,3 +351,47 @@ def test_a_store_sees_only_its_own_outlet(client, auth, reseed):
     # The dispatcher account has no outlet, so the store's reads refuse it before anything is read.
     assert client.get(f"{STORE}/deliveries", headers=auth("dispatcher")).status_code == 403
     assert client.get(f"{STORE}/deliveries/2026-09-30", headers=auth("store")).json() == []
+
+
+def test_the_server_sets_the_weight_not_the_client(client, auth, reseed):
+    """A49/§19: units are the store's, kilograms and cubic metres are the server's.
+
+    The request still carries the screen's estimate, but it is only compared. Before this the figure was
+    stored as sent, so 500 chilled units declared as 0.1 kg reached the planner weighing 0.1 kg and R-KG
+    and R-M3 would have packed it onto anything.
+    """
+    advance(client, auth, "2026-09-28T15:40:00+05:30")
+    form = get(client, auth, "store", f"{STORE}/order-form")
+    factor = form["unitFactors"]["chilled"]
+
+    placed = post(
+        client, auth, "store", f"{STORE}/orders",
+        {"orders": [{"outletId": "OUT084", "deliveryDate": DAY, "line": {"kind": "chilled", "units": 12, "estimatedKg": 0.1, "estimatedM3": 0.001}}]},
+        status=201,
+    )
+    line = placed[0]["line"]
+    assert line["units"] == 12
+    assert line["estimatedKg"] == round(12 * factor["kg"], 3), line
+    assert line["estimatedM3"] == round(12 * factor["m3"], 3), line
+
+    # The dispatcher's queue reads the stored figure, which is what the planner packs.
+    groups = get(client, auth, "dispatcher", "/api/v1/dispatcher/queue", depot="kandy")["groups"]
+    row = next(o for g in groups for o in g["orders"] if o["id"] == placed[0]["id"])
+    assert row["kg"] == round(12 * factor["kg"], 3) and row["m3"] == round(12 * factor["m3"], 3), row
+
+    # An edit is held to the same rule.
+    res = client.patch(
+        f"/api/v1/store/orders/{placed[0]['id']}",
+        json={"units": 14, "estimatedKg": 0.2, "estimatedM3": 0.002},
+        headers=auth("store"),
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["line"]["estimatedKg"] == round(14 * factor["kg"], 3), res.json()["line"]
+
+
+def test_the_reference_days_figures_are_unchanged(client, auth, reseed):
+    """The walkthrough's two orders still weigh what PRD 4c says: 12 chilled is 70 kg / 0.7 m3, 8 dry is 45 / 0.6."""
+    placed = place(client, auth)
+    lines = {o["id"]: o["line"] for o in placed}
+    assert lines["ORD2001"]["estimatedKg"] == 70.0 and lines["ORD2001"]["estimatedM3"] == 0.7, lines
+    assert lines["ORD2002"]["estimatedKg"] == 45.0 and lines["ORD2002"]["estimatedM3"] == 0.6, lines

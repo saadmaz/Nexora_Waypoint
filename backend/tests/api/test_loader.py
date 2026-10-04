@@ -547,3 +547,44 @@ def test_a_vehicle_that_was_already_driving_is_not_read_as_a_swap():
     assert changes(before, after) == [
         ("moved", "VEH035", 1, "ORD1016", "VEH003 · trip 1 · stop 1", "VEH035 · trip 1 · stop 2"),
     ]
+
+
+def test_a_short_load_reaches_the_store_and_dispatch(client, auth, reseed):
+    """The dock counts 10 of 12 onto VEH039, 50 minutes before OUT084's window opens.
+
+    The driver was always told (``loaderConfirmation.shortfalls``). The store was told "your orders are
+    loaded" with the units unchanged at 12, and Dispatch was told nothing at all: ``loader.check`` wrote a
+    ``load_checks`` row and no notice, and D6 only listed exceptions.
+    """
+    release(client, auth)
+    advance(client, auth, "2026-09-29T04:40:00+05:30")
+    answers = dock_sync(
+        client, auth,
+        [record("loader.check", {"date": DAY, "vehicleId": "VEH039", "trip": 1, "orderId": "ORD2001", "unitsLoaded": 10, "personId": RUWAN}, "04:40", 3, actor="Ruwan")],
+    )
+    assert [a["result"] for a in answers] == ["accepted"], answers
+
+    advance(client, auth, "2026-09-29T04:50:00+05:30")
+    answers = dock_sync(
+        client, auth,
+        [record("loader.confirmLoaded", {"date": DAY, "vehicleId": "VEH039", "trip": 1, "personId": RUWAN, "personName": "Ruwan"}, "04:50", 3, actor="Ruwan")],
+    )
+    assert [a["result"] for a in answers] == ["accepted"], answers
+
+    # The driver, as before.
+    run = client.get(f"/api/v1/driver/runs/{DAY}", headers=auth("driver")).json()
+    assert run["loaderConfirmation"]["shortfalls"] == [{"orderId": "ORD2001", "shortBy": 2}], run["loaderConfirmation"]
+
+    # The store's feed names it, and the delivery row carries the count the screen shows.
+    feed = client.get("/api/v1/store/updates", headers=auth("store")).json()["updates"]
+    loaded_notice = next(u for u in feed if u["title"] == "Loaded")
+    assert "ORD2001 is short 2 of 12 units" in loaded_notice["body"], loaded_notice["body"]
+    days = client.get("/api/v1/store/deliveries?from=2026-09-29&to=2026-09-29", headers=auth("store")).json()
+    row = {o["id"]: o for o in next(d for d in days if d["date"] == "2026-09-29")["orders"]}
+    assert row["ORD2001"]["loadedUnits"] == 10 and row["ORD2002"]["loadedUnits"] is None, row
+
+    # And Dispatch sees it on the board.
+    board = client.get("/api/v1/dispatcher/live?depot=kandy", headers=auth("dispatcher")).json()
+    short = next(d for d in board["decisions"] if d["id"].startswith("short-"))
+    assert short["kind"] == "info" and short["infoOnly"] is True, short
+    assert "VEH039" in short["title"] and "ORD2001 short 2" in short["text"], short

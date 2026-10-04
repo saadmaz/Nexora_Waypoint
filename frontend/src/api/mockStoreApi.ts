@@ -8,9 +8,10 @@ import type {
   RecentOrderDay,
   UnitFactors,
 } from "../domain/order";
+import { formatDate, formatTime } from "../field/clock/clock";
 import { clockTime, weekdayShort } from "../domain/format";
 import type { Issue } from "../domain/issue";
-import { isAfterCutoff, isPastCutoff, operatingDayFor } from "../domain/schedule";
+import { cutoffFor, isAfterCutoff, isPastCutoff, operatingDayFor } from "../domain/schedule";
 import { EMPTY_RECORD, deriveDelivery, type DeliveryRecord, type OutletFixture } from "./mockDeliveries";
 import { INITIAL_READ_THROUGH, buildUpdates, type ReadState } from "./mockUpdates";
 import {
@@ -59,14 +60,14 @@ function out009Orders(): Order[] {
       window: OUT009_OUTLET.window,
       line: { id: "ORD1002-L1", kind: "chilled", units: 35, estimatedKg: 210, estimatedM3: 1.4 },
       status: "Ordered",
-      receivedAt: "2026-09-28T14:02:00",
+      receivedAt: "2026-09-28T14:02:00+05:30",
       afterCutoff: false,
     },
   ];
 }
 
 const HERO_DELIVERY_DATE = "2026-09-29";
-const HERO_RECEIVED_AT = "2026-09-28T15:40:00";
+const HERO_RECEIVED_AT = "2026-09-28T15:40:00+05:30";
 
 function heroFixture(): Order[] {
   return [
@@ -156,6 +157,13 @@ export type MockStoreApiOptions = {
  * without recreating the mock; the scenario clock (?at=HH:MM) will supply
  * that function from phase 7 onward. Defaults to real time.
  */
+/** "16:00" today, "Tue 16:00" when the cutoff is on another day: a bare time reads as already gone. */
+function editableLabel(closes: Date, at: Date): string {
+  const time = formatTime(closes.getTime());
+  const sameDay = formatDate(closes.getTime()) === formatDate(at.getTime());
+  return sameDay ? time : `${formatDate(closes.getTime()).split(" ")[0]} ${time}`;
+}
+
 export function createMockStoreApi(
   now: () => Date,
   { seed = "placed" }: MockStoreApiOptions = {},
@@ -235,6 +243,9 @@ export function createMockStoreApi(
         afterCutoff: isAfterCutoff(now()),
         window: { start: "05:30", end: "08:00" },
         dock: "Rear dock",
+        // The mock still mirrors the 16:00 cutoff; in api mode these come from the server.
+        cutoffAt: formatTime(cutoffFor(deliveryDate).getTime()),
+        ...(now() < cutoffFor(deliveryDate) ? { editableUntil: editableLabel(cutoffFor(deliveryDate), now()) } : {}),
         unitFactors: UNIT_FACTORS,
         defaultUnits: { ...DEFAULT_UNITS },
         orders: [...orders.values()]

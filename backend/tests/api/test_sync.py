@@ -494,3 +494,65 @@ def test_the_synced_conflict_reads_back_in_colombo_time_with_names(client, auth,
     days = client.get("/api/v1/store/deliveries?from=2026-09-29&to=2026-09-29", headers=auth("store")).json()
     proof = next(d for d in days if d["date"] == "2026-09-29")["proof"]
     assert proof["driver"] == "Nimal" and proof["vehicle"] == "VEH039", proof
+
+
+def test_a_late_departure_moves_every_remaining_eta(client, auth, reseed):
+    """A27: the board and the store quote the run's ETA, not the plan's.
+
+    VEH039 is planned to leave at 03:30 and the driver starts at 05:10. Before this, ``planned_clock`` measured
+    every arrival from the planned departure, so at 05:17 D6 said "OUT087 · ETA 03:46" and the store read
+    "arrives about 04:07": times already an hour and a half gone.
+    """
+    version = on_the_road(client, auth)
+    assert version
+
+    row = next(r for r in board(client, auth)["rows"] if r["vehicleId"] == "VEH039")
+    assert row["stopsDetail"], row
+
+    # Every ETA the board shows is after the 05:10 departure, and the next stop's agrees with its own row.
+    for stop in row["stopsDetail"]:
+        hhmm = stop["eta"].split("ETA ")[1].split(" ·")[0]
+        assert hhmm >= "05:10", f"{stop['outletId']} quotes {hhmm}, before the 05:10 departure: {stop['eta']}"
+    assert row["nextStop"].endswith(row["stopsDetail"][0]["eta"].split(" ·")[0]), (row["nextStop"], row["stopsDetail"][0])
+
+    # The store's live line moves with it. OUT084 opens at 05:30, so "may arrive" is gone and the range starts there.
+    days = client.get("/api/v1/store/deliveries?from=2026-09-29&to=2026-09-29", headers=auth("store")).json()
+    delivery = next(d for d in days if d["date"] == "2026-09-29")
+    assert delivery["onTheWay"]["arrivesAbout"] >= "05:10", delivery["onTheWay"]
+    assert delivery["arrival"].get("mayArriveAt") is None or delivery["arrival"]["mayArriveAt"] >= "05:10", delivery["arrival"]
+
+    # And the driver's own stop times, so the phone and the board agree.
+    run = client.get(f"/api/v1/driver/runs/{DAY}", headers=auth("driver")).json()
+    for stop in run["stops"]:
+        if stop["plannedArrival"]:
+            assert stop["plannedArrival"][11:16] >= "05:10", stop
+
+
+def test_a_driver_problem_reaches_d6_as_news_not_a_held_vehicle(client, auth, reseed):
+    """PRD v3.1: a driver's problem is listed in D6; only "Vehicle check failed" has a Dispatch screen (D8).
+
+    Before this it was rendered with the held-vehicle shape: "VEH039 held: road blocked", a countdown to a
+    departure the truck had already made, and a Review link into the swap screen, whose only action answered
+    409 no_replacement so the item could never be cleared.
+    """
+    version = on_the_road(client, auth)
+    advance(client, auth, "2026-09-29T06:05:00+05:30")
+    answers = results(
+        sync(client, auth, [record("driver.problem", {"date": DAY, "type": "Road blocked", "note": "Tree down on the B-road"}, "05:55", version)])
+    )
+    assert [r["result"] for r in answers] == ["accepted"]
+
+    item = next(i for i in board(client, auth)["decisions"] if i["id"].startswith("x"))
+    assert item["kind"] == "info" and item["infoOnly"] is True, item
+    assert "held" not in item["title"].lower(), item["title"]
+    assert item["title"] == "VEH039: Road blocked", item["title"]
+    assert item["countdown"] is None and item["action"] is None, item
+    assert "Tree down on the B-road" in item["text"], item["text"]
+    assert "05:55" in item["text"], f"the driver's own time, not the sync time: {item['text']}"
+
+    # D8 is for a swap, and there is none: it refuses rather than offering an empty screen.
+    eid = int(item["id"][1:])
+    res = client.get(f"/api/v1/dispatcher/exceptions/{eid}", headers=auth("dispatcher"))
+    assert res.status_code == 409 and res.json()["code"] == "not_a_vehicle_flag", res.text
+    decided = client.post(f"/api/v1/dispatcher/exceptions/{eid}/decide", json={"decision": "swap_vehicle", "deferOrderIds": []}, headers=auth("dispatcher"))
+    assert decided.status_code == 409 and decided.json()["code"] == "not_a_vehicle_flag", decided.text

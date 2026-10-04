@@ -48,6 +48,12 @@ def _runs(db: Session, day: date, vehicle_id: str) -> dict[int, f.Run]:
     return {trip_no: run for trip_no, run in rows}
 
 
+def departed_at(db: Session, day: date, vehicle_id: str, trip_no: int) -> datetime | None:
+    """When this trip's run actually left, if it has."""
+    run = _runs(db, day, vehicle_id).get(trip_no)
+    return run.departed_at if run is not None else None
+
+
 def trips(db: Session, version: plans.PlanVersion, vehicle_id: str) -> dict[int, plans.Trip]:
     """The vehicle's trips in one plan version, by trip number."""
     rows = db.scalars(select(plans.Trip).where(plans.Trip.plan_version_id == version.id, plans.Trip.vehicle_id == vehicle_id))

@@ -12,6 +12,8 @@ export type DeliveryOrder = {
   issue?: IssueType;
   /** Units the store counted when it confirmed receipt with a shortfall (S3.1 B: 10 of 12). */
   received?: number;
+  /** Units the dock counted onto the truck, present only when it is fewer than `units`. */
+  loadedUnits?: number;
 };
 
 /**
@@ -155,8 +157,12 @@ export type Delivery = {
   /** True while receivers should be ready: planned, loaded or on the way. */
   receiversCue: boolean;
   deferral?: DeliveryDeferral;
-  /** Set while Dispatch is reviewing a conflicting record (S2.7). */
-  review?: { askedAt: string; deliveredAt: string; receivedBy: string };
+  /**
+   * Set while Dispatch is reviewing a conflicting record (S2.7). `asked` is true only once Dispatch has
+   * asked the store ("Review with store first", D7.2): until then the store sees the explanation on its
+   * own, and the question "Did you receive this delivery?" waits (A51).
+   */
+  review?: { askedAt: string; deliveredAt: string; receivedBy: string; asked: boolean };
   /** Set once the truck has delivered. */
   proof?: ProofOfDelivery;
   tags: DeliveryTag[];

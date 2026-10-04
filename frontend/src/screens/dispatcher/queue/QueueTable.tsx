@@ -265,7 +265,8 @@ export function QueueTable(props: QueueTableProps) {
         </div>
       )}
       {/* The table role wraps only the header and the rows: a toolbar or a banner inside it would be an invalid child. */}
-      <div role="table" aria-label="Confirmed orders" style={{ display: "contents" }}>
+      <div className={styles.tableScroll}>
+      <div role="table" aria-label="Confirmed orders" className={styles.table}>
         <HeadRow columns={HEAD} />
         {view.groups.map((group) => (
           <div key={group.key} role="rowgroup">
@@ -275,6 +276,7 @@ export function QueueTable(props: QueueTableProps) {
             ))}
           </div>
         ))}
+      </div>
       </div>
       <div className={styles.footer}>
         <span>
@@ -301,7 +303,8 @@ export function KandyTable(props: QueueTableProps) {
   return (
     <div className={styles.card}>
       <Toolbar {...props} />
-      <div role="table" aria-label="Kandy orders grouped by outlet" style={{ display: "contents" }}>
+      <div className={styles.tableScroll}>
+      <div role="table" aria-label="Kandy orders grouped by outlet" className={cx(styles.table, styles.kandyTable)}>
       <div className={cx(styles.head, styles.kcols)} role="row">
         {columns.map((h) => (
           <div key={h} role="columnheader" className={cx(styles.th, NUM.has(h) && styles.num, h === "Received" && styles.center)}>
@@ -385,6 +388,7 @@ export function KandyTable(props: QueueTableProps) {
           ))}
         </div>
       ))}
+      </div>
       </div>
       <div className={styles.footer}>
         <span>

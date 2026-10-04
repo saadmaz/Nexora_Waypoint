@@ -50,7 +50,6 @@ _ACTOR = {
 
 _OS = OrderStatus
 LOADED_OR_LATER = {_OS.LOADED, _OS.DEPARTED, _OS.DELIVERED, _OS.PARTIAL, _OS.ISSUE, _OS.CONFLICT}
-DEPARTED_OR_LATER = {_OS.DEPARTED, _OS.DELIVERED, _OS.PARTIAL, _OS.ISSUE, _OS.CONFLICT}
 DELIVERED_LIKE = {_OS.DELIVERED, _OS.PARTIAL, _OS.ISSUE}
 _ADVANCE = [_OS.ORDERED, _OS.CONFIRMED, _OS.PLANNED, _OS.LOADED, _OS.DEPARTED, _OS.DELIVERED]
 
@@ -69,7 +68,13 @@ def hm(value: datetime | None) -> str | None:
 
 
 def stamp(value: datetime) -> str:
-    """An ISO time with the Colombo offset, as the order form shows ``receivedAt``."""
+    """``receivedAt`` and ``updatedAt``: an instant with its Asia/Colombo offset (PRD §10: stored in UTC, shown in Asia/Colombo).
+
+    ``2026-09-28T15:40:00+05:30``. The store screens render these with ``clockTime()``, which formats the
+    instant in Asia/Colombo whatever zone the browser sits in, so the offset is what makes the reply mean one
+    moment everywhere. A naive string would instead be read as the browser's own wall clock: the same reply
+    said 15:40 from Colombo and 21:10 from a UTC runner.
+    """
     return value.astimezone(COLOMBO).replace(microsecond=0).isoformat()
 
 
@@ -147,6 +152,8 @@ class Facts:
     conflicts: list[f.Conflict] = field(default_factory=list)
     runs: dict[tuple[date, str, int], f.Run] = field(default_factory=dict)
     gates: dict[tuple[date, str, int], plans.LoadGate] = field(default_factory=dict)
+    #: What the dock counted onto the truck, by order id, when it was short of the order.
+    short_loaded: dict[str, int] = field(default_factory=dict)
     issues: list[f.FieldException] = field(default_factory=list)
     issue_photo: dict[int, bool] = field(default_factory=dict)
     drivers: dict[str, str] = field(default_factory=dict)
@@ -206,6 +213,9 @@ def load_facts(db: Session, outlet: reference.Outlet, orders: list[om.Order]) ->
         .where(plans.PlanVersion.service_date.in_(dates))
     ):
         facts.gates[(version.service_date, trip.vehicle_id, trip.trip_no)] = gate
+    # The dock's own counts: a short load is a fact the store needs before the truck arrives, not after.
+    for check in db.scalars(select(plans.LoadCheck).where(plans.LoadCheck.order_id.in_(ids)).order_by(plans.LoadCheck.checked_at)):
+        facts.short_loaded[check.order_id] = check.units_loaded
 
     facts.issues = list(
         db.scalars(select(f.FieldException).where(f.FieldException.kind == ExceptionKind.STORE_ISSUE, f.FieldException.id.in_(select(f.ExceptionOrder.exception_id).where(f.ExceptionOrder.order_id.in_(ids)))).order_by(f.FieldException.id))
@@ -214,8 +224,9 @@ def load_facts(db: Session, outlet: reference.Outlet, orders: list[om.Order]) ->
         for a in db.scalars(select(AuditEvent).where(AuditEvent.entity_type == "exception", AuditEvent.type == AuditType.ISSUE_REPORTED, AuditEvent.entity_id.in_([str(e.id) for e in facts.issues]))):
             facts.issue_photo[int(a.entity_id)] = bool((a.payload or {}).get("photo"))
 
-    # The vehicles carrying the orders, and the ones that delivered them: a stop deferred after the truck left is on no trip
-    # in the latest plan, but its proof still names the driver (S3.1).
+    # The vehicles carrying the orders, plus the ones that actually delivered them. Either can leave the latest plan: a
+    # stop deferred after the truck left is on no trip, and a dock swap (VEH003 → VEH036) moves it to another vehicle.
+    # The proof still names that driver (S3.1), so its driver has to be in the map too.
     vehicles = {p.vehicle_id for p in facts.placed.values()} | {r.vehicle_id for r in facts.outcomes.values() if r.vehicle_id}
     if vehicles:
         facts.drivers = {d.vehicle_id: d.name for d in db.scalars(select(people.Driver).where(people.Driver.vehicle_id.in_(vehicles)))}
@@ -245,6 +256,23 @@ def arrival_range(predicted: datetime | None, outlet: reference.Outlet) -> s.Arr
         return s.ArrivalRange(from_=opens)
     arrives = f"{local:%H:%M}"
     return s.ArrivalRange(from_=opens, may_arrive_at=arrives) if arrives < opens else s.ArrivalRange(from_=arrives)
+
+
+def actual_arrival(placement: Placement, run: f.Run | None) -> datetime | None:
+    """The planned arrival, shifted by how late the truck actually left (A27).
+
+    The plan's arrival is what the store was promised and what ``order_out`` keeps showing. Once the run has
+    departed, the live line ("arrives about") has to move with it: a truck that left 100 minutes after its
+    planned departure cannot still be arriving at the planned minute. An early departure keeps the plan's
+    times, because the driver waits for the window either way.
+    """
+    if placement.planned_arrival is None:
+        return None
+    departed = repo.naive(run.departed_at) if run is not None and run.departed_at is not None else None
+    planned = repo.naive(placement.depart_at)
+    if departed is None or planned is None or departed <= planned:
+        return placement.planned_arrival
+    return placement.planned_arrival + (departed - planned)
 
 
 def _deferral_notice(d: om.Deferral) -> s.DeferralNoticeOut:
@@ -307,14 +335,13 @@ _DEFAULT_FACTORS = {Temp.CHILLED: (70 / 12, 0.7 / 12), Temp.AMBIENT: (45 / 8, 0.
 _DEFAULT_UNITS = {Temp.CHILLED: 12, Temp.AMBIENT: 8}
 
 
-def order_draft(db: Session, user: CurrentUser, day: date | None) -> s.OrderDraftOut:
-    """S1: the form for one day. Figures per unit and starting quantities come from the outlet's own last order of each kind."""
-    from waypoint_rules.schedule import service_day_for
+def unit_factors(db: Session, outlet: reference.Outlet) -> tuple[dict[Temp, s.UnitFactor], dict[Temp, int]]:
+    """What one unit means for this outlet, and the quantity its form opens with (PRD A14, A42).
 
-    outlet = outlet_of(db, user)
-    now = now_local(db)
-    service = service_day_for(now, repo.operating_days(db))
-    delivery_date = day or service.service_date
+    The outlet's own last order of each kind, else the outlet's configured figures, else the PRD defaults.
+    This is the authority for every order's weight and volume: ``store_writes`` computes from it on each
+    write, and the form sends the same numbers to the screen so the estimate it shows is the stored one.
+    """
     history = list(db.scalars(select(om.Order).where(om.Order.outlet_id == outlet.id).order_by(om.Order.received_at.desc().nulls_last(), om.Order.id.desc())))
     factors: dict[Temp, s.UnitFactor] = {}
     defaults: dict[Temp, int] = {}
@@ -327,12 +354,29 @@ def order_draft(db: Session, user: CurrentUser, day: date | None) -> s.OrderDraf
             kg, m3 = (outlet.units_to_kg, outlet.units_to_m3) if outlet.units_to_kg and outlet.units_to_m3 else _DEFAULT_FACTORS[temp]
             factors[temp] = s.UnitFactor(kg=kg, m3=m3)
             defaults[temp] = _DEFAULT_UNITS[temp]
+    return factors, defaults
+
+
+def order_draft(db: Session, user: CurrentUser, day: date | None) -> s.OrderDraftOut:
+    """S1: the form for one day. Figures per unit and starting quantities come from the outlet's own last order of each kind."""
+    from waypoint_rules.schedule import service_day_for
+
+    outlet = outlet_of(db, user)
+    now = now_local(db)
+    service = service_day_for(now, repo.operating_days(db))
+    delivery_date = day or service.service_date
+    factors, defaults = unit_factors(db, outlet)
     placed = sorted(orders_of(db, outlet.id, on=delivery_date), key=kind_order)
     facts = load_facts(db, outlet, placed)
+    # The cutoff is the server's, and it names its day when it is not today: at 16:20 on Monday a Wednesday
+    # order is editable until Tuesday 16:00, and a bare "16:00" reads as already gone.
+    closes = repo.cutoff_at(delivery_date, repo.operating_days(db))
     return s.OrderDraftOut(
         outlet_id=outlet.id, delivery_date=delivery_date, after_cutoff=service.after_cutoff if delivery_date == service.service_date else False,
         window=window_of(outlet), dock=dock_label(outlet.dock_type), unit_factors=factors, default_units=defaults,
         orders=[order_out(o, facts) for o in placed],
+        cutoff_at=f"{closes:%H:%M}",
+        editable_until=(f"{closes:%a %H:%M}" if closes.date() != now.date() else f"{closes:%H:%M}") if now < closes else None,
     )
 
 
@@ -348,6 +392,34 @@ def _open_conflict(facts: Facts, ids: set[str]) -> f.Conflict | None:
 
 def _answered(c: f.Conflict | None) -> bool:
     return c is not None and isinstance((c.server_snapshot or {}).get("storeReport"), dict)
+
+
+def _vehicles_that_served(outcome: f.DeviceRecord | None, placement: Placement | None) -> list[str]:
+    """The vehicle on the driver's record first, then the planned one: who actually served the stop."""
+    return [v for v in (outcome.vehicle_id if outcome else None, placement.vehicle_id if placement else None) if v]
+
+
+def _run_that_drove(facts: Facts, day: date, outcome: f.DeviceRecord | None, placement: Placement | None) -> f.Run | None:
+    """The run that actually carried the stop.
+
+    ``facts.runs`` is keyed by the plan's ``(service_date, vehicle_id, trip_no)``. When the plan has moved on
+    (the order deferred off it, a deferral withdrawn, a reefer swapped at the dock) that key names a trip
+    nobody drove, so fall back to whichever run of the day belongs to the vehicle that served the stop.
+    """
+    for vehicle_id in _vehicles_that_served(outcome, placement):
+        runs = [run for (d, v, _), run in facts.runs.items() if d == day and v == vehicle_id and run.departed_at]
+        if runs:
+            return min(runs, key=lambda r: r.departed_at)  # type: ignore[arg-type,return-value]
+    return None
+
+
+def _gate_that_loaded(facts: Facts, day: date, outcome: f.DeviceRecord | None, placement: Placement | None) -> plans.LoadGate | None:
+    """The load gate the dock actually confirmed, found the same way as the run that drove."""
+    for vehicle_id in _vehicles_that_served(outcome, placement):
+        gates = [g for (d, v, _), g in facts.gates.items() if d == day and v == vehicle_id and g.confirmed_at]
+        if gates:
+            return min(gates, key=lambda g: g.confirmed_at)  # type: ignore[arg-type,return-value]
+    return None
 
 
 def _journey(times: dict[str, str]) -> list[s.JourneyStepOut]:
@@ -395,6 +467,8 @@ def _delivery(db: Session, facts: Facts, day: date, orders: list[om.Order], now:
         for line in issue.lines:
             issue_by_order.setdefault(line.order_id, issue)
 
+    # Only a count below the order is worth showing: a full load is what the store already expects.
+    loaded_short = {o.id: facts.short_loaded[o.id] for o in orders if o.id in facts.short_loaded and facts.short_loaded[o.id] < o.units}
     delivery_orders: list[s.DeliveryOrderOut] = []
     for o in orders:
         receipt = facts.receipts.get(o.id)
@@ -407,6 +481,7 @@ def _delivery(db: Session, facts: Facts, day: date, orders: list[om.Order], now:
             s.DeliveryOrderOut(
                 id=o.id, kind=o.temp, units=o.units, status=shown[o.id], issue=tag,
                 received=receipt.units_received if receipt is not None and receipt.units_received < o.units else None,
+                loaded_units=loaded_short.get(o.id),
             )
         )
 
@@ -420,24 +495,35 @@ def _delivery(db: Session, facts: Facts, day: date, orders: list[om.Order], now:
     release = facts.first_release.get(day)
     if release and (placements or deferral or any(shown[o.id] not in (_OS.ORDERED, _OS.CONFIRMED) for o in orders)):
         times["Planned"] = hm(release) or ""
-    if placement and any(shown[o.id] in LOADED_OR_LATER for o in orders):
-        gate = facts.gates.get((placement.service_date, placement.vehicle_id, placement.trip_no))
-        if gate:
-            times["Loaded"] = hm(gate.confirmed_at) or ""
-    run = facts.runs.get((placement.service_date, placement.vehicle_id, placement.trip_no)) if placement else None
-    if run and run.departed_at and any(shown[o.id] in DEPARTED_OR_LATER for o in orders):
-        times["Departed"] = hm(run.departed_at) or ""
     outcome = next((facts.outcomes[o.id] for o in orders if o.id in facts.outcomes), None)
+    # What happened stays on the journey even when the plan has moved on under it. A deferral sends the order
+    # back to Deferred and takes it off the newest plan, and a re-release puts it on a trip nobody drove;
+    # neither undoes the load at 04:50 or the departure at 05:10 that the dock and the phone recorded.
+    reached = any(shown[o.id] in LOADED_OR_LATER for o in orders) or deferral is not None
+    gate = facts.gates.get((placement.service_date, placement.vehicle_id, placement.trip_no)) if placement else None
+    if gate is None or gate.confirmed_at is None:
+        gate = _gate_that_loaded(facts, day, outcome, placement) or gate
+    if gate and gate.confirmed_at and reached:
+        times["Loaded"] = hm(gate.confirmed_at) or ""
+    run = facts.runs.get((placement.service_date, placement.vehicle_id, placement.trip_no)) if placement else None
+    if run is None or run.departed_at is None:
+        run = _run_that_drove(facts, day, outcome, placement) or run
+    if run and run.departed_at and reached:
+        times["Departed"] = hm(run.departed_at) or ""
     if outcome and any(shown[o.id] in DELIVERED_LIKE for o in orders):
         times["Delivered"] = hm(outcome.device_time or outcome.received_at) or ""
+        # A delivery proves the load and the departure, whatever the plan says about them now.
+        times.setdefault("Departed", times["Delivered"])
+        times.setdefault("Loaded", times["Departed"])
     receipts = [facts.receipts[o.id] for o in orders if o.id in facts.receipts]
     if receipts:
         times["Receipt confirmed"] = hm(max(r.confirmed_at for r in receipts)) or ""
 
-    # arrival, on the way, loaded
+    # arrival, on the way, loaded. Once the truck has left, both lines move with the real departure (A27).
     released = bool(placements)
-    arrival = arrival_range(placement.planned_arrival, outlet) if released and deferral is None and placement else None
-    predicted = hm(placement.planned_arrival) if placement and placement.planned_arrival else f"{outlet.window_open:%H:%M}"
+    expected = actual_arrival(placement, run) if placement else None
+    arrival = arrival_range(expected, outlet) if released and deferral is None and placement else None
+    predicted = hm(expected) if expected else f"{outlet.window_open:%H:%M}"
     loaded = on_the_way = last_update = None
     if status is _OS.LOADED and "Loaded" in times and placement:
         depot = facts.depots.get(placement.vehicle_id)
@@ -451,7 +537,7 @@ def _delivery(db: Session, facts: Facts, day: date, orders: list[om.Order], now:
 
     review = None
     if conflict is not None and not answered:
-        snap, dev = conflict.server_snapshot or {}, conflict.device_snapshot or {}
+        dev = conflict.device_snapshot or {}
 
         def _t(value: Any) -> str:
             if isinstance(value, str):
@@ -461,10 +547,19 @@ def _delivery(db: Session, facts: Facts, day: date, orders: list[om.Order], now:
                     return ""
             return ""
 
-        review = {
-            "askedAt": _t(snap.get("askedAt")) or _t(dev.get("syncedAt")), "deliveredAt": _t(dev.get("deviceTime")),
-            "receivedBy": str(dev.get("receivedBy") or ""), "conflictId": str(conflict.id),
-        }
+        # "You asked Dispatch at HH:MM to hold today's delivery": the store's own request, which is the
+        # deferral it asked for, not the moment Dispatch opened the review.
+        asked_for_hold = next(
+            (facts.deferrals[o.id] for o in orders if o.id in facts.deferrals),
+            next((facts.withdrawn[o.id] for o in orders if o.id in facts.withdrawn), None),
+        )
+        review = s.ReviewOut(
+            asked_at=hm(asked_for_hold.decided_at) if asked_for_hold else "",
+            delivered_at=_t(dev.get("deviceTime")), received_by=str(dev.get("receivedBy") or ""),
+            conflict_id=str(conflict.id),
+            # A51: the question waits for D7.2. Until Dispatch asks, the store sees the explanation only.
+            asked=conflict.status is ConflictStatus.AWAITING_STORE,
+        )
 
     proof = None
     if outcome is not None and (conflict is not None or any(shown[o.id] in DELIVERED_LIKE for o in orders)):
@@ -474,9 +569,15 @@ def _delivery(db: Session, facts: Facts, day: date, orders: list[om.Order], now:
             rec = facts.outcomes.get(o.id)
             value = (rec.payload or {}).get("unitsDelivered") if rec else None
             units.append(value if isinstance(value, int) else o.units)
+        # The driver who signed it: the vehicle's driver, else the name on the record itself. A vehicle with no
+        # driver row bound to it (a swap at the dock) must not leave the proof's driver blank.
+        driver = facts.drivers.get(outcome.vehicle_id or "") or (outcome.actor or "")
+        received_by = payload.get("receiverName")
+        if not received_by and conflict is not None:
+            received_by = (conflict.device_snapshot or {}).get("receivedBy")
         proof = s.ProofOfDeliveryOut(
-            received_by=str(payload.get("receiverName") or ""), at=hm(outcome.device_time or outcome.received_at) or "",
-            driver=facts.drivers.get(outcome.vehicle_id or "", ""), vehicle=outcome.vehicle_id or "", units=units,
+            received_by=str(received_by or ""), at=hm(outcome.device_time or outcome.received_at) or "",
+            driver=driver, vehicle=outcome.vehicle_id or "", units=units,
         )
 
     withdrawn = next((facts.withdrawn[o.id] for o in orders if o.id in facts.withdrawn), None)

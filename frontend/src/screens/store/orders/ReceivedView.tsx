@@ -8,13 +8,16 @@ import { unitsLabel } from "../../../domain/estimate";
 import { clockTime, dayLabel, displayStatus } from "../../../domain/format";
 import type { Order } from "../../../domain/order";
 import { windowLabel } from "../../../domain/outlet";
-import { isPlanReleased } from "../../../domain/schedule";
 import styles from "./ReceivedView.module.css";
 import { useStore } from "../../../app/StoreContext";
 
 export type ReceivedViewProps = {
   orders: Order[];
   now: Date;
+  /** `HH:MM` the queue for these orders closes, from the server. */
+  cutoffAt: string;
+  /** When they can still be edited (`Tue 16:00` when that is not today). Absent once it has passed. */
+  editableUntil?: string;
   /** Opens the edit form. Only offered before the cutoff. */
   onEdit: () => void;
   onSeeDeliveries: () => void;
@@ -24,7 +27,7 @@ export type ReceivedViewProps = {
  * S1.3 (received) and S1.3 C (updated): the acknowledgement, what happens
  * next, and Edit order while the 16:00 cutoff has not passed.
  */
-export function ReceivedView({ orders, now, onEdit, onSeeDeliveries }: ReceivedViewProps) {
+export function ReceivedView({ orders, now, cutoffAt, editableUntil, onEdit, onSeeDeliveries }: ReceivedViewProps) {
   const { outlet } = useStore();
   const first = orders[0];
   if (!first) return null;
@@ -36,7 +39,7 @@ export function ReceivedView({ orders, now, onEdit, onSeeDeliveries }: ReceivedV
     .at(-1);
   const receivedAt = orders.map((o) => o.receivedAt).sort()[0] ?? first.receivedAt;
   const editable = orders.every((o) => displayStatus(o, now) === "Ordered");
-  const released = isPlanReleased(first.deliveryDate, now);
+  const released = orders.some((order) => order.arrival != null);
 
   return (
     <>
@@ -77,20 +80,18 @@ export function ReceivedView({ orders, now, onEdit, onSeeDeliveries }: ReceivedV
 
       {(editable || !released) && (
         <ul className={styles.facts}>
-          {editable && (
+          {editable && editableUntil && (
             <li>
               <Icon name="clock" size={16} />
               <span>
-                You can edit until <Mono>16:00</Mono>
+                You can edit until <Mono>{editableUntil}</Mono>
               </span>
             </li>
           )}
           {!released && (
             <li>
               <Icon name="calendar" size={16} />
-              <span>
-                Arrival time is shown after the plan is released at <Mono>23:40</Mono>
-              </span>
+              <span>Arrival time is shown once Dispatch releases tonight's plan</span>
             </li>
           )}
         </ul>
@@ -109,8 +110,12 @@ export function ReceivedView({ orders, now, onEdit, onSeeDeliveries }: ReceivedV
         <JourneyTimeline
           metaAlign="right"
           steps={[
-            { label: "Confirmed", meta: <Mono>16:00</Mono>, state: editable ? "pending" : "done" },
-            { label: "Arrival time shared", meta: <Mono>23:40</Mono>, state: released ? "done" : "pending" },
+            { label: "Confirmed", meta: <Mono>{cutoffAt}</Mono>, state: editable ? "pending" : "done" },
+            {
+              label: "Arrival time shared",
+              ...(released && first.arrival ? { meta: <Mono>{first.arrival.start}</Mono> } : {}),
+              state: released ? "done" : "pending",
+            },
             { label: "Delivery window", meta: <Mono>{windowLabel(outlet)}</Mono>, state: "pending" },
           ]}
         />

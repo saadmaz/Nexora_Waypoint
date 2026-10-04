@@ -20,7 +20,7 @@ Instead of relying on spreadsheets, phone calls, and printed run sheets, Waypoin
 | **Run it locally** | `cp .env.example .env && docker compose up` → http://localhost:8080 |
 | **API docs (local)** | http://localhost:8000/api/docs |
 | **Docs** | [architecture](docs/architecture.md) · [API reference](docs/api.md) · [data model](docs/data-model.md) · [AI disclosure](docs/ai-disclosure.md) |
-| **Judge walkthrough** | [19 steps, below](#-judge-walkthrough) (played on every push by [`e2e/`](e2e/)) |
+| **Judge walkthrough** | [19 steps, below](#-judge-walkthrough) (played by [`e2e/`](e2e/) on every push to `develop` and `main`) |
 | **Departures from the Designathon** | [below](#-departures-from-the-designathon-submission) |
 
 ### Seeded accounts
@@ -38,8 +38,16 @@ Open `/start` to sign in as each role in its own tab. The loader enters a PIN fo
 **Priya `1234`** at Peliyagoda, **Ruwan `5678`** at Kandy.
 
 The password is the backend's `DEMO_PASSWORD` (`.env.example`, seeded by `backend/seed/accounts.py`).
-Every role reads and writes PostgreSQL through the API: a production build cannot serve mock data, because
-`roleApiMode` in `frontend/src/api/http/config.ts` returns `api` whenever the build is not a dev build.
+
+Every role reads and writes PostgreSQL through the API. One build variable decides that:
+`VITE_DATA_SOURCE=live` puts every role on the database, and anything else (including unset) puts every
+role on the in-browser mocks, so **mock is the fallback**. `frontend/.env.production` is committed with
+`VITE_DATA_SOURCE=live`, which is why `npm run build`, the Docker web image and the hosted demo all serve
+the database; `npm run check:bundle` then proves the mocks and their fixtures are not in the bundle. A host
+that builds in another Vite mode, or injects an empty `VITE_DATA_SOURCE`, would serve mocks without
+complaining, so set it explicitly anywhere other than Compose. Per-role overrides
+(`VITE_<ROLE>_API=mock|api`) are for working on one role against the API while the rest stay on mocks.
+See [docs/build/api-mode.md](docs/build/api-mode.md).
 
 ---
 
@@ -125,10 +133,10 @@ Online → Offline → Work Locally → Reconnect → Sync
 
 ## 📊 Predictive Intelligence
 
-The Datathon component explores delivery service-time prediction, late-arrival probability, future demand
-forecasting and peak-day fleet allocation, so Waypoint can plan ahead instead of reacting after problems
-occur. The Task 2B notebook is in [`analytics/`](analytics/) and imports the same `waypoint_rules`
-package the API uses.
+The Task 2B notebook in [`analytics/`](analytics/) answers "is this route feasible?" against the PRD's
+reference day (§4c): the trip-minutes formula, `check_trip` on each trip of plan v3, the dispatcher's three
+refusals, and the planner's own draft next to the hand-made plan. It imports the same `waypoint_rules`
+package the API uses, so the notebook and the running system cannot disagree about a rule.
 
 **What the running system ships:** the **D9 capacity outlook**, a transparent baseline rather than a
 trained model. For each of the next four ISO weeks it weighs the reefer minutes a normal day asks for,
@@ -222,6 +230,7 @@ Everything is set in `.env`; [`.env.example`](.env.example) carries the full lis
 | `SCENARIO_SERVICE_DATE` | `2026-09-29` | The delivery day. Must be an operating day (not a Sunday) |
 | `JWT_SECRET` | dev default | Required outside `dev`: the API refuses to start with the published value |
 | `CORS_ORIGINS` | localhost | Origins allowed to call the API from a browser |
+| `VITE_DATA_SOURCE` | `live` in `frontend/.env.production`, else `mock` | A frontend build variable, not an API one: `live` puts every role on the database, anything else on the in-browser mocks |
 
 The competition CSVs are read from `data/` at runtime (mounted read-only, git-ignored, never committed).
 Without them the seed falls back to the smaller PRD 4c reference set, so the stack still comes up.
@@ -229,14 +238,17 @@ Without them the seed falls back to the smaller PRD 4c reference set, so the sta
 ### Running the hosted demo
 
 The live demo at **https://app.nexorax.live** splits the same build across managed hosts: the Vite bundle
-on Cloudflare, the API and PostgreSQL on Railway. Two things differ from Compose, because there is no
+on Cloudflare, the API and PostgreSQL on Railway. Three things differ from Compose, because there is no
 nginx in front to proxy `/api`:
 
 1. The bundle is built with `VITE_API_BASE` set to the API's origin, with no trailing slash.
 2. The API's `CORS_ORIGINS` must list the site's origin, `https://app.nexorax.live`, or every role fails to
    sign in from a browser while working fine from `curl`.
+3. `VITE_DATA_SOURCE=live` must be set at build time. `frontend/.env.production` carries it, so a plain
+   `npm run build` has it, but a host that builds in another Vite mode or passes the variable through empty
+   would serve the mocks and say nothing. Set it in the host's build settings as well.
 
-`docker compose up` needs neither and remains the reference deployment.
+`docker compose up` needs none of the three and remains the reference deployment.
 
 ### Local database notes
 
@@ -259,7 +271,9 @@ See [the v3 data model](docs/data-model.md) and [database validation](docs/datab
 
 ## 🎯 Judge Walkthrough
 
-The demo is one Tuesday morning of deliveries, played across the four roles. Every step below is played in a real browser by `e2e/` on each push.
+The demo is one Tuesday morning of deliveries, played across the four roles. `e2e/` plays every step below against
+`docker compose up` on each push to `develop` and `main`: the store and dispatcher screens, and the driver's and
+loader's offline runs, are driven in a real browser, and the rest through the same API calls those screens make.
 
 **Accounts.** All four use the password `waypoint-demo`: `store@waypoint.demo`, `dispatcher@waypoint.demo`, `loader@waypoint.demo`, `driver@waypoint.demo`. Open `/start` to sign in as each role in its own tab. The loader enters a PIN for each action: **Priya `1234`** at Peliyagoda, **Ruwan `5678`** at Kandy. Use phone width for the store, loader and driver, and a laptop for Dispatch.
 
@@ -270,7 +284,7 @@ The demo is one Tuesday morning of deliveries, played across the four roles. Eve
 | 3 | Go to 16:05 | (the system) | Nothing to press | The 16:00 cutoff closes the queue and plan v1 is drafted; the store sees "Confirmed" |
 | 4 | 16:06 | Dispatcher | Trips, Peliyagoda: drag **ORD1007** to **VEH037 trip 2**, then **ORD1016** to **VEH037 trip 1**, then **ORD1001** to the pool | Each refusal names every rule it breaks: over volume and "arrives 11:54, after OUT015 closes at 11:00"; "needs a reefer" and "two brands on one trip"; "OUT012 was deferred yesterday; the continuity guard protects it" |
 | 5 | 16:06 | Dispatcher | Deferrals: open **ORD1020** (capacity) and **ORD1017** (policy) | Type, what binds it, impact on the store, what it frees, next run |
-| 6 | Go to 23:35 | Dispatcher | **Release plan** (it is ready to release; the release itself is yours) | Plan v3 released; each dock waits for its acknowledgement; the store sees an arrival time |
+| 6 | Go to 23:40 | Dispatcher | **Release plan** (it is ready to release; the release itself is yours) | Plan v3 released; each dock waits for its acknowledgement; the store sees an arrival time |
 | 7 | Tue 00:10, then 02:55 | Loader, Peliyagoda | At 00:10 acknowledge v3 with PIN `1234`. At 02:55 open VEH003, **Flag issue**, **Vehicle check failed** | The dock shows acknowledged; then VEH003 is **Held** and Dispatch has a decision to make |
 | 8 | 03:00 | Dispatcher | Open the exception in the inbox and accept the swap | Plan v4: VEH036 stands in for VEH003 |
 | 9 | 03:04 | Loader, Peliyagoda | Review what changed, acknowledge v4 (`1234`), load VEH036, confirm the gate | The changes screen names VEH036; the vehicle shows loaded |
@@ -385,7 +399,7 @@ Field conventions shared by the loader and driver: [docs/build/field-conventions
 |---|---|
 | **Two planned distances, both correct.** `planned_fuel` stays per order (VEH039 trip 1 is 22 km, which is where 4c's "fuel 75.4 / 370 L" comes from) and belongs to D2, D3 and R-FUEL. A new `planned_run_legs` counts legs per stop, where an outlet with two orders is one stop, so R9 reads 19 km. R9 is no longer served by `planned_fuel` | Backend rules module, driver, dispatcher |
 | **The dock is a device setting.** `?dock=kandy\|peliyagoda` works in the live app, is remembered, and presenter mode adds "Change dock" to the loader top bar menu. Walkthrough step 10 now says to switch dock | Loader, app shell |
-| **"Other…" has a PIN:** a typed name plus the guest PIN `0000`, with the typed name stored as the actor. The tablet caches salted hashes for every PIN person and the guest PIN, not only its own dock's people | Loader, auth, backend |
+| **"Other…" has a PIN:** a typed name plus the guest PIN `0000`, with the typed name stored as the actor, and the tablet caching salted hashes for every PIN person so a PIN works offline. **Spec, not yet built:** `POST /loader/pins/verify` takes a numeric `personId` and has no guest path, and the tablet caches no hashes, so "Other…" works on the mocks only and a load gate needs a connection. `e2e/loader-offline.spec.ts` pins the current behaviour | Loader, auth, backend |
 | **R10's three dates** have no plan in the seeded database, so in API mode they serve the driver fixture. `GET /driver/runs/{date}` returns a run, a `no_run` reason, or a run plus a monsoon calendar block | Driver, backend |
 | **Mock to real is `VITE_<ROLE>_API=mock\|api`** per role. The field transport has a mock and a `fetch` implementation behind one function with the same connectivity behaviour; in API mode each sync handler posts its record to `POST /sync` as a batch of one | Every frontend role |
 | **Non-vehicle loader flags and driver problems** reach D6, are listed, and are marked seen when opened. No plan version is created. Only "Vehicle check failed" has a Dispatch screen (D8) | Dispatcher, loader, driver |
@@ -394,7 +408,7 @@ Field conventions shared by the loader and driver: [docs/build/field-conventions
 
 Also added: assumptions A55 to A58 (the guest PIN, text size Large at 1.15 ×, photo compression at JPEG / 1600 px / 0.7, the camera fallback to the file picker), departures DP-19 to DP-25, known gaps G-14 and G-15, and open decisions O-8 to O-11.
 
-**One check is still open.** A55 says Priya and Ruwan are offered at both docks, as drawn on L1.2 A (`442:27454`). The Figma connection was unavailable when v3.1 was written, so the row says to confirm it: if only Ruwan and Other… appear on that Kandy frame, drop Priya from Kandy and keep the rest of the row.
+**A55 is settled: one named person per dock.** The row asked whether Priya and Ruwan are both offered at both docks, as drawn on L1.2 A (`442:27454`). The seed answers it: `GET /loader/docks/peliyagoda` offers Priya and `GET /loader/docks/kandy` offers Ruwan, each with that dock's PIN, and one dock's PIN does not open the other dock's person. "Other…" is the route for anyone else, with the caveat in the table above.
 
 **Departure numbering.** Role branches list their departures in their own README section in prose and do not number DP rows, because parallel branches would collide. HH merges them into the PRD section 18 register on Sat 3 Oct.
 
