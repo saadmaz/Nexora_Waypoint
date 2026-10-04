@@ -29,6 +29,8 @@ export type DockProps = {
   offlineAsOf?: string;
   onCallDispatch?: () => void;
   onRetry?: () => void;
+  /** Dispatch asked the dock to call back. */
+  dispatchRequest?: { title: string; body: string; at: string };
   /** L1.7: the master pane. No top bar and no phone gutters; the tablet shell supplies both. */
   embedded?: boolean;
   children?: ReactNode;
@@ -49,6 +51,7 @@ export function Dock({
   offlineAsOf,
   onCallDispatch,
   onRetry,
+  dispatchRequest,
   embedded,
   children,
 }: DockProps) {
@@ -73,6 +76,11 @@ export function Dock({
       )}
 
       <main className={styles.body}>
+        {dispatchRequest && state !== "loading" && state !== "error" && (
+          <Alert tone="warning" icon="phone" title={dispatchRequest.title} live>
+            {dispatchRequest.body} <Mono>{dispatchRequest.at}</Mono>
+          </Alert>
+        )}
         {state === "loading" && (
           <>
             <p className={styles.loadingLine}>
@@ -127,10 +135,10 @@ export function Dock({
 
         {state === "offline" && (
           <Alert tone="warning" icon="alert-triangle" title={undefined}>
-            Don&rsquo;t start a vehicle whose plan may have changed; reconnect or call Dispatch.
+            Don&rsquo;t start a vehicle whose plan may have changed; reconnect or ask Dispatch to call.
             <div className={styles.errorAction}>
               <Button variant="secondary" icon="phone" onClick={onCallDispatch}>
-                Call Dispatch
+                Ask Dispatch to call
               </Button>
             </div>
             <p className={styles.dispatchDesk}>Peliyagoda dispatch desk</p>

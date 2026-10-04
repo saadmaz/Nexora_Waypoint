@@ -623,8 +623,8 @@ export interface DispatcherApi {
   saveMoves(request: { moves: MoveRequest[]; note?: string }): Promise<PlanView>;
   /** D4: every deferral with its reason. `GET /dispatcher/deferrals?depot=`. */
   listDeferrals(query: { depot: DepotId }): Promise<DeferralsView>;
-  /** D4: tell the stores now. `POST /dispatcher/deferrals/notify`. */
-  notifyDeferrals(request: { depot: DepotId }): Promise<{ sent: number }>;
+  /** D4: tell the stores now; with `orderId`, send that one notice again (D4.2 "Resend notice"). `POST /dispatcher/deferrals/notify`. */
+  notifyDeferrals(request: { depot: DepotId; orderId?: string }): Promise<{ sent: number }>;
   /** D5: lock the version. `POST /dispatcher/plan/release`. */
   releasePlan(request: { sendNotices: boolean }): Promise<PlanView>;
   /** D5: who has which version. `GET /dispatcher/acknowledgements?version=`. */
@@ -647,7 +647,18 @@ export interface DispatcherApi {
   decideException(id: string, request: DecideExceptionRequest): Promise<ExceptionView>;
   /** D9: the next four ISO weeks. `GET /dispatcher/forecast`. */
   getForecast(query: { depot: DepotId }): Promise<ForecastView>;
+  /** D5, D7 "Call": ask a store, driver or dock to call Dispatch back. The dataset has no phone numbers. `POST /dispatcher/contact`. */
+  contact(request: ContactRequest): Promise<ContactResult>;
 }
+
+/** Who "Call" asks to call back. The request lands in the feed that role already reads (S4 updates, R8, the L1 dock banner). */
+export type ContactRequest =
+  | { to: "store"; outletId: string; about?: string }
+  | { to: "driver"; vehicleId: string; about?: string }
+  | { to: "dock"; depot: DepotId; about?: string };
+
+/** `recipient` is "OUT084", "VEH039" or "Kandy dock". */
+export type ContactResult = { recipient: string; at: string };
 
 /** A request that failed with a message the screen can show, as the server's `{code, message}` shape. */
 export class ApiError extends Error {

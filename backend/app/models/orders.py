@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, time
 
-from sqlalchemy import Boolean, Date, Float, ForeignKey, Index, Integer, Text, Time
+from sqlalchemy import Boolean, Date, Float, ForeignKey, Index, Integer, Text, Time, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from waypoint_rules.vocab import Binding, DeferralType, Temp
@@ -16,7 +16,20 @@ from .enums import HistoryOutcome, ServerStatus
 
 class Order(Base):
     __tablename__ = "orders"
-    __table_args__ = (Index("ix_orders_service_date_status", "service_date", "status"),)
+    __table_args__ = (
+        Index("ix_orders_service_date_status", "service_date", "status"),
+        # One live order per outlet, day and kind, enforced by the database so two placements in the same moment
+        # cannot both pass the service's read check (migration 0005). Partial: a cancelled order must not block its
+        # replacement, and the generated day (SEED_GENERATED_ORDERS) deliberately gives an outlet several.
+        Index(
+            "uq_orders_live_outlet_day_temp",
+            "outlet_id",
+            "service_date",
+            "temp",
+            unique=True,
+            postgresql_where=text("cancelled_at IS NULL AND placed_by IS DISTINCT FROM 'seed'"),
+        ),
+    )
 
     id: Mapped[str] = mapped_column(Text, primary_key=True)  # ORD2001
     outlet_id: Mapped[str] = mapped_column(ForeignKey("outlets.id"), index=True)

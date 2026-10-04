@@ -7,10 +7,10 @@ transaction (PRD §9 principle 3). Callers commit.
 from __future__ import annotations
 
 import logging
-import re
 from datetime import date, datetime, time
 
-from sqlalchemy import select
+from sqlalchemy import select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from waypoint_rules import OrderEvent, OrderStatus, receipts, units
@@ -23,7 +23,7 @@ from ..deps import CurrentUser, require_outlet
 from ..errors import ApiError, not_found
 from ..models import field as f
 from ..models import orders as om
-from ..models.comms import Notice, NoticeRead
+from ..models.comms import AuditEvent, Notice, NoticeRead
 from ..models.enums import (
     AudienceKind,
     AuditType,
@@ -44,7 +44,6 @@ log = logging.getLogger(__name__)
 
 #: The ids the scenario reserves for the next two orders from the hero outlet (seed/fixtures/pinned_orders.yaml).
 _RESERVED = {Temp.CHILLED: "ORD2001", Temp.AMBIENT: "ORD2002"}
-_ID = re.compile(r"^ORD(\d+)$")
 
 #: What a store may report (``frontend/src/domain/issue.ts``); "Short" is a tag the server derives, never chosen.
 REPORTABLE = {"Missing", "Damaged", "Wrong item", "Arrived warm", "Late", "Other"}
@@ -65,11 +64,36 @@ def _order(db: Session, user: CurrentUser, order_id: str) -> om.Order:
 
 
 def _next_id(db: Session, temp: Temp, taken: set[str]) -> str:
+    """The id for a new order: the scenario's reserved one while it is free, then one from the database's sequence.
+
+    Not ``max(id) + 1``: two stores placing an order in the same moment read the same maximum and collided on the
+    primary key, which reached the client as a 500 (migration 0005). A sequence hands each caller a different number
+    without the two transactions seeing each other, and an id it has handed out is never reused.
+    """
     reserved = _RESERVED[temp]
     if reserved not in taken and db.get(om.Order, reserved) is None:
         return reserved
-    numbers = [int(m.group(1)) for oid in [*db.scalars(select(om.Order.id)), *taken] if (m := _ID.match(oid))]
-    return f"ORD{max(numbers, default=3000) + 1}"
+    return f"ORD{db.scalar(text('SELECT nextval(:seq)'), {'seq': 'order_id_seq'})}"
+
+
+def _placed_under(db: Session, user: CurrentUser, key: str) -> list[om.Order]:
+    """The orders an earlier ``place`` already created under this idempotency key, in the order it placed them.
+
+    Read from ``audit_events``, which already records every placement in the same transaction as the order (PRD §9
+    principle 3), so a retry needs no second table to be kept in step with the first.
+    """
+    ids = list(
+        db.scalars(
+            select(AuditEvent.entity_id)
+            .where(
+                AuditEvent.type == AuditType.ORDER_PLACED,
+                AuditEvent.actor == user.display_name,
+                AuditEvent.payload["idempotencyKey"].astext == key,
+            )
+            .order_by(AuditEvent.id)
+        )
+    )
+    return [o for oid in ids if (o := db.get(om.Order, oid)) is not None and o.cancelled_at is None]
 
 
 def _notice(db: Session, outlet_id: str, tag: NoticeTag, title: str, body: str, *, link: dict[str, str], order_ids: list[str], at: datetime) -> None:
@@ -86,8 +110,18 @@ def _out(db: Session, user: CurrentUser, orders: list[om.Order]) -> list[s.Order
 # ---- orders ---------------------------------------------------------------------------
 
 
-def place(db: Session, user: CurrentUser, body: s.PlaceOrdersIn) -> list[s.OrderOut]:
-    """Chilled and dry together: every line is accepted or none is. The day an order counts for is the server's (R-CUTOFF)."""
+def place(db: Session, user: CurrentUser, body: s.PlaceOrdersIn, *, idempotency_key: str | None = None) -> list[s.OrderOut]:
+    """Chilled and dry together: every line is accepted or none is. The day an order counts for is the server's (R-CUTOFF).
+
+    ``idempotency_key`` makes a retry safe. A store on a bad connection taps "Place order", the request is answered but
+    the answer never arrives, and the app retries: without the key the second attempt either creates a second order or
+    is refused as a duplicate, and neither tells the store what it has. With it the first attempt's orders are returned
+    again, unchanged.
+    """
+    if idempotency_key:
+        done = _placed_under(db, user, idempotency_key)
+        if done:
+            return _out(db, user, sorted(done, key=views.kind_order))
     outlet = views.outlet_of(db, user)
     now = clock.now(db)
     ops = repo.operating_days(db)
@@ -126,10 +160,24 @@ def place(db: Session, user: CurrentUser, body: s.PlaceOrdersIn) -> list[s.Order
             tags=["After cutoff"] if after else [], received_at=now, placed_by=user.display_name, after_cutoff=after, row_version=1,
         )
         db.add(order)
-        db.flush()
+        # The read above is not enough on its own: two placements in the same moment both see no order and both
+        # insert one. The database has the last word (uq_orders_live_outlet_day_temp), and its refusal is the same
+        # 409 the read produces, not a 500.
+        try:
+            with db.begin_nested():
+                db.flush()
+        except IntegrityError as exc:
+            raise ApiError(
+                409, "already_ordered",
+                f"A {line.line.kind.value} order for {day_label(day)} was just placed. Open it and edit it instead.",
+            ) from exc
         audit.record(
             db, actor=user.display_name, entity_type="order", entity_id=order.id, type=AuditType.ORDER_PLACED,
-            payload={"units": order.units, "temp": order.temp.value, "serviceDate": day.isoformat(), "afterCutoff": after}, at=now,
+            payload={
+                "units": order.units, "temp": order.temp.value, "serviceDate": day.isoformat(), "afterCutoff": after,
+                **({"idempotencyKey": idempotency_key} if idempotency_key else {}),
+            },
+            at=now,
         )
         placed.append(order)
     by_day: dict[date, list[om.Order]] = {}

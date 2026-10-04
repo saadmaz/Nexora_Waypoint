@@ -22,6 +22,8 @@ type Step = "choose" | "record" | "photo";
  * R6 Problem (PRD v3 section 3 R6, V30, V40): R6.1 choose what happened, R6.2 record it (stop, orders, note, optional photo),
  * R6.3 saved on the phone, shown as a banner on the Issues list (R6.4) above the new record. `?updates=<clientId>` adds an
  * update to that problem's thread instead. A problem is a fact: it saves offline at once and Dispatch decides what happens next.
+ * `?type=<one of PROBLEM_TYPES>&stop=<outletId>&note=<text>` opens the form already filled in: the "Ask Dispatch to call" and
+ * "Can't reach the store" buttons use it, since the dataset has no phone numbers and none is invented (Contributing section 29).
  */
 export function ProblemScreen() {
   const t = useT();
@@ -29,13 +31,15 @@ export function ProblemScreen() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const updatesClientId = params.get("updates") ?? undefined;
+  const presetType = PROBLEM_TYPES.find((p) => p === params.get("type")) ?? null;
+  const presetStop = params.get("stop") ?? "";
   const { run } = useDriverRun(runDate());
   const [parent, setParent] = useState<ProblemRecord | null>(null);
-  const [step, setStep] = useState<Step>(updatesClientId ? "record" : "choose");
-  const [type, setType] = useState<ProblemType | null>(null);
+  const [step, setStep] = useState<Step>(updatesClientId || presetType ? "record" : "choose");
+  const [type, setType] = useState<ProblemType | null>(presetType);
   const [stopId, setStopId] = useState<string>("");
   const [orderIds, setOrderIds] = useState<string[]>([]);
-  const [note, setNote] = useState("");
+  const [note, setNote] = useState(params.get("note") ?? "");
   const [photos, setPhotos] = useState<string[]>([]);
   // An update's earlier photos (the thread's records): shown, never removed, since they are part of what was saved.
   const [earlierPhotos, setEarlierPhotos] = useState<string[]>([]);
@@ -74,6 +78,16 @@ export function ProblemScreen() {
   const stop = stops.find((s) => s.outletId === stopId);
   // The stop the driver can go on to: the first one not yet done, other than the one with the problem (R6.3).
   const nextStop = stops.find((s) => s.outletId !== stopId && !s.orders.every((o) => s.outcomes[o.id]));
+
+  // A preset stop picks its orders once the run has loaded, the same as choosing it by hand.
+  const presetApplied = useRef(false);
+  useEffect(() => {
+    if (presetApplied.current || !presetStop || updatesClientId || stops.length === 0) return;
+    presetApplied.current = true;
+    if (stops.some((s) => s.outletId === presetStop)) chooseStop(presetStop);
+    // chooseStop only reads `stops`, which is a dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stops, presetStop, updatesClientId]);
 
   function chooseStop(next: string) {
     setStopId(next);

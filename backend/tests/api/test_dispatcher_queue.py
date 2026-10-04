@@ -97,7 +97,9 @@ def test_an_order_placed_after_the_cutoff_waits_for_the_following_run(client, au
     with SessionLocal() as db:
         db.add(
             Order(
-                id="ORD9001", outlet_id="OUT001", service_date=datetime(2026, 9, 30).date(), temp=Temp.CHILLED, units=5, weight_kg=30.0,
+                # Not OUT001: ORD1020 is the policy deferral, so its re-run copy already holds OUT001 chilled on
+                # 30 Sep, and one live order per outlet, day and kind is now the database's rule (migration 0005).
+                id="ORD9001", outlet_id="OUT006", service_date=datetime(2026, 9, 30).date(), temp=Temp.CHILLED, units=5, weight_kg=30.0,
                 volume_m3=0.3, status=ServerStatus.ORDERED, tags=[], received_at=datetime(2026, 9, 28, 16, 7, tzinfo=COLOMBO),
                 placed_by="store@waypoint.demo", after_cutoff=True, row_version=1,
             )

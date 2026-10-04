@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRight, Check, CircleAlert, Clock3, Info, Lock, Phone, RefreshCw, Route, WifiOff, X } from "lucide-react";
-import type { AcknowledgementRow, AcknowledgementsView, PlanVersionInfo, PlanView } from "../../../api/DispatcherApi";
+import type { AcknowledgementRow, AcknowledgementsView, ContactRequest, PlanVersionInfo, PlanView } from "../../../api/DispatcherApi";
 import { Modal } from "../../../shared/ui/Modal";
 import { Mono } from "../../../shared/ui/Mono";
 import { useToast } from "../../../shared/ui/useToast";
@@ -12,6 +12,7 @@ import { Screen } from "../chrome/Screen";
 import { Stepper } from "../chrome/Stepper";
 import { useDispatcher } from "../context";
 import { useDepot, useLoad } from "../hooks";
+import { useContact } from "../useContact";
 import { Banner } from "../ui/Banner";
 import { Btn, LinkButton } from "../ui/Btn";
 import { Checkbox } from "../ui/Checkbox";
@@ -61,7 +62,7 @@ export function ReleaseRoute() {
     }
   };
 
-  const call = (who: string) => toast.show(`Calling ${who}...`);
+  const call = useContact();
   const live = () => navigate(withDepot(ROUTES.live, depot));
   const ready = Boolean(view?.readyToRelease) && !offline;
 
@@ -306,7 +307,7 @@ type ReleasedProps = {
   acks: AcknowledgementsView | null;
   acksError: boolean;
   retry: () => void;
-  onCall: (who: string) => void;
+  onCall: (request: ContactRequest) => void;
   onLive: () => void;
   depot: "peliyagoda" | "kandy";
 };
@@ -348,8 +349,8 @@ function ReleasedBody({ view, acks, acksError, retry, onCall, onLive, depot }: R
           title={banner.title}
           actions={
             banner.action === "call-kandy" ? (
-              <Btn variant="secondary" size="sm" icon={<Phone size={15} />} onClick={() => onCall("Kandy dock")}>
-                Call Kandy dock
+              <Btn variant="secondary" size="sm" icon={<Phone size={15} />} onClick={() => onCall({ to: "dock", depot: "kandy", about: `plan v${acks.version}` })}>
+                Ask Kandy dock to call
               </Btn>
             ) : banner.action === "open-live" ? (
               <Btn variant="secondary" size="sm" iconRight={<ArrowRight size={15} />} onClick={onLive}>
@@ -402,9 +403,9 @@ function ReleasedBody({ view, acks, acksError, retry, onCall, onLive, depot }: R
                   <Mono>{r.departsIn}</Mono>
                 </td>
                 <td>
-                  <button type="button" className={styles.callBtn} onClick={() => onCall(r.person)}>
+                  <button type="button" className={styles.callBtn} onClick={() => onCall(contactFor(r, acks.version))} aria-label={`Ask ${r.person} to call Dispatch`}>
                     <Phone size={16} />
-                    Call
+                    Ask to call
                   </button>
                 </td>
               </tr>
@@ -420,4 +421,11 @@ function ReleasedBody({ view, acks, acksError, retry, onCall, onLive, depot }: R
       </div>
     </>
   );
+}
+
+/** A row's "Ask to call": a driver by the vehicle they are on, a loader by their dock ("Kandy dock", "Peliyagoda dock"). */
+function contactFor(row: AcknowledgementRow, version: number): ContactRequest {
+  const about = `plan v${version}`;
+  if (row.role === "Driver") return { to: "driver", vehicleId: row.place, about };
+  return { to: "dock", depot: row.place.toLowerCase().startsWith("kandy") ? "kandy" : "peliyagoda", about };
 }

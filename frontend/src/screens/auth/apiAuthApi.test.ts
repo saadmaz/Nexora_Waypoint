@@ -69,6 +69,11 @@ describe("signIn", () => {
     expect(readSession("store")?.token).toBe("jwt-store");
   });
 
+  it("answers a 404 (the app is not talking to the API) with unavailable, never a wrong password", async () => {
+    const { api } = apiWith(failure(404, "not_found", "Not Found"));
+    expect(await api.signIn("store@waypoint.demo", "waypoint-demo")).toEqual({ ok: false, reason: "unavailable" });
+  });
+
   it("answers a wrong password with invalid_credentials and stores nothing", async () => {
     const { api } = apiWith(failure(401, "invalid_credentials", "That email and password don't match"));
 

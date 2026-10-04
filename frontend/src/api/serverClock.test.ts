@@ -83,4 +83,16 @@ describe("createServerClock", () => {
     await clock.sync();
     expect(listener).toHaveBeenCalled();
   });
+
+  it("keeps the scenario's service date after midnight, when the server's day an order counts for has moved on", async () => {
+    // Tue 02:45: an order placed now counts for Wed, but the walkthrough's service date is still Tue (the presenter's
+    // morning steps are placed on it).
+    const clock = createServerClock("dispatcher", {
+      wall: () => 0,
+      storage: null,
+      fetchClock: async () => ({ now: "2026-09-29T02:45:00+05:30", rate: 1, checkpoint: "2026-09-28T15:30:00+05:30", serviceDate: "2026-09-30", runDate: "2026-09-29" }),
+    });
+    await clock.sync();
+    expect(clock.scenarioDays()).toEqual({ planningDay: "2026-09-28", serviceDate: "2026-09-29" });
+  });
 });

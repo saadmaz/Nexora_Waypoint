@@ -179,6 +179,7 @@ const NOTICE_KINDS: Record<DriverNoticeKind, true> = {
   went_offline: true,
   orders_on_board: true,
   plan_released: true,
+  call_request: true,
 };
 
 /** Server notice ids are numbers; the phone's own are uuids. The prefix keeps the two from ever colliding. */

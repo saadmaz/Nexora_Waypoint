@@ -29,11 +29,13 @@ from ..deps import CurrentUser, require_depot, require_vehicle
 from ..errors import ApiError, not_found
 from ..models import field, plans, reference
 from ..models import orders as order_models
-from ..models.enums import ActorKind, ExceptionKind, ExceptionStatus, PlanState
+from ..models.comms import Notice
+from ..models.enums import ActorKind, AudienceKind, ExceptionKind, ExceptionStatus, PlanState
 from ..models.people import PinPerson
 from ..schemas.common import Window
 from ..schemas.loader import (
     DockOut,
+    DockRequestOut,
     DockVehicleOut,
     LoaderExceptionOut,
     LoadLineOut,
@@ -149,7 +151,7 @@ def dock_view(db: Session, user: CurrentUser, dock: str) -> DockOut:
     people = _people(db, dock)
     service_date, latest = _context(db)
     if latest is None:
-        return DockOut(dock=dock, plan_version=0, acknowledged=False, people=people, vehicles=[])
+        return DockOut(dock=dock, plan_version=0, acknowledged=False, people=people, vehicles=[], requests=_requests(db, dock))
 
     trips = list(
         db.scalars(
@@ -199,7 +201,19 @@ def dock_view(db: Session, user: CurrentUser, dock: str) -> DockOut:
         acknowledged_version=ack[0] if ack else None,
         acknowledged_by=ack[1] if ack else None,
         acknowledged_at=ack[2] if ack else None,
+        requests=_requests(db, dock),
     )
+
+
+def _requests(db: Session, dock: str) -> list[DockRequestOut]:
+    """Dispatch's call-back requests to this dock (``services/contact.py``), newest first, the last three."""
+    rows = db.scalars(
+        select(Notice)
+        .where(Notice.audience_kind == AudienceKind.DOCK, Notice.depot_id == dock)
+        .order_by(Notice.created_at.desc(), Notice.id.desc())
+        .limit(3)
+    )
+    return [DockRequestOut(id=n.id, title=n.title, body=n.body, at=n.created_at) for n in rows if (n.refs or {}).get("kind") == "contact"]
 
 
 # ---- the PIN sheet ----------------------------------------------------------

@@ -141,9 +141,9 @@ export function createHttpDispatcherApi(getClient: () => HttpClient = () => apiC
       return call("listDeferrals", async () => deferralsViewFromApi(await client().get("/api/v1/dispatcher/deferrals", { query: { depot } })));
     },
 
-    notifyDeferrals({ depot }) {
+    notifyDeferrals({ depot, orderId }) {
       return call("notifyDeferrals", async () => {
-        const out = await client().post("/api/v1/dispatcher/deferrals/notify", { body: { depot } });
+        const out = await client().post("/api/v1/dispatcher/deferrals/notify", { body: { depot, ...(orderId ? { orderId } : {}) } });
         return { sent: out.sent };
       });
     },
@@ -178,6 +178,13 @@ export function createHttpDispatcherApi(getClient: () => HttpClient = () => apiC
       return call("getConflict", async () =>
         conflictViewFromApi(await client().get("/api/v1/dispatcher/conflicts/{conflict_id}", { path: { conflict_id: numericId(id, "conflict") } })),
       );
+    },
+
+    contact(request) {
+      return call("contact", async () => {
+        const out = await client().post("/api/v1/dispatcher/contact", { body: request });
+        return { recipient: out.recipient, at: out.at };
+      });
     },
 
     askStore(id) {

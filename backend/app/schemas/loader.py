@@ -38,6 +38,15 @@ class DockVehicleOut(ApiModel):
     replaced_by: str | None = Field(default=None, description="The vehicle that took this one's trips")
 
 
+class DockRequestOut(ApiModel):
+    """A call-back request from Dispatch (``POST /dispatcher/contact``), shown as a banner on L1."""
+
+    id: int
+    title: str
+    body: str
+    at: datetime
+
+
 class DockOut(ApiModel):
     dock: str
     plan_version: int
@@ -51,6 +60,8 @@ class DockOut(ApiModel):
     acknowledged_version: int | None = None
     acknowledged_by: str | None = None
     acknowledged_at: datetime | None = None
+    #: Dispatch's call-back requests to this dock, newest first (the last three).
+    requests: list[DockRequestOut] = []
 
 
 class LoadLineOut(ApiModel):

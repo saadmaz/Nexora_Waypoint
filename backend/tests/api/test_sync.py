@@ -354,9 +354,10 @@ def test_a_photo_is_tied_to_its_record_whichever_arrives_first(client, auth, res
 
 
 def test_an_empty_attachment_is_refused_and_leaves_no_file(client, auth, tmp_path, monkeypatch):
+    """An empty body is not a JPEG, PNG or WebP, so the type check refuses it before anything is written."""
     monkeypatch.setattr(get_settings(), "uploads_dir", tmp_path)
     res = upload(client, auth, str(uuid.uuid4()), body=b"")
-    assert res.status_code == 422 and res.json()["code"] == "empty_file"
+    assert res.status_code == 415 and res.json()["code"] == "unsupported_media"
     assert list(tmp_path.iterdir()) == []
 
 

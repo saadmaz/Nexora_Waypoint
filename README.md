@@ -272,10 +272,15 @@ See [the v3 data model](docs/data-model.md) and [database validation](docs/datab
 ## 🎯 Judge Walkthrough
 
 The demo is one Tuesday morning of deliveries, played across the four roles. `e2e/` plays every step below against
-`docker compose up` on each push to `develop` and `main`: the store and dispatcher screens, and the driver's and
-loader's offline runs, are driven in a real browser, and the rest through the same API calls those screens make.
+`docker compose up` on each push to `develop` and `main`. Steps 1, 2, 6, 15 (the store's view) and 17 are driven through the
+screens in a real browser. The driver's offline run (steps 12, 14 and 15: offline, photos, reload, sync) and the loader's offline
+vehicle check (steps 7 and 9) have their own browser specs. Every other step, including the dispatcher's refused moves, release,
+swap, defer and keep-delivery, is checked through the same API calls those screens make, so a layout fault on those dispatcher
+screens is not caught by `e2e/`.
 
 **Accounts.** All four use the password `waypoint-demo`: `store@waypoint.demo`, `dispatcher@waypoint.demo`, `loader@waypoint.demo`, `driver@waypoint.demo`. Open `/start` to sign in as each role in its own tab. The loader enters a PIN for each action: **Priya `1234`** at Peliyagoda, **Ruwan `5678`** at Kandy. Use phone width for the store, loader and driver, and a laptop for Dispatch.
+
+**Start from a clean day.** The hosted demo is one shared database and one shared clock: anyone signed in as the dispatcher can move the clock or reset it for everybody. Before you begin, open the presenter control (the dispatcher's avatar menu, or `?presenter=1`) and press **Reset demo**, so the clock reads Monday 15:30 and step 1 matches. If a step does not match what you see, reset and start again.
 
 | # | Clock | Who | Do this | You should see |
 |---|---|---|---|---|
@@ -357,6 +362,23 @@ the screen says so.
 
 ---
 
+## 🚧 Known gaps
+
+What the build does not do yet, in one place. The full list of known gaps is `G-1` to `G-15` in `waypoint-prd-v3.md` section 18.
+
+| Gap | What you will see | Register |
+|---|---|---|
+| Deferral count | The seeded day defers the orders the planner computes, which can differ from the PRD's fixed figure of 19 at Peliyagoda. The screen shows the computed number | DP-01 |
+| D9 capacity outlook | A labelled baseline that scales the live queue by the calendar, not the Datathon model: the eight weeks of delivered orders it would need are not in the repository | [above](#-departures-from-the-designathon-submission) |
+| Two display mirrors | The store mirrors the 16:00 cutoff and the 23:40 release, and the dispatcher's exception screen sums kg and m³ on the client. The API stays the authority | DP-27 |
+| Loader "Other…" PIN | `POST /loader/pins/verify` takes a numeric `personId` and has no guest path, so "Other…" with the guest PIN works on the mocks only, and the tablet caches no PIN hashes, so a load gate needs a connection. `e2e/loader-offline.spec.ts` pins the current behaviour | A55 |
+| Driver dates other than the demo day | Only the demo day has a seeded run. In API mode another date answers `no_run` with its reason, and History shows today plus whatever runs the server holds | |
+| Sinhala and Tamil | The driver strings are a machine draft, not reviewed by a native speaker | O-8 |
+| Dispatcher screens in `e2e/` | The refused moves, release, swap, defer and keep-delivery are checked through the API, not by dragging on the screen | |
+| Bundle size | The app ships as one 957 kB script (283 kB gzipped); it is not split per role | |
+
+---
+
 ## 🛠️ Tech Stack
 
 | Layer | Technology |
@@ -391,28 +413,21 @@ Field conventions shared by the loader and driver: [docs/build/field-conventions
 
 ---
 
-## 📋 Spec: PRD v3.1 (2 Oct)
+## 📋 Spec
 
-`waypoint-prd-v3.md` is the build spec and `waypoint-central-context-v3.md` is the team context. v3.1 settles ten contradictions and gaps the field build found when v3 was read against the loader and driver prompts. Changes are logged as V32 to V42 in the PRD change log. The ones other roles need to know about:
+`waypoint-prd-v3.md` is the build spec and `waypoint-central-context-v3.md` is the team context. The register of assumptions
+(`A1` to `A58`), departures (`DP-*`) and known gaps (`G-1` to `G-15`) is section 18 of the PRD.
 
-| What changed | Who it affects |
-|---|---|
-| **Two planned distances, both correct.** `planned_fuel` stays per order (VEH039 trip 1 is 22 km, which is where 4c's "fuel 75.4 / 370 L" comes from) and belongs to D2, D3 and R-FUEL. A new `planned_run_legs` counts legs per stop, where an outlet with two orders is one stop, so R9 reads 19 km. R9 is no longer served by `planned_fuel` | Backend rules module, driver, dispatcher |
-| **The dock is a device setting.** `?dock=kandy\|peliyagoda` works in the live app, is remembered, and presenter mode adds "Change dock" to the loader top bar menu. Walkthrough step 10 now says to switch dock | Loader, app shell |
-| **"Other…" has a PIN:** a typed name plus the guest PIN `0000`, with the typed name stored as the actor, and the tablet caching salted hashes for every PIN person so a PIN works offline. **Spec, not yet built:** `POST /loader/pins/verify` takes a numeric `personId` and has no guest path, and the tablet caches no hashes, so "Other…" works on the mocks only and a load gate needs a connection. `e2e/loader-offline.spec.ts` pins the current behaviour | Loader, auth, backend |
-| **R10's three dates** have no plan in the seeded database, so in API mode they serve the driver fixture. `GET /driver/runs/{date}` returns a run, a `no_run` reason, or a run plus a monsoon calendar block | Driver, backend |
-| **Mock to real is `VITE_<ROLE>_API=mock\|api`** per role. The field transport has a mock and a `fetch` implementation behind one function with the same connectivity behaviour; in API mode each sync handler posts its record to `POST /sync` as a batch of one | Every frontend role |
-| **Non-vehicle loader flags and driver problems** reach D6, are listed, and are marked seen when opened. No plan version is created. Only "Vehicle check failed" has a Dispatch screen (D8) | Dispatcher, loader, driver |
-| **R6 problems are threads.** `driver.problem` gains `updatesClientId`; `exceptions` gains `parent_id` and `seen_at` | Driver, backend |
-| **The app shell has no owner.** Build stage 2b covers `/sign-in`, `/start`, per-role sessions, the avatar menu, the presenter panel and Change dock. It is about half a day and blocks stage 7 (open decision O-11) | Whoever takes it |
+**Two planned distances, both used where the PRD says.** `planned_fuel` stays per order (VEH039 trip 1 is 22 km, which is where
+the "fuel 75.4 / 370 L" figure comes from) and feeds the dispatcher's fuel meters and the driver's fuel line. `planned_run_legs`
+counts legs per stop, so an outlet with two orders is one stop, and the driver's run summary (R9) reads 19 km from it.
 
-Also added: assumptions A55 to A58 (the guest PIN, text size Large at 1.15 ×, photo compression at JPEG / 1600 px / 0.7, the camera fallback to the file picker), departures DP-19 to DP-25, known gaps G-14 and G-15, and open decisions O-8 to O-11.
+**The dock is a device setting.** `?dock=kandy|peliyagoda` works in the live app and is remembered; presenter mode adds
+"Change dock" to the loader top bar menu.
 
-**A55 is settled: one named person per dock.** The row asked whether Priya and Ruwan are both offered at both docks, as drawn on L1.2 A (`442:27454`). The seed answers it: `GET /loader/docks/peliyagoda` offers Priya and `GET /loader/docks/kandy` offers Ruwan, each with that dock's PIN, and one dock's PIN does not open the other dock's person. "Other…" is the route for anyone else, with the caveat in the table above.
+**AI disclosure.** [`docs/ai-disclosure.md`](docs/ai-disclosure.md) records where AI assistants did a meaningful part of the work,
+the invented data register, and the machine-drafted Sinhala and Tamil driver strings.
 
-**Departure numbering.** Role branches list their departures in their own README section in prose and do not number DP rows, because parallel branches would collide. HH merges them into the PRD section 18 register on Sat 3 Oct.
-
-**AI disclosure.** `docs/ai-disclosure.md` records where AI assistants did a meaningful part of the work, the invented data register, and the machine-drafted Sinhala and Tamil driver strings. Add a line when AI does a meaningful part of your PR, as `Contributing.md` section 24 asks.
 
 ---
 

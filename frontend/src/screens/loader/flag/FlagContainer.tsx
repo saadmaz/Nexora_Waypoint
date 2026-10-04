@@ -18,6 +18,7 @@ import { useLoader } from "../LoaderContext";
 import type { ExceptionView, LoadPlanView } from "../types";
 import { FlagSheet, type FlagOrder, type FlagPrefill, type FlagSentModel, type FlagSubmit } from "./FlagSheet";
 import { FlagStatus } from "./FlagStatus";
+import { askDispatchFlag } from "./askDispatch";
 import { flagDetail, flagSummary } from "./flagOptions";
 
 type Props = {
@@ -217,7 +218,10 @@ export function FlagContainer({ vehicleId, trip, view, dockName, chip, onClose }
           detail={detailNode(shown, scope)}
           held={shown.type === "Vehicle check failed"}
           onRetry={() => void runSync({ force: true })}
-          onCallDispatch={() => undefined}
+          onCallDispatch={() => {
+            const ask = askDispatchFlag(vehicleId, trip);
+            navigate(ask.to, { state: ask.state, replace: true });
+          }}
           onKeepWaiting={toDock}
         />
       )}

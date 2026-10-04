@@ -1,4 +1,5 @@
 import { isoDate } from "../field/clock/clock";
+import { nextOperatingDayAfter } from "../domain/schedule";
 import type { Role } from "../domain/status";
 import { apiClient } from "./http/config";
 import { WRITE_EVENT } from "./http/events";
@@ -114,7 +115,14 @@ export function createServerClock(role: Role, options: ServerClockOptions = {}):
         fetchedAt: (sent + received) / 2,
         ...(answer.runDate ? { runDate: answer.runDate } : {}),
         ...(answer.checkpoint ? { planningDay: isoDate(Date.parse(answer.checkpoint)) } : {}),
-        ...(answer.serviceDate ? { serviceDate: answer.serviceDate } : {}),
+        // The scenario's service date is the operating day after its planning day (the checkpoint), fixed for the whole
+        // walkthrough. The server's own `serviceDate` is the day an order placed *now* counts for, which moves on at
+        // midnight: read as the scenario's day, it sent the presenter's 02:45 step to Wed instead of Tue.
+        ...(answer.checkpoint
+          ? { serviceDate: nextOperatingDayAfter(isoDate(Date.parse(answer.checkpoint))) }
+          : answer.serviceDate
+            ? { serviceDate: answer.serviceDate }
+            : {}),
       };
       days = daysOf(reading);
       try {

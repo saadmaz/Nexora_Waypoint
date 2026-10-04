@@ -15,6 +15,11 @@ from ..services.planning_repo import active_service_date
 
 router = APIRouter(tags=["shared"])
 
+#: The presenter controls, mounted by ``main.create_app`` only when ``DEMO_MODE`` is on (it follows ``ENVIRONMENT``
+#: when unset). Separate from ``router`` so that in a real deployment the routes are absent, not merely guarded:
+#: ``/demo/reset`` truncates every operational table, and a role check is the wrong last line of defence for that.
+demo = APIRouter(tags=["demo"])
+
 
 def clock_out(db: Db) -> ClockOut:
     now = clock.now(db)
@@ -33,7 +38,7 @@ def get_clock(db: Db, _: AnyUser) -> ClockOut:
     return clock_out(db)
 
 
-@router.post("/demo/advance", operation_id="advanceClock", response_model=ClockOut)
+@demo.post("/demo/advance", operation_id="advanceClock", response_model=ClockOut)
 def advance_clock(body: AdvanceIn, db: Db, user: Dispatcher) -> ClockOut:
     """The presenter control's "Go to next step". Refuses to go backwards (409 ``clock_backwards``).
 
@@ -46,7 +51,7 @@ def advance_clock(body: AdvanceIn, db: Db, user: Dispatcher) -> ClockOut:
     return clock_out(db)
 
 
-@router.post("/demo/pause", operation_id="pauseClock", response_model=ClockOut)
+@demo.post("/demo/pause", operation_id="pauseClock", response_model=ClockOut)
 def pause_clock(db: Db, user: Dispatcher) -> ClockOut:
     """Freeze scenario time where it is (DP-26). Countdowns stop and no timed job comes due until it is resumed."""
     clock.pause(db, actor=user.email)
@@ -54,7 +59,7 @@ def pause_clock(db: Db, user: Dispatcher) -> ClockOut:
     return clock_out(db)
 
 
-@router.post("/demo/resume", operation_id="resumeClock", response_model=ClockOut)
+@demo.post("/demo/resume", operation_id="resumeClock", response_model=ClockOut)
 def resume_clock(db: Db, user: Dispatcher) -> ClockOut:
     """Let scenario time run again at the configured ``CLOCK_RATE`` (real time if that is 0)."""
     clock.resume(db, actor=user.email)
@@ -62,7 +67,7 @@ def resume_clock(db: Db, user: Dispatcher) -> ClockOut:
     return clock_out(db)
 
 
-@router.post("/demo/reset", operation_id="resetDemo", response_model=ResetOut)
+@demo.post("/demo/reset", operation_id="resetDemo", response_model=ResetOut)
 def reset_demo(db: Db, user: Dispatcher) -> ResetOut:
     """Truncate the operational tables and re-run the seed (PRD §13). Presenter only: the dispatcher's avatar menu."""
     from seed import run as seed_run

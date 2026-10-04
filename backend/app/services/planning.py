@@ -41,7 +41,7 @@ from waypoint_rules.schedule import next_operating_day
 from waypoint_rules.vocab import Binding, DeferralType
 
 from .. import clock
-from ..errors import ApiError
+from ..errors import ApiError, not_found
 from ..models import orders as order_models
 from ..models import plans
 from ..models.comms import Notice
@@ -543,20 +543,30 @@ def _scope(day: DispatchDay) -> str:
     return " + ".join(d.title() for d in ("peliyagoda", "kandy") if d in present) or "No trips"
 
 
-def notify_deferrals(db: Session, service_date: date, depot: str, *, actor: str) -> int:
-    """Send the store notice for every deferral at ``depot`` that has not been sent yet. Returns how many went out."""
+def notify_deferrals(db: Session, service_date: date, depot: str, *, actor: str, order_id: str | None = None) -> int:
+    """Send the store notice for every deferral at ``depot`` that has not been sent yet. Returns how many went out.
+
+    With ``order_id``, send that one order's notice again even if it went out before (D4.2 "Resend notice"); 404 if it is
+    not a current deferral at ``depot``.
+    """
     now = clock.now(db).replace(tzinfo=None)
     day = repo.load_day(db, service_date, now)
     if day.latest is None:
         raise ApiError(409, "not_ready", "There is no plan yet, so there is nothing to tell the stores.")
     sent = 0
     rows = {d.id: d for d in db.scalars(select(order_models.Deferral).where(order_models.Deferral.plan_version_id == day.latest.id, order_models.Deferral.withdrawn_at.is_(None)))}
+    if order_id is not None and not any(d.order_id == order_id and day.depot_of(d.order_id) == depot for d in day.deferrals):
+        raise not_found(f"Deferral of {order_id} at {depot}")
     for d in day.deferrals:
-        if day.depot_of(d.order_id) != depot or d.notice_sent_at is not None:
+        if day.depot_of(d.order_id) != depot:
+            continue
+        if order_id is not None and d.order_id != order_id:
+            continue
+        if order_id is None and d.notice_sent_at is not None:
             continue
         _store_notice(db, d, day, day.latest.number, now)
         rows[d.id].notice_sent_at = repo.aware(now)
-        audit.record(db, actor=actor, entity_type="order", entity_id=d.order_id, type=AuditType.ORDER_DEFERRED, payload={"notice": "sent"}, at=repo.aware(now))
+        audit.record(db, actor=actor, entity_type="order", entity_id=d.order_id, type=AuditType.ORDER_DEFERRED, payload={"notice": "resent" if order_id else "sent"}, at=repo.aware(now))
         sent += 1
     db.flush()
     return sent

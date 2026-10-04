@@ -11,6 +11,7 @@ import { Mono } from "../../../shared/ui/Mono";
 import { MonoText } from "../../../shared/ui/MonoText";
 import { useT } from "../context/DriverContext";
 import { useDriverRun } from "../context/useDriverRun";
+import { askDispatchHref } from "../issues/problemLinks";
 import { runDate } from "../../../field/clock/runDate";
 import { outboxRows, summarise, type OutboxRow } from "../outbox/outboxModel";
 import { RecordPill } from "../outbox/RecordPill";
@@ -162,8 +163,8 @@ export function SyncResultScreen({ connectivityOverride, viewOverride, rowsOverr
             <Button icon="refresh-cw" onClick={() => void connectivityStore.sendNow()}>
               {t("sync.tryAgain")}
             </Button>
-            {/* The dataset has no dispatch desk number and none is invented, so this has no action yet (the same as "Call store"). */}
-            <button type="button" className={styles.callButton}>
+            {/* The dataset has no dispatch desk number and none is invented, so this asks Dispatch to call back through R6. */}
+            <button type="button" className={styles.callButton} onClick={() => navigate(askDispatchHref(t("run.callDispatchSync")))}>
               <Icon name="phone" size={20} />
               <span className={styles.callLabel}>
                 <span className={styles.callTitle}>{t("run.callDispatch")}</span>
