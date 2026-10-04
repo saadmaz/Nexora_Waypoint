@@ -215,7 +215,7 @@ db    postgres:18.6, waits until pg_isready
 ```
 
 `api` waits for `db` to be healthy and `web` waits for `api`, so the order is handled for you. The seed is
-**idempotent**, so restarting does not duplicate rows. A fresh start runs migrations `0001` through `0004`.
+**idempotent**, so restarting does not duplicate rows. A fresh start runs migrations `0001` through `0005`.
 
 ### Configuration
 
@@ -238,8 +238,8 @@ Without them the seed falls back to the smaller PRD 4c reference set, so the sta
 ### Running the hosted demo
 
 The live demo at **https://app.nexorax.live** splits the same build across managed hosts: the Vite bundle
-on Cloudflare, the API and PostgreSQL on Railway. Three things differ from Compose, because there is no
-nginx in front to proxy `/api`:
+on Cloudflare, the API and PostgreSQL on Railway. Four things differ from Compose: the first three because
+there is no nginx in front to proxy `/api`, the fourth because the host does not run in `dev`:
 
 1. The bundle is built with `VITE_API_BASE` set to the API's origin, with no trailing slash.
 2. The API's `CORS_ORIGINS` must list the site's origin, `https://app.nexorax.live`, or every role fails to
@@ -247,8 +247,12 @@ nginx in front to proxy `/api`:
 3. `VITE_DATA_SOURCE=live` must be set at build time. `frontend/.env.production` carries it, so a plain
    `npm run build` has it, but a host that builds in another Vite mode or passes the variable through empty
    would serve the mocks and say nothing. Set it in the host's build settings as well.
+4. The API must have `DEMO_MODE=true`. Outside `ENVIRONMENT=dev` the presenter routes (`/demo/advance`, `/demo/pause`,
+   `/demo/resume`, `/demo/reset`) are not mounted at all, so **Reset demo** and **Go to next step** answer 404, the clock
+   runs on past the story day, and the walkthrough cannot start. Check that `/api/openapi.json` on the API lists the four
+   `/demo` routes after each deploy.
 
-`docker compose up` needs none of the three and remains the reference deployment.
+`docker compose up` needs none of the four and remains the reference deployment.
 
 ### Local database notes
 
@@ -371,6 +375,7 @@ What the build does not do yet, in one place. The full list of known gaps is `G-
 | Deferral count | The seeded day defers the orders the planner computes, which can differ from the PRD's fixed figure of 19 at Peliyagoda. The screen shows the computed number | DP-01 |
 | D9 capacity outlook | A labelled baseline that scales the live queue by the calendar, not the Datathon model: the eight weeks of delivered orders it would need are not in the repository | [above](#-departures-from-the-designathon-submission) |
 | Two display mirrors | The store mirrors the 16:00 cutoff and the 23:40 release, and the dispatcher's exception screen sums kg and m³ on the client. The API stays the authority | DP-27 |
+| Loader item flags | A missing, damaged or wrong item, or a warehouse shortage, flagged at the dock reaches Dispatch's inbox as a report with the order and units, but Dispatch has no decision screen for it: only **Vehicle check failed** opens the swap review (D8). A shortfall is settled at delivery instead, when the driver records what arrived and Dispatch keeps the delivery (keep 10 of 12) | |
 | Loader "Other…" PIN | `POST /loader/pins/verify` takes a numeric `personId` and has no guest path, so "Other…" with the guest PIN works on the mocks only, and the tablet caches no PIN hashes, so a load gate needs a connection. `e2e/loader-offline.spec.ts` pins the current behaviour | A55 |
 | Driver dates other than the demo day | Only the demo day has a seeded run. In API mode another date answers `no_run` with its reason, and History shows today plus whatever runs the server holds | |
 | Sinhala and Tamil | The driver strings are a machine draft, not reviewed by a native speaker | O-8 |
