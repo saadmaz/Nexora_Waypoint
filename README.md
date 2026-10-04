@@ -393,28 +393,21 @@ Field conventions shared by the loader and driver: [docs/build/field-conventions
 
 ---
 
-## 📋 Spec: PRD v3.1 (2 Oct)
+## 📋 Spec
 
-`waypoint-prd-v3.md` is the build spec and `waypoint-central-context-v3.md` is the team context. v3.1 settles ten contradictions and gaps the field build found when v3 was read against the loader and driver prompts. Changes are logged as V32 to V42 in the PRD change log. The ones other roles need to know about:
+`waypoint-prd-v3.md` is the build spec and `waypoint-central-context-v3.md` is the team context. The register of assumptions
+(`A1` to `A58`), departures (`DP-*`) and known gaps (`G-1` to `G-15`) is section 18 of the PRD.
 
-| What changed | Who it affects |
-|---|---|
-| **Two planned distances, both correct.** `planned_fuel` stays per order (VEH039 trip 1 is 22 km, which is where 4c's "fuel 75.4 / 370 L" comes from) and belongs to D2, D3 and R-FUEL. A new `planned_run_legs` counts legs per stop, where an outlet with two orders is one stop, so R9 reads 19 km. R9 is no longer served by `planned_fuel` | Backend rules module, driver, dispatcher |
-| **The dock is a device setting.** `?dock=kandy\|peliyagoda` works in the live app, is remembered, and presenter mode adds "Change dock" to the loader top bar menu. Walkthrough step 10 now says to switch dock | Loader, app shell |
-| **"Other…" has a PIN:** a typed name plus the guest PIN `0000`, with the typed name stored as the actor, and the tablet caching salted hashes for every PIN person so a PIN works offline. **Spec, not yet built:** `POST /loader/pins/verify` takes a numeric `personId` and has no guest path, and the tablet caches no hashes, so "Other…" works on the mocks only and a load gate needs a connection. `e2e/loader-offline.spec.ts` pins the current behaviour | Loader, auth, backend |
-| **R10's three dates** have no plan in the seeded database, so in API mode they serve the driver fixture. `GET /driver/runs/{date}` returns a run, a `no_run` reason, or a run plus a monsoon calendar block | Driver, backend |
-| **Mock to real is `VITE_<ROLE>_API=mock\|api`** per role. The field transport has a mock and a `fetch` implementation behind one function with the same connectivity behaviour; in API mode each sync handler posts its record to `POST /sync` as a batch of one | Every frontend role |
-| **Non-vehicle loader flags and driver problems** reach D6, are listed, and are marked seen when opened. No plan version is created. Only "Vehicle check failed" has a Dispatch screen (D8) | Dispatcher, loader, driver |
-| **R6 problems are threads.** `driver.problem` gains `updatesClientId`; `exceptions` gains `parent_id` and `seen_at` | Driver, backend |
-| **The app shell has no owner.** Build stage 2b covers `/sign-in`, `/start`, per-role sessions, the avatar menu, the presenter panel and Change dock. It is about half a day and blocks stage 7 (open decision O-11) | Whoever takes it |
+**Two planned distances, both used where the PRD says.** `planned_fuel` stays per order (VEH039 trip 1 is 22 km, which is where
+the "fuel 75.4 / 370 L" figure comes from) and feeds the dispatcher's fuel meters and the driver's fuel line. `planned_run_legs`
+counts legs per stop, so an outlet with two orders is one stop, and the driver's run summary (R9) reads 19 km from it.
 
-Also added: assumptions A55 to A58 (the guest PIN, text size Large at 1.15 ×, photo compression at JPEG / 1600 px / 0.7, the camera fallback to the file picker), departures DP-19 to DP-25, known gaps G-14 and G-15, and open decisions O-8 to O-11.
+**The dock is a device setting.** `?dock=kandy|peliyagoda` works in the live app and is remembered; presenter mode adds
+"Change dock" to the loader top bar menu.
 
-**A55 is settled: one named person per dock.** The row asked whether Priya and Ruwan are both offered at both docks, as drawn on L1.2 A (`442:27454`). The seed answers it: `GET /loader/docks/peliyagoda` offers Priya and `GET /loader/docks/kandy` offers Ruwan, each with that dock's PIN, and one dock's PIN does not open the other dock's person. "Other…" is the route for anyone else, with the caveat in the table above.
+**AI disclosure.** [`docs/ai-disclosure.md`](docs/ai-disclosure.md) records where AI assistants did a meaningful part of the work,
+the invented data register, and the machine-drafted Sinhala and Tamil driver strings.
 
-**Departure numbering.** Role branches list their departures in their own README section in prose and do not number DP rows, because parallel branches would collide. HH merges them into the PRD section 18 register on Sat 3 Oct.
-
-**AI disclosure.** `docs/ai-disclosure.md` records where AI assistants did a meaningful part of the work, the invented data register, and the machine-drafted Sinhala and Tamil driver strings. Add a line when AI does a meaningful part of your PR, as `Contributing.md` section 24 asks.
 
 ---
 
