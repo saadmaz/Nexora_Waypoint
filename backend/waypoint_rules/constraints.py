@@ -165,11 +165,19 @@ def check_vehicle_day(
     ref: RefData,
     vday: VehicleDay | None = None,
 ) -> list[Violation]:
-    """Rules across a vehicle's whole day: trip count, minute budgets, weekly fuel."""
+    """Rules across a vehicle's whole day: trip count, turnaround, minute budgets, weekly fuel."""
     trips = [t for t in trips if t.order_ids]
     out: list[Violation] = []
     if len(trips) > MAX_TRIPS_PER_VEHICLE:
         out.append(Violation(RuleId.TRIPS, msg.too_many_trips(vehicle.id, len(trips))))
+    # A vehicle leaves on its next trip only once the last one is back. The planner times trips this way; a move
+    # that lengthens an earlier trip keeps the later trip's departure, so it is checked here.
+    ordered = sorted(trips, key=lambda t: t.trip_no)
+    for prev, nxt in zip(ordered, ordered[1:], strict=False):
+        back = planned_clock(prev, orders, ref).back_at_depot
+        if back is not None and nxt.depart_at < back:
+            out.append(Violation(RuleId.TURN, msg.before_return(vehicle.id, nxt.trip_no, hhmm(nxt.depart_at), prev.trip_no, hhmm(back)),
+                                 {"depart": hhmm(nxt.depart_at), "back": hhmm(back)}))
     tot = vehicle_day_totals(vehicle, trips, orders, ref, vday)
     if tot.fresh_min > FRESH_BUDGET_MIN:
         out.append(Violation(RuleId.BUDGET_FRESH, msg.over_budget(vehicle.id, "Fresh", tot.fresh_min, FRESH_BUDGET_MIN),
