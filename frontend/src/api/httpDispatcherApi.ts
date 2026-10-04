@@ -30,6 +30,10 @@ export const DEFAULT_VIEW_DEPOT: DepotId = "peliyagoda";
 /** The operations whose 409 means "this plan is released, so it can no longer be changed" (the mock's `read_only`). */
 const PLAN_EDITS: ReadonlySet<string> = new Set(["redraftPlan", "saveMoves", "releasePlan"]);
 
+/** 409s on a plan edit that are not about a released plan, so they keep their own code: nothing to plan yet, or a trip
+ * number the vehicle cannot start. */
+const OWN_409: ReadonlySet<string> = new Set(["not_ready", "no_such_trip"]);
+
 /**
  * Turns whatever the HTTP layer threw into the errors the dispatcher screens already catch (`DispatcherApi.ts`): its own
  * `ApiError(code, message)` and `NetworkError`. The message is always the server's, because the screens print it.
@@ -37,7 +41,8 @@ const PLAN_EDITS: ReadonlySet<string> = new Set(["redraftPlan", "saveMoves", "re
  *  - no answer (offline, timeout)   -> `NetworkError`
  *  - 501 `not_implemented`          -> `ApiError("not_implemented")`; no mock fallback (the screen's error state shows it)
  *  - 404                            -> `ApiError("not_found")`, which the conflict and exception screens test for
- *  - 409 on a plan edit             -> `ApiError("read_only")`; `illegal_transition` or `illegal_move` on `saveMoves` -> `"illegal_move"`
+ *  - 409 on a plan edit             -> `ApiError("read_only")`, except `not_ready` and `no_such_trip`; `illegal_transition` or
+ *                                      `illegal_move` on `saveMoves` -> `"illegal_move"`
  *  - anything else                  -> `ApiError` with the server's own code
  */
 export function toDispatcherError(error: unknown, operation: string): unknown {
@@ -46,7 +51,7 @@ export function toDispatcherError(error: unknown, operation: string): unknown {
   if (error instanceof HttpApiError) {
     if (operation === "saveMoves" && (error.code === "illegal_transition" || error.code === "illegal_move")) return new ApiError("illegal_move", error.message);
     if (error.status === 404) return new ApiError("not_found", error.message);
-    if (error.status === 409 && PLAN_EDITS.has(operation)) return new ApiError("read_only", error.message);
+    if (error.status === 409 && PLAN_EDITS.has(operation) && !OWN_409.has(error.code)) return new ApiError("read_only", error.message);
     return new ApiError(error.code, error.message);
   }
   return error;
@@ -125,7 +130,8 @@ export function createHttpDispatcherApi(getClient: () => HttpClient = () => apiC
         planViewFromApi(
           await client().post("/api/v1/dispatcher/plan/moves", {
             query: { depot: viewing },
-            body: { moves: moves.map(moveRequestToApi), ...(note !== undefined ? { note } : {}) },
+            // A deferral carries the dispatcher's reason; the server refuses one without (422 `reason_required`).
+            body: { moves: moves.map((m) => ({ ...moveRequestToApi(m), ...(m.reason ? { reason: m.reason } : {}) })), ...(note !== undefined ? { note } : {}) },
           }),
         ),
       );

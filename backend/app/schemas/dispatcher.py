@@ -99,6 +99,25 @@ class QueueCutoff(ApiModel):
     minutes_left: int
 
 
+class DayFlag(ApiModel):
+    """One thing about the service day that changes demand or travel (calendar.csv)."""
+
+    kind: Literal["payday", "festival", "weekend", "monsoon", "holiday"]
+    label: str
+    #: What it means for tonight's plan, in a few words.
+    detail: str
+
+
+class ServiceDayInfo(ApiModel):
+    """The service day as the calendar sees it, shown above the queue and the capacity board."""
+
+    #: "Tue 29 Sep".
+    label: str
+    flags: list[DayFlag]
+    #: Where a deferral goes: the next operating day, "Wed 30 Sep". Null when the calendar has none.
+    next_run: str | None = None
+
+
 class QueueView(ApiModel):
     depot: DepotId
     service_date: date
@@ -109,6 +128,8 @@ class QueueView(ApiModel):
     #: Orders flagged "No legal vehicle" at this depot.
     at_risk: int
     groups: list[QueueGroup]
+    #: Payday, festival, weekend, monsoon and the next run, for the service day.
+    day: ServiceDayInfo | None = None
     #: Rows on screen, and orders in the whole queue.
     shown: int
     total: int
@@ -248,6 +269,8 @@ class CapacityView(ApiModel):
     orders: int
     #: Null until the 16:05 draft exists.
     plan: PlanSummaryRef | None
+    #: Payday, festival, weekend, monsoon and the next run, for the service day.
+    day: ServiceDayInfo | None = None
     deferrals: DeferralTotals
     #: The binding resource. Null when the depot has enough capacity.
     binding: CapacityBinding | None
@@ -293,6 +316,10 @@ class PlanStop(ApiModel):
     protected: bool
     kg: float
     m3: float
+    #: The window the rules hold this stop to: the outlet's, narrowed by the mall's access hours for a mall bay.
+    window: TimeRange | None = None
+    #: Dock and access: "Rear dock", "Street", "Mall bay", "Van only", "Mall 06:00–09:30".
+    access: list[str] = []
 
 
 class Fill(ApiModel):
@@ -321,8 +348,13 @@ class PlanLane(ApiModel):
     vehicle_id: str
     kind: str
     reefer: bool
-    status: Literal["active", "workshop", "spare", "replaced"]
+    #: ``idle``: available all morning with no trip yet, so the dispatcher can start one on it.
+    status: Literal["active", "idle", "workshop", "spare", "replaced"]
     workshop_until: str | None = None
+    #: The vehicle's driver. Each vehicle has one, so a run on this vehicle is that driver's run.
+    driver: str | None = None
+    #: The trip number a move would start on this vehicle, or null when it cannot take another (two trips, held, replaced).
+    next_trip: int | None = None
     meters: list[LabelledMeter]
     trips: list[PlanTrip]
 
@@ -398,7 +430,10 @@ class MoveTarget(ApiModel):
 
 class MoveRequest(ApiModel):
     order_id: str
+    #: A trip the plan does not have yet is started by the move, if it is that vehicle's ``next_trip`` (see ``PlanLane``).
     to: MoveTarget
+    #: Why the dispatcher defers it. Required when ``to.deferred`` is true on save; ignored otherwise.
+    reason: str | None = Field(default=None, max_length=200)
 
 
 class RuleCheck(ApiModel):
@@ -448,6 +483,8 @@ class MoveResult(ApiModel):
     protected_reason: str | None = None
     #: Short line under the refusal heading.
     summary: str
+    #: Set when the move starts a new trip: when it would leave ("03:30").
+    opens_trip: str | None = None
 
 
 class SaveMovesIn(ApiModel):

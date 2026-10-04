@@ -103,12 +103,19 @@ class RefData:
     vehicles: dict[str, Vehicle]
     #: (brand, dock_type) -> handling minutes per order
     allowances: dict[tuple[Brand, DockType], int]
+    #: (district, hour) -> how much longer a leg takes than free flow on this service day (1.0 = free flow). Built from
+    #: typical traffic for the day's monsoon flag and that day's road conditions. Empty means free flow everywhere.
+    travel: dict[tuple[str, int], float] = field(default_factory=dict)
 
     def allowance(self, outlet: Outlet) -> int:
         return self.allowances[(outlet.brand, outlet.dock_type)]
 
     def district_of(self, outlet: Outlet) -> District:
         return self.districts[outlet.district]
+
+    def leg_minutes(self, district: str, start: datetime, free_flow_min: int) -> int:
+        """Driving minutes for a leg that starts at ``start``: free flow, slowed by the hour's traffic and the day's roads."""
+        return round(free_flow_min * self.travel.get((district, start.hour), 1.0))
 
 
 @dataclass(slots=True)

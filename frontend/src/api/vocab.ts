@@ -36,9 +36,11 @@ const DEFERRAL: Record<ApiDeferralType, DeferralType> = {
 };
 
 /** A store order is "chilled" or "dry"; the backend calls the dry one "ambient". */
-const KIND: Record<ApiTemp, OrderKind> = { chilled: "chilled", ambient: "dry" };
+// Frozen stock comes from the dataset, never from the store form. The store, dock and driver screens handle it the way
+// they handle chilled (a reefer, the chilled zone); only the dispatcher shows it as Frozen (dispatch fix plan task 5).
+const KIND: Record<ApiTemp, OrderKind> = { chilled: "chilled", ambient: "dry", frozen: "chilled" };
 const KIND_TO_API: Record<OrderKind, ApiTemp> = { chilled: "chilled", dry: "ambient" };
-const TEMPERATURE: Record<ApiTemp, Temperature> = { chilled: "chilled", ambient: "ambient" };
+const TEMPERATURE: Record<ApiTemp, Temperature> = { chilled: "chilled", ambient: "ambient", frozen: "chilled" };
 
 /** The reply is not what the contract says it is. Not a network failure and not a verdict from the server, so it has its own code. */
 export function unexpectedReply(what: string): ApiError {

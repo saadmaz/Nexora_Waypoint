@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowRight, CircleAlert, Lock, RefreshCw, Route as RouteIcon } from "lucide-react";
-import type { DeferredCard, DepotId, MoveTarget, PlanTrip } from "../../../api/DispatcherApi";
+import { ArrowRight, CircleAlert, Lock, RefreshCw, Route as RouteIcon, Sparkles } from "lucide-react";
+import { ApiError, type DeferredCard, type DepotId, type MoveTarget, type PlanTrip } from "../../../api/DispatcherApi";
+import { ConfirmDialog } from "../../../shared/ui/ConfirmDialog";
 import { useToast } from "../../../shared/ui/useToast";
 import { AppBar } from "../chrome/AppBar";
 import { PageHeader } from "../chrome/PageHeader";
@@ -14,11 +15,12 @@ import { Banner } from "../ui/Banner";
 import { Btn, LinkButton } from "../ui/Btn";
 import { Skel } from "../ui/Skel";
 import { StateBlock } from "../ui/StateBlock";
+import { DeferReasonDialog } from "./DeferReasonDialog";
 import { DeferredPanel } from "./DeferredPanel";
 import { Lane } from "./Lane";
 import { MoveToDialog } from "./MoveToDialog";
 import { AnchoredPopover, MovePreview, RefusalPopover, WhyPopover } from "./Popovers";
-import { targetKey, tripKey, type Interaction } from "./types";
+import { hasDispatcherEdits, targetKey, tripKey, type Interaction } from "./types";
 import styles from "./Trips.module.css";
 
 const PLAN_STATE_TEXT = (n: number, state: "draft" | "released", at: string) => `PLAN v${n} ${state === "released" ? `RELEASED ${at.split(" ").at(-1)}` : "DRAFT"}`;
@@ -39,6 +41,11 @@ export function TripsRoute() {
   const [dragging, setDragging] = useState<string | null>(null);
   const [interaction, setInteraction] = useState<Interaction>({ kind: "none" });
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [reasonBusy, setReasonBusy] = useState(false);
+  const [reasonError, setReasonError] = useState<string | null>(null);
+  const [drafting, setDrafting] = useState(false);
+  const [confirmRedraft, setConfirmRedraft] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
   const checking = useRef("");
 
   const readOnly = Boolean(view?.readOnly) || offline;
@@ -55,20 +62,70 @@ export function TripsRoute() {
   // ---- writes ---------------------------------------------------------------
 
   const commit = useCallback(
-    async (orderId: string, target: MoveTarget) => {
+    async (orderId: string, target: MoveTarget, reason?: string) => {
+      // A target that is not on the board yet is a trip this move starts.
+      const starts = target !== "deferred" && !trips.some((t) => t.vehicleId === target.vehicleId && t.trip === target.trip);
       try {
-        await api.saveMoves({ moves: [{ orderId, to: target }] });
+        await api.saveMoves({ moves: [{ orderId, to: target, ...(reason ? { reason } : {}) }] });
         clear();
         setSaveError(null);
         invalidate();
-        toast.show(target === "deferred" ? `Deferred ${orderId}. Saved to the draft.` : `Moved ${orderId} to ${target.vehicleId} · Trip ${target.trip}. Saved to the draft.`);
-      } catch {
+        toast.show(
+          target === "deferred"
+            ? `Deferred ${orderId}: ${reason ?? ""}. Saved to the draft.`
+            : starts
+              ? `Started ${target.vehicleId} · Trip ${target.trip} with ${orderId}. Saved to the draft.`
+              : `Moved ${orderId} to ${target.vehicleId} · Trip ${target.trip}. Saved to the draft.`,
+        );
+      } catch (error) {
+        if (target === "deferred" && error instanceof ApiError && error.code === "reason_required") {
+          // The reason step is still open: say so there instead of closing it.
+          setReasonError(error.message);
+          return;
+        }
         clear();
         setSaveError(orderId);
       }
     },
-    [api, clear, invalidate, toast],
+    [api, clear, invalidate, toast, trips],
   );
+
+  // A deferral is only saved once the dispatcher has said why (the booklet: decide what waits, and record the reason).
+  const askReason = useCallback((orderId: string) => {
+    setReasonError(null);
+    setInteraction({ kind: "reason", orderId });
+  }, []);
+
+  const confirmReason = async (orderId: string, reason: string) => {
+    setReasonBusy(true);
+    try {
+      await commit(orderId, "deferred", reason);
+    } finally {
+      setReasonBusy(false);
+    }
+  };
+
+  const redraft = async () => {
+    setDrafting(true);
+    setDraftError(null);
+    try {
+      const next = await api.redraftPlan();
+      setConfirmRedraft(false);
+      clear();
+      invalidate();
+      toast.show(`Drafted plan v${next.version.number}. Trips placed by the planner.`);
+    } catch (error) {
+      setConfirmRedraft(false);
+      setDraftError(error instanceof Error ? error.message : "The plan could not be drafted.");
+    } finally {
+      setDrafting(false);
+    }
+  };
+
+  const askRedraft = () => {
+    if (view && hasDispatcherEdits(view)) setConfirmRedraft(true);
+    else void redraft();
+  };
 
   // ---- drag and drop --------------------------------------------------------
 
@@ -92,7 +149,8 @@ export function TripsRoute() {
     const result = await api.validateMove({ orderId, to: target });
     setDragging(null);
     checking.current = "";
-    if (result.ok) await commit(orderId, target);
+    if (result.ok && target === "deferred") askReason(orderId);
+    else if (result.ok) await commit(orderId, target);
     else setInteraction({ kind: "refused", orderId, target, result });
   };
 
@@ -192,9 +250,16 @@ export function TripsRoute() {
             Open live view
           </Btn>
         ) : (
-          <Btn iconRight={<ArrowRight size={16} />} onClick={() => navigate(withDepot(ROUTES.deferrals, depot))} disabled={!view}>
-            Review deferrals
-          </Btn>
+          <>
+            {view && view.lanes.length > 0 && (
+              <Btn variant="secondary" icon={<RefreshCw size={16} />} onClick={askRedraft} disabled={readOnly || drafting}>
+                {drafting ? "Redrafting..." : "Redraft"}
+              </Btn>
+            )}
+            <Btn iconRight={<ArrowRight size={16} />} onClick={() => navigate(withDepot(ROUTES.deferrals, depot))} disabled={!view}>
+              Review deferrals
+            </Btn>
+          </>
         )
       }
     >
@@ -231,7 +296,16 @@ export function TripsRoute() {
   } else if (view && view.lanes.length === 0) {
     body = (
       <div className={styles.banner}>
-        <StateBlock icon={<RouteIcon size={23} />} title="No plan drafted yet" body="Trips appear when the 16:05 draft is ready." />
+        <StateBlock
+          icon={<RouteIcon size={23} />}
+          title="No plan drafted yet"
+          body="Draft it now once the 16:00 cutoff has closed the queue, or wait for the 16:05 draft."
+          action={
+            <Btn icon={<Sparkles size={16} />} onClick={() => void redraft()} disabled={offline || drafting}>
+              {drafting ? "Drafting..." : "Draft plan"}
+            </Btn>
+          }
+        />
       </div>
     );
   } else if (view) {
@@ -333,13 +407,23 @@ export function TripsRoute() {
           <MoveToDialog
             open
             onOpenChange={(o) => {
-              if (!o) clear();
+              // Choosing "Defer" hands over to the reason step before the dialog closes, so only close a Move to that is still open.
+              if (!o) setInteraction((prev) => (prev.kind === "moveTo" ? { kind: "none" } : prev));
             }}
             api={api}
             plan={view}
             orderId={interaction.orderId}
             deferred={cardOf(interaction.orderId)}
-            onMove={(target) => void commit(interaction.orderId, target)}
+            onMove={(target) => (target === "deferred" ? askReason(interaction.orderId) : void commit(interaction.orderId, target))}
+          />
+        )}
+        {interaction.kind === "reason" && (
+          <DeferReasonDialog
+            orderId={interaction.orderId}
+            busy={reasonBusy}
+            error={reasonError}
+            onCancel={clear}
+            onConfirm={(reason) => void confirmReason(interaction.orderId, reason)}
           />
         )}
       </>
@@ -350,7 +434,35 @@ export function TripsRoute() {
     <Screen bar={<AppBar current="plan" depot={depot} onDepot={(d: DepotId) => setDepot(d)} />} offlineNote="Offline. Edits paused. Last saved change {time}.">
       <div className={styles.page}>
         {header}
+        {draftError && (
+          <Banner
+            tone="danger"
+            icon={<CircleAlert size={20} />}
+            title={draftError}
+            actions={
+              <Btn variant="secondary" size="sm" onClick={() => setDraftError(null)}>
+                Dismiss
+              </Btn>
+            }
+          >
+            Nothing was changed.
+          </Banner>
+        )}
         {body}
+        {view && (
+          <ConfirmDialog
+            open={confirmRedraft}
+            onOpenChange={(o) => !drafting && setConfirmRedraft(o)}
+            title={`Redraft replaces your changes in v${view.version.number}`}
+            confirmLabel="Redraft anyway"
+            cancelLabel="Keep my changes"
+            onConfirm={() => void redraft()}
+            busy={drafting}
+          >
+            The planner places every order again from the closed queue and saves the result as the next draft. Moves and
+            deferrals you made since the last draft are not kept.
+          </ConfirmDialog>
+        )}
       </div>
     </Screen>
   );

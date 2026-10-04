@@ -3,6 +3,7 @@ import { Snowflake } from "lucide-react";
 import type { Brand, OrderTemp } from "../../../api/DispatcherApi";
 import { cx } from "./cx";
 import styles from "./Chip.module.css";
+import { tempLabel } from "./temp";
 
 export type ChipTone =
   | "neutral"
@@ -62,10 +63,10 @@ export function BrandChip({ brand, small, dot = true }: { brand: Brand; small?: 
 }
 
 export function TempChip({ temp, small, dry }: { temp: OrderTemp; small?: boolean; dry?: boolean }) {
-  if (temp === "chilled") {
+  if (temp !== "ambient") {
     return (
       <Chip tone="chilled" icon={<Snowflake size={13} />} {...(small ? { small } : {})}>
-        Chilled
+        {tempLabel(temp)}
       </Chip>
     );
   }

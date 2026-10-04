@@ -33,8 +33,27 @@ from .deferrals import (
 )
 from .lifecycle import IllegalTransition, OrderEvent, allowed_events, transition
 from .model import District, Order, Outlet, Plan, RefData, Trip, Vehicle, VehicleDay
-from .moves import CheckItem, Move, MoveResult, TripSummary, validate_move, why_this_vehicle
-from .planner import DraftDeferral, DraftStop, DraftTrip, OutletHistory, PlanDraft, draft_plan
+from .moves import (
+    CheckItem,
+    Move,
+    MoveResult,
+    NoSuchTrip,
+    TripSummary,
+    next_trip_no,
+    open_trip,
+    validate_move,
+    why_this_vehicle,
+)
+from .planner import (
+    DraftDeferral,
+    DraftStop,
+    DraftTrip,
+    OutletHistory,
+    PlanDraft,
+    capacity_binding,
+    draft_plan,
+    new_trip_departure,
+)
 from .receipts import (
     SHORTFALL_REASONS,
     ShortfallReason,
@@ -99,6 +118,7 @@ __all__ = [
     "Impact",
     "LatenessRisk",
     "Move",
+    "NoSuchTrip",
     "MinutesPool",
     "MoveResult",
     "OFFLINE_AFTER_MINUTES",
@@ -142,7 +162,11 @@ __all__ = [
     "check_trip",
     "check_vehicle_day",
     "classify_deferral",
+    "capacity_binding",
     "draft_plan",
+    "new_trip_departure",
+    "next_trip_no",
+    "open_trip",
     "frees",
     "headline",
     "hhmm",

@@ -26,6 +26,7 @@ from waypoint_rules.schedule import CUTOFF, next_operating_day
 from waypoint_rules.vocab import Brand, DockType
 
 from ..config import COLOMBO
+from ..models import field as field_models
 from ..models import orders as orders_models
 from ..models import people, plans, reference
 from ..models.enums import Availability, HistoryOutcome, PlanState
@@ -56,7 +57,28 @@ def aware(value: datetime) -> datetime:
 # ---- reference data ---------------------------------------------------------
 
 
-def load_ref(db: Session) -> RefData:
+def travel_factors(db: Session, service_date: date) -> dict[tuple[str, int], float]:
+    """How much longer each district's legs take, hour by hour, on ``service_date`` (``RefData.travel``).
+
+    Typical traffic for the day's monsoon flag (``traffic_speed``: 1.0 is free flow, 0.8 is 80 % of it, so legs take
+    1 / 0.8 as long), times any road condition reported for that day (``road_conditions.delay_factor``, already a
+    travel-time multiplier). Without either table every leg is free flow, as before.
+    """
+    cal = db.get(reference.CalendarDay, service_date)
+    monsoon = bool(cal and cal.monsoon)
+    out: dict[tuple[str, int], float] = {}
+    for row in db.scalars(select(reference.TrafficSpeed).where(reference.TrafficSpeed.monsoon == monsoon)):
+        if row.speed_factor > 0:
+            out[(row.district, row.hour)] = 1 / row.speed_factor
+    for cond in db.scalars(select(reference.RoadCondition).where(reference.RoadCondition.service_date == service_date)):
+        if cond.delay_factor > 0:
+            for hour in range(24):
+                out[(cond.district, hour)] = out.get((cond.district, hour), 1.0) * cond.delay_factor
+    return out
+
+
+def load_ref(db: Session, service_date: date | None = None) -> RefData:
+    """Outlets, districts, vehicles and handling allowances; with ``service_date``, also that day's travel factors."""
     districts = {
         d.name: District(
             d.name,
@@ -91,7 +113,8 @@ def load_ref(db: Session) -> RefData:
     allowances: dict[tuple[Brand, DockType], int] = {
         (a.brand, a.dock_type): a.minutes for a in db.scalars(select(reference.ServiceAllowance))
     }
-    return RefData(outlets, districts, vehicles, allowances)
+    travel = travel_factors(db, service_date) if service_date is not None else {}
+    return RefData(outlets, districts, vehicles, allowances, travel)
 
 
 def operating_days(db: Session) -> list[date]:
@@ -183,15 +206,44 @@ def day_orders(db: Session, service_date: date, ops: list[date], *, statuses: It
 # ---- vehicles ---------------------------------------------------------------
 
 
-def vehicle_days(db: Session, service_date: date) -> tuple[dict[str, VehicleDay], dict[str, VehicleAvailability]]:
-    """Per vehicle: the rules' day state (held, back from the workshop at, fuel used this week) and the screen's."""
+def week_fuel_used(db: Session, service_date: date) -> dict[str, float]:
+    """Litres each vehicle has used this ISO week before ``service_date``: what the weekly quota (R-FUEL) has left to give.
+
+    The ledger holds what was used before the scenario began; every earlier day of the same week that has a released plan
+    adds its trips: the GPS distance of a run that finished, else the trip's planned distance, over the vehicle's km/L.
+    Only the latest released version of a day counts, so a re-release (v4 after v3) never counts a day twice.
+    """
     iso = service_date.isocalendar()
-    fuel = {
+    used: dict[str, float] = {
         f.vehicle_id: f.used_before_l
         for f in db.scalars(
             select(plans.FuelLedger).where(plans.FuelLedger.iso_year == iso.year, plans.FuelLedger.iso_week == iso.week)
         )
     }
+    week_start = service_date - timedelta(days=service_date.isoweekday() - 1)
+    released: dict[date, plans.PlanVersion] = {}
+    for v in db.scalars(
+        select(plans.PlanVersion)
+        .where(plans.PlanVersion.service_date >= week_start, plans.PlanVersion.service_date < service_date, plans.PlanVersion.state == PlanState.RELEASED)
+        .order_by(plans.PlanVersion.number)
+    ):
+        released[v.service_date] = v  # the latest number wins
+    if not released:
+        return used
+    km_per_l = {v.id: v.km_per_l for v in db.scalars(select(reference.Vehicle))}
+    runs = {r.trip_id: r for r in db.scalars(select(field_models.Run))}
+    for version in released.values():
+        for trip in db.scalars(select(plans.Trip).where(plans.Trip.plan_version_id == version.id)):
+            run = runs.get(trip.id)
+            km = run.gps_km + (run.gps_gap_filled_km or 0.0) if run is not None and run.finished_at and run.gps_km is not None else trip.planned_km
+            if km_per_l.get(trip.vehicle_id):
+                used[trip.vehicle_id] = used.get(trip.vehicle_id, 0.0) + km / km_per_l[trip.vehicle_id]
+    return used
+
+
+def vehicle_days(db: Session, service_date: date) -> tuple[dict[str, VehicleDay], dict[str, VehicleAvailability]]:
+    """Per vehicle: the rules' day state (held, back from the workshop at, fuel used this week) and the screen's."""
+    fuel = week_fuel_used(db, service_date)
     status = {s.vehicle_id: s for s in db.scalars(select(plans.VehicleDayStatus).where(plans.VehicleDayStatus.service_date == service_date))}
     days: dict[str, VehicleDay] = {}
     avail: dict[str, VehicleAvailability] = {}
@@ -279,7 +331,7 @@ def acks_of(db: Session, version_id: int) -> list[AckRow]:
 def load_day(db: Session, service_date: date, now: datetime, *, version: int | None = None) -> DispatchDay:
     """The dispatcher's picture of one service date at plan ``version`` (the latest when omitted)."""
     ops = operating_days(db)
-    ref = load_ref(db)
+    ref = load_ref(db, service_date)
     days, avail = vehicle_days(db, service_date)
     outlets = outlet_rows(db)
     day = DispatchDay(

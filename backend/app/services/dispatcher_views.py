@@ -16,6 +16,7 @@ from waypoint_rules import (
     Plan,
     Trip,
     TripMinutes,
+    TripSummary,
     headline,
     minutes_pools,
     planned_clock,
@@ -27,12 +28,12 @@ from waypoint_rules import (
 )
 from waypoint_rules.vocab import (
     FRESH_BUDGET_MIN,
+    MAX_TRIPS_PER_VEHICLE,
     STYLE_TECH_BUDGET_MIN,
     Binding,
     Brand,
     DeferralType,
     DockType,
-    Temp,
     VehicleTemp,
     VehicleType,
 )
@@ -40,7 +41,7 @@ from waypoint_rules.vocab import (
 from ..models.enums import ActorKind, PlanState
 from ..schemas import dispatcher as s
 from .dispatch_model import AckRow, DeferralRow, DispatchDay, TripRow, VersionRow
-from .plan_logic import gate
+from .plan_logic import gate, plan_of
 
 DEPOTS: tuple[s.DepotId, ...] = ("peliyagoda", "kandy")
 DOCK_LABEL = {DockType.REAR_DOCK: "Rear dock", DockType.STREET: "Street", DockType.MALL_BAY: "Mall bay"}
@@ -184,6 +185,8 @@ def _stops(day: DispatchDay, trip: TripRow) -> list[s.PlanStop]:
                 protected=any(day.orders[o].deferred_yesterday for o in stop.order_ids),
                 kg=kg,
                 m3=round(m3, 3),
+                window=_effective_window(day, stop.outlet_id),
+                access=_access_tags(day, stop.outlet_id),
             )
         )
     return out
@@ -233,8 +236,8 @@ def _lanes(day: DispatchDay, depot: str) -> list[s.PlanLane]:
         trips = sorted(by_vehicle.get(vid, []), key=lambda t: t.trip_no)
         replaced = avail is not None and avail.replaced_by is not None
         idle_workshop = avail is not None and avail.available_from is not None and not trips
-        if not trips and not replaced and not idle_workshop:
-            continue
+        vday = day.vehicle_days.get(vid)
+        held = vday is not None and vday.held
         vehicle = day.ref.vehicles[vid]
         status: str = "active"
         until: str | None = None
@@ -243,6 +246,10 @@ def _lanes(day: DispatchDay, depot: str) -> list[s.PlanLane]:
         elif idle_workshop and avail is not None and avail.available_from is not None:
             status = "spare" if avail.available_from <= day.now else "workshop"
             until = hm(avail.available_from)
+        elif not trips:
+            # Free all morning with nothing planned: the dispatcher can start a run on it.
+            status = "idle"
+        can_add = not replaced and not held and len(trips) < MAX_TRIPS_PER_VEHICLE
         lanes.append(
             s.PlanLane(
                 vehicle_id=vid,
@@ -250,6 +257,9 @@ def _lanes(day: DispatchDay, depot: str) -> list[s.PlanLane]:
                 reefer=vehicle.temp is VehicleTemp.REEFER,
                 status=status,  # type: ignore[arg-type]
                 workshop_until=until,
+                driver=day.drivers.get(vid),
+                # The same number the rules would open (``next_trip_no``): one after the last trip, never one already there.
+                next_trip=max((t.trip_no for t in trips), default=0) + 1 if can_add else None,
                 meters=_meters(day, vid, trips),
                 trips=[_plan_trip(day, t) for t in trips],
             )
@@ -260,7 +270,6 @@ def _lanes(day: DispatchDay, depot: str) -> list[s.PlanLane]:
 def _deferred_card(day: DispatchDay, d: DeferralRow) -> s.DeferredCard:
     order = day.orders[d.order_id]
     outlet = day.outlets[order.outlet_id]
-    ref_outlet = day.ref.outlets[order.outlet_id]
     return s.DeferredCard(
         order_id=d.order_id,
         outlet_id=outlet.id,
@@ -271,7 +280,7 @@ def _deferred_card(day: DispatchDay, d: DeferralRow) -> s.DeferredCard:
         next_run=f"{d.next_run_date:%a}" if d.next_run_date else "",
         kg=order.weight_kg,
         m3=order.volume_m3,
-        window=s.TimeRange(start=f"{ref_outlet.window_open:%H:%M}", end=f"{ref_outlet.window_close:%H:%M}"),
+        window=_effective_window(day, outlet.id),
         dock=DOCK_LABEL[outlet.dock_type],
         district=outlet.district,
     )
@@ -362,6 +371,7 @@ def move_result_view(day: DispatchDay, move: Move, result: MoveResult, after: Pl
     """What the trip board shows for a move: every violation, the rule checklist, and the consequence preview."""
     target = move_target(move)
     order = day.orders[move.order_id]
+    opens = hm(result.opens_trip_at) if result.opens_trip_at is not None else None
     if not result.ok:
         violations = [s.MoveViolation(rule=v.rule.value, text=v.message) for v in result.violations]
         protected = next((v.message for v in result.violations if v.rule.value == "R-CONT"), None)
@@ -373,7 +383,9 @@ def move_result_view(day: DispatchDay, move: Move, result: MoveResult, after: Pl
             violations=violations,
             checks=_rule_checks(day, after, move.order_id) if move.to else [],
             protected_reason=protected,
-            summary=f"Can't defer {move.order_id}" if move.to is None else f"Can't move {move.order_id} to {where}",
+            summary=f"Can't defer {move.order_id}" if move.to is None
+            else f"Can't start {where} with {move.order_id}" if opens else f"Can't move {move.order_id} to {where}",
+            opens_trip=opens,
         )
 
     if move.to is None:
@@ -394,8 +406,13 @@ def move_result_view(day: DispatchDay, move: Move, result: MoveResult, after: Pl
             ),
         )
 
-    before, after_t = result.target_before, result.target_after
+    after_t = result.target_after
     vehicle = day.ref.vehicles[move.to[0]]
+    before = result.target_before
+    if before is None and after_t is not None:
+        # A trip the move starts carries nothing yet; the vehicle-day figures are what its other trips already use.
+        tot = vehicle_day_totals(vehicle, plan_of(day).trips_of(vehicle.id), day.orders, day.ref, day.vehicle_days.get(vehicle.id))
+        before = TripSummary(vehicle.id, move.to[1], 0, 0.0, 0.0, 0, None, tot.fresh_min, tot.style_tech_min, round(tot.fuel_week_l, 1))
     rows: list[s.PreviewRow] = []
     if before is not None and after_t is not None:
         rows = [
@@ -434,7 +451,11 @@ def move_result_view(day: DispatchDay, move: Move, result: MoveResult, after: Pl
         else None
     )
     joins = next((o for o in after.trips[move.to].order_ids if o != move.order_id and day.orders[o].outlet_id == order.outlet_id), None)
-    note = f"Joins the stop at {order.outlet_id}" if joins else "New stop added at the end"
+    driver = day.drivers.get(move.to[0])
+    if opens:
+        note = f"Starts {move.to[0]} · Trip {move.to[1]}{f' for {driver}' if driver else ''}, leaving {opens}"
+    else:
+        note = f"Joins the stop at {order.outlet_id}" if joins else "New stop added at the end"
     return s.MoveResult(
         ok=True,
         order_id=move.order_id,
@@ -442,6 +463,7 @@ def move_result_view(day: DispatchDay, move: Move, result: MoveResult, after: Pl
         violations=[],
         checks=_rule_checks(day, after, move.order_id),
         summary="All rules pass: drop to accept",
+        opens_trip=opens,
         preview=s.MovePreview(
             headline=f"If you move {move.order_id} here",
             rows=rows,
@@ -455,11 +477,20 @@ def move_result_view(day: DispatchDay, move: Move, result: MoveResult, after: Pl
 # ---- D4 deferrals -----------------------------------------------------------
 
 
+def _effective_window(day: DispatchDay, outlet_id: str) -> s.TimeRange:
+    o = day.ref.outlets[outlet_id]
+    return s.TimeRange(start=f"{o.effective_open:%H:%M}", end=f"{o.effective_close:%H:%M}")
+
+
 def _access_tags(day: DispatchDay, outlet_id: str) -> list[str]:
     o = day.outlets[outlet_id]
     tags = [DOCK_LABEL[o.dock_type]]
     if o.van_only:
         tags.append("Van only")
+    ref = day.ref.outlets.get(outlet_id)
+    if ref is not None and ref.mall_dock and ref.mall_open is not None and ref.mall_close is not None:
+        # The mall's own access hours: a delivery outside them is refused at the bay (R-MALL).
+        tags.append(f"Mall {ref.mall_open:%H:%M}–{ref.mall_close:%H:%M}")
     return tags
 
 
@@ -491,7 +522,6 @@ def _decided_line(d: DeferralRow, version: int) -> str:
 def _deferral_card(day: DispatchDay, d: DeferralRow) -> s.DeferralCard:
     order = day.orders[d.order_id]
     outlet = day.outlets[order.outlet_id]
-    ref_outlet = day.ref.outlets[order.outlet_id]
     version = day.chosen.number if day.chosen else 0
     head = "Other · store request" if _is_request(d) else REASON_HEADLINE[d.binding]
     binding = "none: store asked" if _is_request(d) else BINDING_LABEL[d.binding]
@@ -527,7 +557,7 @@ def _deferral_card(day: DispatchDay, d: DeferralRow) -> s.DeferralCard:
             next_run=label,
             decided_line=_decided_line(d, version),
             why_not_others=[],
-            window=s.TimeRange(start=f"{ref_outlet.window_open:%H:%M}", end=f"{ref_outlet.window_close:%H:%M}"),
+            window=_effective_window(day, outlet.id),
             kg=order.weight_kg,
             m3=order.volume_m3,
             dock=DOCK_LABEL[outlet.dock_type],
@@ -692,7 +722,7 @@ def capacity_view(day: DispatchDay, depot: s.DepotId) -> s.CapacityView:
             [TripMinutes(t.brand, day.ref.vehicles[t.vehicle_id].temp is VehicleTemp.REEFER, trip_minutes(_rules_trip(t), day.orders, day.ref)) for t in trips],
             [
                 DeferredMinutes(
-                    day.outlets[day.orders[d.order_id].outlet_id].brand, day.orders[d.order_id].temp is Temp.CHILLED, float(d.frees.get("minutes", 0) or 0)
+                    day.outlets[day.orders[d.order_id].outlet_id].brand, day.orders[d.order_id].temp.needs_reefer, float(d.frees.get("minutes", 0) or 0)
                 )
                 for d in forced
             ],

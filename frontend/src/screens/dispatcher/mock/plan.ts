@@ -178,6 +178,9 @@ function lanesFor(w: World, m: Milestones, depot: DepotId): PlanLane[] {
       kind: vehicle.kind,
       reefer: vehicle.reefer,
       status: "active",
+      driver: vehicle.driver,
+      // Starting a new trip is the live planner's job; the scripted world keeps its designed trips.
+      nextTrip: null,
       meters: LANE_METERS[id] ?? [],
       trips: vTrips.map((t) => planTrip(t, PROTECTED)),
     };

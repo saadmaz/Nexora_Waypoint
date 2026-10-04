@@ -15,7 +15,8 @@ export type DepotId = "peliyagoda" | "kandy";
 export const DEPOT_NAME: Record<DepotId, string> = { peliyagoda: "Peliyagoda", kandy: "Kandy" };
 
 export type Brand = "Fresh" | "Style" | "Tech";
-export type OrderTemp = "chilled" | "ambient";
+/** Frozen and chilled both need a reefer (R-TEMP); ambient goes on any vehicle. */
+export type OrderTemp = "chilled" | "ambient" | "frozen";
 export type TimeRange = { start: string; end: string };
 
 /** The three deferral types (PRD v3 section 4b). */
@@ -78,9 +79,17 @@ export type QueueFilters = {
 
 export const NO_FILTERS: QueueFilters = { brand: [], temp: [], status: [], window: [], tags: [], district: [] };
 
+/** One thing about the service day that changes demand or travel (calendar.csv), worded by the server. */
+export type DayFlag = { kind: "payday" | "festival" | "weekend" | "monsoon" | "holiday"; label: string; detail: string };
+
+/** The service day as the calendar sees it: "Tue 29 Sep", its flags, and where a deferral goes. */
+export type ServiceDayInfo = { label: string; flags: DayFlag[]; nextRun?: string };
+
 export type QueueView = {
   depot: DepotId;
   serviceDate: string;
+  /** Payday, festival, weekend, monsoon and the next run. */
+  day?: ServiceDayInfo;
   /** Before 16:00 the queue fills live and Capacity is locked. */
   cutoff: { closed: boolean; at: string; minutesLeft: number };
   /** Orders in each depot's queue. */
@@ -127,6 +136,8 @@ export type Meter = { used: number; limit: number };
 export type CapacityView = {
   depot: DepotId;
   serviceDate: string;
+  /** Payday, festival, weekend, monsoon and the next run. */
+  day?: ServiceDayInfo;
   /** Orders in this depot's queue. */
   orders: number;
   /** Null until the 16:05 draft exists. */
@@ -186,6 +197,10 @@ export type PlanStop = {
   protected: boolean;
   kg: number;
   m3: number;
+  /** The window the rules hold this stop to: the outlet's, narrowed by the mall's hours for a mall bay. */
+  window?: TimeRange;
+  /** "Rear dock", "Street", "Mall bay", "Van only", "Mall 06:00–09:30". */
+  access?: string[];
 };
 
 export type PlanTrip = {
@@ -208,8 +223,13 @@ export type PlanLane = {
   vehicleId: string;
   kind: string;
   reefer: boolean;
-  status: "active" | "workshop" | "spare" | "replaced";
+  /** `idle`: free all morning with no trip yet, so the dispatcher can start one on it. */
+  status: "active" | "idle" | "workshop" | "spare" | "replaced";
   workshopUntil?: string;
+  /** The vehicle's driver: a run on this vehicle is that driver's run. */
+  driver?: string | null;
+  /** The trip a move would start on this vehicle, or null when it can't take another (two trips, held, replaced). */
+  nextTrip?: number | null;
   meters: { label: string; used: number; limit: number; unit: string }[];
   trips: PlanTrip[];
 };
@@ -258,7 +278,8 @@ export type PlanView = {
 
 export type MoveTarget = { vehicleId: string; trip: number } | "deferred";
 
-export type MoveRequest = { orderId: string; to: MoveTarget };
+/** A trip the plan does not have yet is started by the move, when it is that lane's `nextTrip`. `reason` is required to save a deferral. */
+export type MoveRequest = { orderId: string; to: MoveTarget; reason?: string };
 
 export type RuleCheck = { rule: string; detail: string; ok: boolean };
 
@@ -282,6 +303,8 @@ export type MoveResult = {
   protectedReason?: string;
   /** Short line under the refusal heading. */
   summary: string;
+  /** Set when the move starts a new trip: when it would leave ("03:30"). */
+  opensTrip?: string | null;
 };
 
 // ---- D4 · Deferrals ---------------------------------------------------------

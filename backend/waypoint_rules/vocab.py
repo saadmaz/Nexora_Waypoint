@@ -45,6 +45,12 @@ class Binding(StrEnum):
 class Temp(StrEnum):
     CHILLED = "chilled"
     AMBIENT = "ambient"
+    FROZEN = "frozen"
+
+    @property
+    def needs_reefer(self) -> bool:
+        """Only refrigerated vehicles may carry chilled or frozen goods (R-TEMP); a reefer may also carry ambient."""
+        return self is not Temp.AMBIENT
 
 
 class VehicleTemp(StrEnum):

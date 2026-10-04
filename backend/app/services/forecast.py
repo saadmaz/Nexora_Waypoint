@@ -20,7 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from waypoint_rules import frees
-from waypoint_rules.vocab import FRESH_BUDGET_MIN, Brand, Temp, VehicleTemp
+from waypoint_rules.vocab import FRESH_BUDGET_MIN, Brand, VehicleTemp
 
 from ..models.reference import CalendarDay
 from ..schemas import dispatcher as s
@@ -94,7 +94,7 @@ def load_forecast(db: Session, depot: s.DepotId, now: datetime) -> s.ForecastVie
     minutes = sum(
         frees(o, ref).minutes
         for o in orders.values()
-        if o.temp is Temp.CHILLED and ref.outlets[o.outlet_id].brand is Brand.FRESH and ref.outlets[o.outlet_id].depot == depot
+        if o.temp.needs_reefer and ref.outlets[o.outlet_id].brand is Brand.FRESH and ref.outlets[o.outlet_id].depot == depot
     )
     reefers = [
         v for v in ref.vehicles.values()

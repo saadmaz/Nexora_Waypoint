@@ -30,9 +30,29 @@ def after_move(plan: Plan, move: Move, orders: dict[str, Order], result: MoveRes
     if move.to is None:
         out.deferred.append(move.order_id)
     else:
+        if move.to not in out.trips and result.opens_trip_at is not None:
+            # The move starts this trip (the validator chose when it leaves).
+            out.trips[move.to] = Trip(move.to[0], move.to[1], result.opens_trip_at, [])
         target = out.trips[move.to]
         idx = result.inserted_at if result.inserted_at is not None else len(target.order_ids)
         target.order_ids.insert(idx, move.order_id)
+    return out
+
+
+def renumbered(plan: Plan) -> Plan:
+    """``plan`` with each vehicle's trips that carry orders numbered 1, 2 in the order they leave; empty trips dropped.
+
+    A move can empty a vehicle's trip 1 and leave its trip 2; without this the vehicle would show only "Trip 2", and the
+    next trip a dispatcher starts would be "Trip 3". The plan passed in is not changed.
+    """
+    out = copy.deepcopy(plan)
+    trips: dict[tuple[str, int], Trip] = {}
+    for vid in sorted({k[0] for k in out.trips}):
+        kept = sorted((t for t in out.trips_of(vid) if t.order_ids), key=lambda t: (t.depart_at, t.trip_no))
+        for n, trip in enumerate(kept, start=1):
+            trip.trip_no = n
+            trips[(vid, n)] = trip
+    out.trips = trips
     return out
 
 

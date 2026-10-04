@@ -17,6 +17,7 @@ import { Skel } from "../ui/Skel";
 import { StateBlock } from "../ui/StateBlock";
 import { Stat } from "../ui/Stat";
 import { BindingCard, PoolCard, SampleCards, SpareCard } from "./CapacityParts";
+import { DayFlags } from "../ui/DayFlags";
 import { KandyCapacity } from "./KandyCapacity";
 import styles from "./Capacity.module.css";
 
@@ -96,7 +97,12 @@ export function CapacityRoute() {
       </div>
     );
   } else if (view) {
-    body = depot === "kandy" ? <KandyCapacity view={view} onPeliyagoda={() => setDepot("peliyagoda")} /> : <PeliyagodaCapacity view={view} onReview={toDeferrals} />;
+    body = (
+      <>
+        <DayFlags day={view.day} />
+        {depot === "kandy" ? <KandyCapacity view={view} onPeliyagoda={() => setDepot("peliyagoda")} /> : <PeliyagodaCapacity view={view} onReview={toDeferrals} />}
+      </>
+    );
   }
 
   return (

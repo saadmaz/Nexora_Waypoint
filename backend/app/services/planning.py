@@ -19,11 +19,14 @@ from sqlalchemy.orm import Session
 from waypoint_rules import (
     Impact,
     Move,
+    NoSuchTrip,
     Order,
     OrderEvent,
     Plan,
     RefData,
     Trip,
+    capacity_binding,
+    classify_deferral,
     draft_plan,
     frees,
     impact_on_store,
@@ -47,7 +50,7 @@ from . import audit, store_notices
 from . import orders as order_service
 from . import planning_repo as repo
 from .dispatch_model import DeferralRow, DispatchDay
-from .plan_logic import after_move, gate, plan_of
+from .plan_logic import after_move, gate, plan_of, renumbered
 
 SYSTEM_DRAFT = "System draft"
 #: Orders in these statuses are still the planner's to place or defer.
@@ -298,7 +301,7 @@ def draft(
     started = repo.day_orders(db, service_date, ops, statuses=("loaded", "departed", "delivered", "partial", "issue", "conflict"))
     if started:
         raise ApiError(409, "run_started", "Loading has started, so the plan can no longer be redrafted.")
-    ref = repo.load_ref(db)
+    ref = repo.load_ref(db, service_date)
     vdays, _avail = repo.vehicle_days(db, service_date)
     result = draft_plan(pool, ref, vdays, service_date=service_date, operating_days=ops)
 
@@ -331,7 +334,7 @@ def _require_open_draft(day: DispatchDay) -> None:
 def save_moves(
     db: Session,
     service_date: date,
-    moves: list[tuple[str, tuple[str, int] | None]],
+    moves: list[tuple[str, tuple[str, int] | None, str | None]],
     *,
     note: str | None,
     actor: str,
@@ -351,11 +354,16 @@ def save_moves(
     ref = day.ref
     next_run = _next_run(db, service_date)
 
-    for order_id, to in moves:
+    for order_id, to, reason in moves:
         if order_id not in day.orders:
             raise ApiError(404, "not_found", f"Order {order_id} was not found")
         move = Move(order_id, to)
-        result = validate_move(plan, move, day.orders, ref, day.vehicle_days)
+        try:
+            result = validate_move(plan, move, day.orders, ref, day.vehicle_days)
+        except NoSuchTrip as e:
+            if skip_refused:
+                continue
+            raise ApiError(409, "no_such_trip", str(e.args[0])) from e
         if not result.ok:
             audit.record(
                 db, actor=actor, entity_type="order", entity_id=order_id, type=AuditType.MOVE_REFUSED,
@@ -370,15 +378,21 @@ def save_moves(
                 " ".join(v.message for v in result.violations),
                 [{"rule": v.rule.value, "message": v.message} for v in result.violations],
             )
+        if to is None and not reason and not skip_refused:
+            # The booklet: when demand exceeds capacity the dispatcher decides what waits, and records why.
+            raise ApiError(422, "reason_required", f"Say why {order_id} is deferred", [{"field": "reason", "orderId": order_id}])
         plan = after_move(plan, move, day.orders, result)
         audit.record(
             db, actor=actor, entity_type="order", entity_id=order_id, type=AuditType.MOVE_ACCEPTED,
-            payload={"to": list(to) if to else None}, at=repo.aware(now),
+            payload={"to": list(to) if to else None, **({"reason": reason} if reason else {})}, at=repo.aware(now),
         )
         if to is None:
             order = day.orders[order_id]
+            # The type is the rules' call, not the dispatcher's: capacity when no vehicle could carry the order whole.
+            kind = classify_deferral(order, ref, day.vehicle_days)
+            binding = capacity_binding(order, ref) if kind is DeferralType.CAPACITY else None
             specs[order_id] = DeferralSpec(
-                order_id, DeferralType.POLICY, None, f"Deferred by {actor_name}", _impact_dict(impact_on_store(order, ref)),
+                order_id, kind, binding, reason or f"Deferred by {actor_name}", _impact_dict(impact_on_store(order, ref)),
                 {"kg": frees(order, ref).kg, "m3": frees(order, ref).m3, "minutes": frees(order, ref).minutes},
                 next_run, _decided_by(actor_name, now), now,
             )
@@ -386,6 +400,7 @@ def save_moves(
             specs.pop(order_id, None)
 
     keep = [s for oid, s in specs.items() if oid in plan.deferred]
+    plan = renumbered(plan)
     return _save_draft(
         db, day, plan, keep, note=note or f"{actor_name}'s adjustments", actor=actor_name, audit_type=AuditType.PLAN_DRAFTED, now=now
     )

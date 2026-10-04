@@ -4,6 +4,7 @@ import type { DeferredCard, MoveResult, PlanTrip } from "../../../api/Dispatcher
 import { Mono } from "../../../shared/ui/Mono";
 import { Btn } from "../ui/Btn";
 import { Chip } from "../ui/Chip";
+import { tempLabel } from "../ui/temp";
 import { Meter } from "../ui/Meter";
 import { cx } from "../ui/cx";
 import styles from "./Trips.module.css";
@@ -149,7 +150,7 @@ export function RefusalPopover({ result, card, onKeep, onTryAnother, keepLabel }
           <Mono>
             {card.orderId} · {card.outletId} ·
           </Mono>{" "}
-          {card.brand} · {card.district} · {card.temp === "chilled" ? "Chilled" : "Ambient"} ·{" "}
+          {card.brand} · {card.district} · {tempLabel(card.temp)} ·{" "}
           <Mono>
             {card.kg} kg · {card.m3.toFixed(1)} m³
           </Mono>

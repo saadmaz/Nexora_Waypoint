@@ -159,6 +159,25 @@ describe("every operation, on the wire", () => {
     expect(calls[0]!.body).toEqual({ moves: [{ orderId: "ORD1", to: { deferred: true } }] });
   });
 
+  it("saveMoves sends a deferral's reason, and only for the move that has one", async () => {
+    const { api, calls } = harness(json({ deferred: [] }));
+    await api.saveMoves({ moves: [{ orderId: "ORD1", to: "deferred", reason: "Over capacity" }, { orderId: "ORD2", to: { vehicleId: "VEH011", trip: 1 } }] });
+    expect(calls[0]!.body).toEqual({
+      moves: [
+        { orderId: "ORD1", to: { deferred: true }, reason: "Over capacity" },
+        { orderId: "ORD2", to: { vehicleId: "VEH011", trip: 1, deferred: false } },
+      ],
+    });
+  });
+
+  it("getPlan keeps a lane's driver and next trip, and drops a null next trip", async () => {
+    const lane = (vehicleId: string, nextTrip: number | null) => ({ vehicleId, kind: "Ambient van", reefer: false, status: "idle", workshopUntil: null, driver: "P. Rathnayake", nextTrip, meters: [], trips: [] });
+    const { api } = harness(json({ deferred: [], lanes: [lane("VEH037", 1), lane("VEH003", null)] }));
+    const view = await api.getPlan({ depot: "peliyagoda" });
+    expect(view.lanes[0]).toMatchObject({ status: "idle", driver: "P. Rathnayake", nextTrip: 1 });
+    expect(view.lanes[1]!.nextTrip).toBeUndefined();
+  });
+
   it("validateMove converts the target out and the result's target back, in both shapes", async () => {
     const { api, calls } = harness(
       json({ ok: false, orderId: "ORD1", to: { vehicleId: "VEH1", trip: 2, deferred: false }, violations: [{ rule: "window", text: "08:06" }], checks: [], preview: null, protectedReason: null, summary: "No" }),
@@ -372,6 +391,12 @@ describe("errors", () => {
     await expect(api.saveMoves({ moves: [{ orderId: "ORD1", to: "deferred" }] })).rejects.toMatchObject({ code: "read_only", message: "Plan v3 is released." });
     await expect(api.releasePlan({ sendNotices: true })).rejects.toMatchObject({ code: "read_only" });
     await expect(api.redraftPlan()).rejects.toMatchObject({ code: "read_only" });
+  });
+
+  it("keeps not_ready and no_such_trip on a plan edit: they are not about a released plan", async () => {
+    const { api } = harness(errorReply(409, "not_ready", "There are no confirmed orders to plan yet."), errorReply(409, "no_such_trip", "VEH037 can start trip 1 next, not trip 2"));
+    await expect(api.redraftPlan()).rejects.toMatchObject({ code: "not_ready", message: "There are no confirmed orders to plan yet." });
+    await expect(api.saveMoves({ moves: [{ orderId: "ORD1", to: { vehicleId: "VEH037", trip: 2 } }] })).rejects.toMatchObject({ code: "no_such_trip" });
   });
 
   it("maps illegal_transition on saveMoves to illegal_move, and leaves it alone elsewhere", () => {

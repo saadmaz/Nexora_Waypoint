@@ -184,7 +184,7 @@ def place(db: Session, user: CurrentUser, body: s.PlaceOrdersIn, *, idempotency_
     for o in placed:
         by_day.setdefault(o.service_date, []).append(o)
     for day, rows in by_day.items():
-        phrase = " and ".join(f"{o.id} ({'chilled' if o.temp is Temp.CHILLED else 'dry'}, {o.units} units)" for o in sorted(rows, key=views.kind_order))
+        phrase = " and ".join(f"{o.id} ({'dry' if o.temp is Temp.AMBIENT else o.temp.value}, {o.units} units)" for o in sorted(rows, key=views.kind_order))
         closes = repo.cutoff_at(day, ops)
         editable = f" You can edit until {closes:%H:%M}." if now.replace(tzinfo=None) < closes else ""
         _notice(db, outlet.id, NoticeTag.ORDER, "Order received", f"{phrase} count for {day_label(day)}.{editable}", link={"screen": "orders"}, order_ids=[o.id for o in rows], at=now)

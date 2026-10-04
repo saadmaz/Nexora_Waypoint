@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ChevronRight, CircleAlert, Clock3, Info, Lock, RefreshCw } from "lucide-react";
+import { ChevronRight, CircleAlert, Clock3, Info, Lock, RefreshCw, Sparkles } from "lucide-react";
 import { NO_FILTERS, type Brand, type DepotId, type OrderTemp, type QueueFilters } from "../../../api/DispatcherApi";
 import { isPastCutoff } from "../../../domain/schedule";
 import { Mono } from "../../../shared/ui/Mono";
+import { useToast } from "../../../shared/ui/useToast";
 import { AppBar } from "../chrome/AppBar";
 import { PageHeader } from "../chrome/PageHeader";
 import { ROUTES, withDepot } from "../chrome/routes";
@@ -13,6 +14,7 @@ import { dayLabel } from "../../../domain/format";
 import { useDispatcher } from "../context";
 import { useDepot, useLoad, useNow } from "../hooks";
 import { Banner } from "../ui/Banner";
+import { DayFlags } from "../ui/DayFlags";
 import { Btn } from "../ui/Btn";
 import { Chip } from "../ui/Chip";
 import { StateBlock } from "../ui/StateBlock";
@@ -56,6 +58,25 @@ export function QueueRoute() {
   const view = load.data;
   const day = view?.serviceDate ?? scenarioDays.serviceDate;
   const closed = view?.cutoff.closed ?? isPastCutoff(day, now);
+  // Once the queue has closed, whether a plan exists yet: without one the dispatcher can draft it here and not wait for 16:05.
+  const plan = useLoad(() => (closed ? api.getPlan({ depot }) : Promise.resolve(undefined)), [closed, depot]);
+  const noPlanYet = closed && plan.data !== undefined && plan.data.version.number === 0;
+  const toast = useToast();
+  const [drafting, setDrafting] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const draftPlan = async () => {
+    setDrafting(true);
+    setDraftError(null);
+    try {
+      const next = await api.redraftPlan();
+      toast.show(`Drafted plan v${next.version.number}. Trips placed by the planner.`);
+      navigate(withDepot(ROUTES.trips, depot));
+    } catch (error) {
+      setDraftError(error instanceof Error ? error.message : "The plan could not be drafted.");
+    } finally {
+      setDrafting(false);
+    }
+  };
   const filtering = isFiltering(filters) || search.trim() !== "";
   const cached = Boolean(view) && (offline || load.status === "error");
   const chips = useMemo(() => activeChips(filters, setFilters), [filters]);
@@ -88,9 +109,16 @@ export function QueueRoute() {
       title={`Orders for ${dayLabel(day)}`}
       titleAddon={addon}
       actions={
-        <Btn iconRight={<ChevronRight size={16} />} disabled={!closed} onClick={goCapacity}>
-          Go to capacity board
-        </Btn>
+        <>
+          {noPlanYet && (
+            <Btn variant="secondary" icon={<Sparkles size={16} />} disabled={offline || drafting} onClick={() => void draftPlan()}>
+              {drafting ? "Drafting..." : "Draft plan"}
+            </Btn>
+          )}
+          <Btn iconRight={<ChevronRight size={16} />} disabled={!closed} onClick={goCapacity}>
+            Go to capacity board
+          </Btn>
+        </>
       }
       reason={
         closed ? undefined : (
@@ -204,6 +232,7 @@ export function QueueRoute() {
             </div>
           </>
         )}
+        <DayFlags day={view.day} />
         {closed && depot === "peliyagoda" && !filtering && (
           <Banner tone="info" icon={<Info size={20} />} title={`Cutoff closed at 16:00, ${view.counts.peliyagoda} orders confirmed for ${dayLabel(day)}`}>
             {view.carryOvers} carry-overs from yesterday are pinned first.
@@ -223,6 +252,20 @@ export function QueueRoute() {
     >
       <div className={styles.page}>
         {header}
+        {draftError && (
+          <Banner
+            tone="danger"
+            icon={<CircleAlert size={20} />}
+            title={draftError}
+            actions={
+              <Btn variant="secondary" size="sm" onClick={() => setDraftError(null)}>
+                Dismiss
+              </Btn>
+            }
+          >
+            Nothing was changed.
+          </Banner>
+        )}
         {body}
       </div>
       {panel && (

@@ -1303,6 +1303,7 @@ export interface components {
             /** Orders */
             orders: number;
             plan: components["schemas"]["PlanSummaryRef"] | null;
+            day?: components["schemas"]["ServiceDayInfo"] | null;
             deferrals: components["schemas"]["DeferralTotals"];
             binding: components["schemas"]["CapacityBinding"] | null;
             reefers: components["schemas"]["ReeferCounts"];
@@ -1497,6 +1498,21 @@ export interface components {
             protected: boolean;
             /** Text */
             text: string;
+        };
+        /**
+         * DayFlag
+         * @description One thing about the service day that changes demand or travel (calendar.csv).
+         */
+        DayFlag: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "payday" | "festival" | "weekend" | "monsoon" | "holiday";
+            /** Label */
+            label: string;
+            /** Detail */
+            detail: string;
         };
         /** DecideExceptionIn */
         DecideExceptionIn: {
@@ -2572,6 +2588,8 @@ export interface components {
             /** Orderid */
             orderId: string;
             to: components["schemas"]["MoveTarget"];
+            /** Reason */
+            reason?: string | null;
         };
         /** MoveResult */
         MoveResult: {
@@ -2589,6 +2607,8 @@ export interface components {
             protectedReason?: string | null;
             /** Summary */
             summary: string;
+            /** Openstrip */
+            opensTrip?: string | null;
         };
         /** MoveTarget */
         MoveTarget: {
@@ -2886,9 +2906,13 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "active" | "workshop" | "spare" | "replaced";
+            status: "active" | "idle" | "workshop" | "spare" | "replaced";
             /** Workshopuntil */
             workshopUntil?: string | null;
+            /** Driver */
+            driver?: string | null;
+            /** Nexttrip */
+            nextTrip?: number | null;
             /** Meters */
             meters: components["schemas"]["LabelledMeter"][];
             /** Trips */
@@ -2937,6 +2961,12 @@ export interface components {
             kg: number;
             /** M3 */
             m3: number;
+            window?: components["schemas"]["TimeRange"] | null;
+            /**
+             * Access
+             * @default []
+             */
+            access: string[];
         };
         /** PlanSummaryRef */
         PlanSummaryRef: {
@@ -3146,6 +3176,7 @@ export interface components {
             atRisk: number;
             /** Groups */
             groups: components["schemas"]["QueueGroup"][];
+            day?: components["schemas"]["ServiceDayInfo"] | null;
             /** Shown */
             shown: number;
             /** Total */
@@ -3419,6 +3450,18 @@ export interface components {
             /** Note */
             note?: string | null;
         };
+        /**
+         * ServiceDayInfo
+         * @description The service day as the calendar sees it, shown above the queue and the capacity board.
+         */
+        ServiceDayInfo: {
+            /** Label */
+            label: string;
+            /** Flags */
+            flags: components["schemas"]["DayFlag"][];
+            /** Nextrun */
+            nextRun?: string | null;
+        };
         /** ShortfallOut */
         ShortfallOut: {
             /** Orderid */
@@ -3592,7 +3635,7 @@ export interface components {
          * Temp
          * @enum {string}
          */
-        Temp: "chilled" | "ambient";
+        Temp: "chilled" | "ambient" | "frozen";
         /** TimeRange */
         TimeRange: {
             /**

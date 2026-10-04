@@ -4,18 +4,21 @@ from __future__ import annotations
 
 import copy
 from dataclasses import dataclass, field
+from datetime import datetime
 
 from . import messages as msg
 from .calc import hhmm, planned_clock, planned_fuel, trip_load, trip_minutes
 from .constraints import STRUCTURAL, Violation, check_trip, check_vehicle_day, legal_vehicles, vehicle_day_totals
 from .model import Order, Plan, RefData, Trip, VehicleDay
-from .vocab import RuleId, Temp
+from .planner import new_trip_departure
+from .vocab import RuleId
 
 
 @dataclass(frozen=True, slots=True)
 class Move:
     order_id: str
-    #: (vehicle_id, trip_no) of the target trip, or None for the deferred pool.
+    #: (vehicle_id, trip_no) of the target trip, or None for the deferred pool. A trip that is not in the plan yet is
+    #: started by the move, if it is the vehicle's next trip number (see ``open_trip``).
     to: tuple[str, int] | None
 
 
@@ -45,6 +48,8 @@ class MoveResult:
     deferral_changes: list[str] = field(default_factory=list)
     #: Where the order was inserted in the target trip (0-based), for the consequence preview.
     inserted_at: int | None = None
+    #: Set when the move starts a new trip: when that trip leaves. ``after_move`` creates the trip with it.
+    opens_trip_at: datetime | None = None
 
 
 def summarize(plan: Plan, trip: Trip, orders: dict[str, Order], ref: RefData,
@@ -74,6 +79,34 @@ def _insert_index(trip: Trip, order: Order, orders: dict[str, Order]) -> int:
         if orders[oid].outlet_id == order.outlet_id:
             idx = i + 1
     return idx if idx is not None else len(trip.order_ids)
+
+
+class NoSuchTrip(KeyError):
+    """The move names a trip the plan does not have and cannot start (unknown vehicle, or a trip number out of order)."""
+
+
+def next_trip_no(plan: Plan, vehicle_id: str) -> int:
+    """The number a new trip for this vehicle would get: one after its last trip that carries orders."""
+    numbers = [t.trip_no for t in plan.trips_of(vehicle_id) if t.order_ids]
+    return max(numbers, default=0) + 1
+
+
+def open_trip(plan: Plan, to: tuple[str, int], order_id: str, orders: dict[str, Order], ref: RefData) -> Trip:
+    """The empty trip a dispatcher starts by moving ``order_id`` into ``to``, departing by the planner's own rule.
+
+    Only the vehicle's next trip number can be started, so trips stay numbered 1, 2 in the order they leave. A third trip
+    is allowed to open here and is then refused by ``R-TRIPS`` like any other over-full day, so the dispatcher sees why.
+    Raises ``NoSuchTrip`` for an unknown vehicle or a number out of order.
+    """
+    vehicle_id, trip_no = to
+    if vehicle_id not in ref.vehicles:
+        raise NoSuchTrip(f"No vehicle {vehicle_id}")
+    expected = next_trip_no(plan, vehicle_id)
+    if trip_no != expected:
+        raise NoSuchTrip(f"{vehicle_id} can start trip {expected} next, not trip {trip_no}")
+    previous = next((t for t in plan.trips_of(vehicle_id) if t.trip_no == trip_no - 1), None)
+    depart = new_trip_departure([order_id], orders, ref, plan.service_date, previous)
+    return Trip(vehicle_id, trip_no, depart, [])
 
 
 def validate_move(
@@ -110,8 +143,12 @@ def validate_move(
     else:
         target_before = plan.trips.get(move.to)
         if target_before is None:
-            raise KeyError(f"No trip {move.to} in the plan")
-        result.target_before = summarize(plan, target_before, orders, ref, vehicle_days)
+            # Starting a run: the vehicle's next trip, leaving by the planner's rule. Every check below then applies.
+            opened = open_trip(plan, move.to, move.order_id, orders, ref)
+            after.trips[move.to] = opened
+            result.opens_trip_at = opened.depart_at
+        else:
+            result.target_before = summarize(plan, target_before, orders, ref, vehicle_days)
         target = after.trips[move.to]
         idx = _insert_index(target, order, orders)
         target.order_ids.insert(idx, move.order_id)
@@ -168,7 +205,7 @@ def why_this_vehicle(plan: Plan, order_id: str, orders: dict[str, Order], ref: R
     tot = vehicle_day_totals(vehicle, plan.trips_of(vehicle.id), orders, ref, vehicle_days.get(vehicle.id))
     fuel = planned_fuel(trip, vehicle, orders, ref)
     items = [
-        CheckItem(RuleId.TEMP, "Reefer", order.temp is not Temp.CHILLED or vehicle.is_reefer,
+        CheckItem(RuleId.TEMP, "Reefer", not order.temp.needs_reefer or vehicle.is_reefer,
                   f"{vehicle.id} is {'a reefer' if vehicle.is_reefer else 'ambient'}"),
         CheckItem(RuleId.KG, "Weight", kg <= vehicle.weight_cap_kg, f"{kg:,.0f} / {vehicle.weight_cap_kg:,.0f} kg"),
         CheckItem(RuleId.M3, "Volume", m3 <= vehicle.volume_cap_m3 + 1e-9, f"{m3:.1f} / {vehicle.volume_cap_m3:.1f} m³"),

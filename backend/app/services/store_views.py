@@ -333,6 +333,8 @@ def order_out(order: om.Order, facts: Facts) -> s.OrderOut:
 #: Used when an outlet has no earlier order of a kind to take the figures from (PRD v3 A14, A42).
 _DEFAULT_FACTORS = {Temp.CHILLED: (70 / 12, 0.7 / 12), Temp.AMBIENT: (45 / 8, 0.6 / 8)}
 _DEFAULT_UNITS = {Temp.CHILLED: 12, Temp.AMBIENT: 8}
+#: What a store orders on S1. Frozen stock arrives from the dataset, not from the store form.
+STORE_KINDS = (Temp.CHILLED, Temp.AMBIENT)
 
 
 def unit_factors(db: Session, outlet: reference.Outlet) -> tuple[dict[Temp, s.UnitFactor], dict[Temp, int]]:
@@ -345,7 +347,7 @@ def unit_factors(db: Session, outlet: reference.Outlet) -> tuple[dict[Temp, s.Un
     history = list(db.scalars(select(om.Order).where(om.Order.outlet_id == outlet.id).order_by(om.Order.received_at.desc().nulls_last(), om.Order.id.desc())))
     factors: dict[Temp, s.UnitFactor] = {}
     defaults: dict[Temp, int] = {}
-    for temp in Temp:
+    for temp in STORE_KINDS:
         last = next((o for o in history if o.temp is temp and o.units > 0 and not o.id.endswith("-F")), None)
         if last is not None:
             factors[temp] = s.UnitFactor(kg=last.weight_kg / last.units, m3=last.volume_m3 / last.units)
@@ -459,7 +461,7 @@ def _delivery(db: Session, facts: Facts, day: date, orders: list[om.Order], now:
     placements = [facts.placed[o.id] for o in orders if o.id in facts.placed]
     placement = placements[0] if placements else None
     deferral = next((facts.deferrals[o.id] for o in orders if o.id in facts.deferrals and shown[o.id] is _OS.DEFERRED), None)
-    kinds = " and ".join(sorted({"chilled" if o.temp is Temp.CHILLED else "dry" for o in orders}))
+    kinds = " and ".join(sorted({"dry" if o.temp is Temp.AMBIENT else o.temp.value for o in orders}))
     issues = [i for i in facts.issues if ids & set(i.order_ids or ())]
     issue_by_order: dict[str, s.IssueOut] = {}
     issue_outs = sorted((issue_out(i, facts) for i in issues), key=lambda i: i.reported_at, reverse=True)

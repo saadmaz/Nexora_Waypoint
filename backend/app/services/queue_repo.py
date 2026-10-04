@@ -55,7 +55,7 @@ def load_queue(db: Session, service_date: date, now: datetime, *, only: str | No
         now=now,
         cutoff=repo.cutoff_at(service_date, ops),
         following_run=following,
-        ref=repo.load_ref(db),
+        ref=repo.load_ref(db, service_date),
         outlets=repo.outlet_rows(db),
         rows=rows,
         history=repo.outlet_history(db, service_date, ops),
