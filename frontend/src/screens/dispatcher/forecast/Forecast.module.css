@@ -13,7 +13,8 @@
 
 .row {
   display: grid;
-  grid-template-columns: 164px 520px 90px 280px 1fr;
+  /* The bar and the flags give way on a laptop, so the verdict stays inside the row. */
+  grid-template-columns: 164px minmax(220px, 520px) 90px minmax(160px, 280px) minmax(120px, 1fr);
   align-items: center;
   width: 100%;
   min-height: 68px;

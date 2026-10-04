@@ -12,6 +12,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-shrink: 0;
   width: 190px;
   color: var(--on-chrome);
   font: 400 17px / 24px var(--font-sans);
@@ -30,6 +31,7 @@
 
 .nav {
   display: flex;
+  flex-shrink: 0;
   gap: 28px;
   height: 100%;
 }
@@ -85,11 +87,23 @@
 
 .context {
   display: flex;
-  flex: 1;
+  flex: 1 1 0;
   align-items: center;
   justify-content: flex-end;
   gap: 14px;
   min-width: 0;
+}
+
+/* Context items keep their size; only the meta line gives way, cut with an ellipsis, so it never runs over the nav. */
+.context > * {
+  flex-shrink: 0;
+}
+
+.context > .meta {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .meta {
@@ -174,4 +188,60 @@
 
 .menuItem:hover {
   background: var(--surface-0);
+}
+
+/* Laptops under 1280 px (a 1366 px screen at 125% is about 1093 px): tighter spacing so nav, clock and depot all fit. */
+@media (max-width: 1279px) {
+  .appbar {
+    gap: 20px;
+    padding: 0 20px;
+  }
+
+  .brand {
+    width: auto;
+  }
+
+  .nav {
+    gap: 20px;
+  }
+
+  .context {
+    gap: 10px;
+  }
+}
+
+/* Under 1200 px the brand is the logo alone (the link keeps its "Waypoint Dispatch home" label), which leaves the clock room. */
+@media (max-width: 1199px) {
+  .brandText {
+    display: none;
+  }
+}
+
+/* A half-screen window (about 960 px and under): two rows, so nothing overlaps and the clock is never cut. The logo and
+   the context (clock, depot, sync, avatar) stay on top; the nav takes its own row, with the current-page bar at the foot. */
+@media (max-width: 959px) {
+  .appbar {
+    flex-wrap: wrap;
+    row-gap: 0;
+    height: auto;
+  }
+
+  .brand,
+  .context {
+    min-height: 52px;
+  }
+
+  .nav {
+    order: 1;
+    flex-basis: 100%;
+    height: 44px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .navItem {
+    flex-shrink: 0;
+    height: 44px;
+    padding-top: 10px;
+  }
 }

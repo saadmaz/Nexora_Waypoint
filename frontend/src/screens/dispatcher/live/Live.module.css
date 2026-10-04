@@ -181,7 +181,10 @@
 
 .grid {
   display: grid;
-  grid-template-columns: 140px 70px 130px 140px 190px 130px 90px 210px 1fr;
+  /* The 1440 widths as maxima; each column gives way to a minimum so status stays inside the board on a laptop. */
+  grid-template-columns:
+    minmax(100px, 140px) minmax(48px, 70px) minmax(110px, 130px) minmax(110px, 140px) minmax(150px, 190px)
+    minmax(110px, 130px) minmax(60px, 90px) minmax(110px, 210px) minmax(140px, 1fr);
   align-items: center;
   padding: 0 20px;
   column-gap: 0;

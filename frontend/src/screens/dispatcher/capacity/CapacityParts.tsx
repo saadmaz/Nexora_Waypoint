@@ -36,7 +36,7 @@ export function BindingCard({ binding, snapshot }: { binding: NonNullable<Capaci
       </div>
       <div className={styles.meterBlock}>
         <Meter value={binding.demand} max={binding.supply} height={16} label={binding.resource} />
-        <span className={styles.marker} style={{ left: `calc(${(binding.supply / binding.demand) * 100}% - 26px)` }}>
+        <span className={styles.marker} style={{ left: `calc(${Math.min(binding.supply / binding.demand, 1) * 100}% - 26px)` }}>
           100%
         </span>
       </div>

@@ -69,7 +69,7 @@ export function AppBar({ current, depot, onDepot, depotChoice, planPill, place }
     <header className={styles.appbar}>
       <Link to={ROUTES.queue} className={styles.brand} aria-label="Waypoint Dispatch home">
         <Diamond />
-        <span>
+        <span className={styles.brandText}>
           <b>Waypoint</b> Dispatch
         </span>
       </Link>
