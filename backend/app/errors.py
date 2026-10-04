@@ -1,7 +1,15 @@
-"""One error shape, ``{code, message, details}``, for every failure (PRD §19)."""
+"""One error shape, ``{code, message, details}``, for every failure (PRD §19).
+
+Nothing leaves this module as a raw traceback. ``install`` ends with a handler for bare ``Exception``, so a bug in a
+service answers ``500 {"code": "internal_error", "details": {"requestId": ...}}`` and the traceback goes to the log under
+that same id. Without it Starlette re-raises and the client gets an HTML error page that no frontend can read.
+"""
 
 from __future__ import annotations
 
+import logging
+import re
+import uuid
 from typing import Any
 
 from fastapi import FastAPI, Request
@@ -10,6 +18,27 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from waypoint_rules import IllegalTransition
+
+log = logging.getLogger("waypoint.errors")
+
+#: Header carrying the id a client can quote when reporting a failure. Set on every response by ``request_id``.
+REQUEST_ID_HEADER = "X-Request-Id"
+
+
+#: An inbound id is echoed, not trusted: it only correlates a client's report with a log line. It is kept to this
+#: alphabet so that a caller cannot put newlines or control characters into a log line and forge an entry.
+_SAFE_ID = re.compile(r"[^A-Za-z0-9._-]")
+
+
+def request_id(request: Request) -> str:
+    """The id of the request in flight. Taken from the incoming header when a proxy set one, else minted once."""
+    existing = getattr(request.state, "request_id", None)
+    if isinstance(existing, str):
+        return existing
+    inbound = _SAFE_ID.sub("", request.headers.get(REQUEST_ID_HEADER, ""))[:64]
+    rid = inbound or uuid.uuid4().hex
+    request.state.request_id = rid
+    return rid
 
 
 class ApiError(Exception):
@@ -61,3 +90,14 @@ def install(app: FastAPI) -> None:
     async def _http(_: Request, exc: StarletteHTTPException) -> JSONResponse:
         code = {404: "not_found", 405: "method_not_allowed"}.get(exc.status_code, "http_error")
         return JSONResponse(_body(code, str(exc.detail)), status_code=exc.status_code)
+
+    @app.exception_handler(Exception)
+    async def _unhandled(request: Request, exc: Exception) -> JSONResponse:
+        """The last resort. The message is deliberately generic: the cause belongs in the log, not in the response."""
+        rid = request_id(request)
+        log.exception("unhandled error on %s %s (requestId=%s)", request.method, request.url.path, rid)
+        return JSONResponse(
+            _body("internal_error", "Something went wrong on our side", {"requestId": rid}),
+            status_code=500,
+            headers={REQUEST_ID_HEADER: rid},
+        )

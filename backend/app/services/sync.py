@@ -200,6 +200,37 @@ def _pin(db: Session, person_id: object) -> int | None:
     return person.id if person is not None else None
 
 
+def _carried(db: Session, order: order_models.Order, vehicle_id: str) -> bool:
+    """Whether ``vehicle_id`` carries ``order`` in any plan version of the order's service date.
+
+    Any version, not just the released one: a driver who went offline on v4 reports against v4, and a later version may
+    have moved or deferred the stop. The reconciliation rule decides what such a record means; this only decides whether
+    this phone was ever asked to make this delivery at all.
+    """
+    return db.scalar(
+        select(plans.Trip.id)
+        .join(plans.TripOrder, plans.TripOrder.trip_id == plans.Trip.id)
+        .join(plans.PlanVersion, plans.PlanVersion.id == plans.Trip.plan_version_id)
+        .where(
+            plans.TripOrder.order_id == order.id,
+            plans.Trip.vehicle_id == vehicle_id,
+            plans.PlanVersion.service_date == order.service_date,
+        )
+        .limit(1)
+    ) is not None
+
+
+def _require_carried(db: Session, order: order_models.Order, vehicle_id: str) -> None:
+    """Refuse a record about an order no plan ever put on this vehicle.
+
+    Without this a signed-in driver could mark *any* order delivered by naming its id: the vehicle on the record is
+    checked against the account, but the order was not checked against the vehicle. The order id is a dataset id
+    (``ORD2001``), so guessing one is trivial.
+    """
+    if not _carried(db, order, vehicle_id):
+        raise Refused(f"{order.id} is not on a trip for {vehicle_id}")
+
+
 def _status(order: order_models.Order) -> OrderStatus:
     return OrderStatus(order.status.value)
 
@@ -466,6 +497,7 @@ def _outcome(db: Session, b: Batch, rec: SyncRecordIn, row: f.DeviceRecord) -> A
     outlet = rec.payload.get("outletId") or order.outlet_id
     if outlet != order.outlet_id:
         raise Refused(f"{order.id} is for {order.outlet_id}, not {outlet}")
+    _require_carried(db, order, vehicle)
     trip = _trip(db, order.service_date, vehicle, on_device=rec.plan_version_on_device, order_ids=[order.id])
     _place(row, vehicle_id=vehicle, trip=trip, outlet_id=order.outlet_id, order_ids=[order.id])
     _heard(b, order.service_date, vehicle, trip, rec.plan_version_on_device)
@@ -507,6 +539,10 @@ def _problem(db: Session, b: Batch, rec: SyncRecordIn, row: f.DeviceRecord) -> A
     vehicle = _driver_vehicle(b, rec.payload)
     service_date = _service_date(db, b, rec.payload)
     order_ids = [o for o in rec.payload.get("orderIds") or [] if isinstance(o, str)]
+    # A problem reaches Dispatch naming its orders, so the orders have to be this vehicle's: otherwise one phone
+    # could hang a reported problem on another vehicle's stop.
+    for order_id in order_ids:
+        _require_carried(db, _order(db, order_id), vehicle)
     trip = _trip(db, service_date, vehicle, on_device=rec.plan_version_on_device, order_ids=order_ids or None)
     _place(row, vehicle_id=vehicle, trip=trip, order_ids=order_ids)
     e = f.FieldException(

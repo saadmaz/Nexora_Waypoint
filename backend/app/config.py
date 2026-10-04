@@ -58,6 +58,15 @@ class Settings(BaseSettings):
     #: Demo passwords (O-4). Overridden in .env; listed in the README.
     demo_password: str = "waypoint-demo"
 
+    #: The presenter controls (``/demo/advance``, ``/demo/pause``, ``/demo/resume``, ``/demo/reset``). ``/demo/reset``
+    #: truncates the operational tables, so the whole group is refused 404 unless this is on. On in development, which
+    #: the judge walkthrough drives from the dispatcher's avatar menu; off in a real deployment.
+    demo_mode: bool | None = None
+
+    #: Log one structured line per request (method, path, status, duration, requestId). Off in tests, which would
+    #: otherwise print a line per call.
+    request_log: bool = True
+
     @property
     def scenario_start(self) -> datetime:
         """Where the clock starts before the calendar is loaded: 15:30 the calendar day before the service date.
@@ -69,6 +78,11 @@ class Settings(BaseSettings):
     @property
     def is_dev(self) -> bool:
         return self.environment.strip().lower() in {"dev", "development", "local", "test"}
+
+    @property
+    def demo_enabled(self) -> bool:
+        """Whether the presenter controls are mounted. Unset follows the environment, so a clean checkout keeps them."""
+        return self.is_dev if self.demo_mode is None else self.demo_mode
 
     def check_secrets(self) -> None:
         """Refuse to start outside development with a secret that is printed in the repository.

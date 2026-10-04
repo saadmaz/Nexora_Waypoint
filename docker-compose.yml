@@ -42,6 +42,10 @@ services:
       CLOCK_RATE: ${CLOCK_RATE:-1}
       SCENARIO_SERVICE_DATE: ${SCENARIO_SERVICE_DATE:-2026-09-29}
       JOB_LOOP: ${JOB_LOOP:-true}
+      # The presenter controls, /demo/reset among them, which truncates the operational tables. Unset follows
+      # ENVIRONMENT, so this stack has them and a real deployment does not. The judge walkthrough needs them.
+      DEMO_MODE: ${DEMO_MODE:-true}
+      REQUEST_LOG: ${REQUEST_LOG:-true}
       DATA_DIR: /data
       UPLOADS_DIR: /app/uploads
     # Migrate, seed (skipped unless SEED_ON_START=true; idempotent), then serve.
