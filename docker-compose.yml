@@ -37,12 +37,7 @@ services:
       JWT_TTL_HOURS: ${JWT_TTL_HOURS:-12}
       CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:8080","http://localhost:5173"]}
       SEED_ON_START: ${SEED_ON_START:-true}
-      # A clone without the competition CSVs gets the §4c fallback, which is only the six story
-      # vehicles and the pinned orders: too little for the planner to allocate or defer anything.
-      # On by default so a fresh `docker compose up` has a full fleet and a realistic day to plan
-      # (the booklet asks the walkthrough to work on a fresh installation). With the CSVs in data/
-      # the reference data comes from them and this flag does nothing.
-      SEED_GENERATED_ORDERS: ${SEED_GENERATED_ORDERS:-true}
+      SEED_GENERATED_ORDERS: ${SEED_GENERATED_ORDERS:-false}
       DEMO_PASSWORD: ${DEMO_PASSWORD:-waypoint-demo}
       CLOCK_RATE: ${CLOCK_RATE:-1}
       SCENARIO_SERVICE_DATE: ${SCENARIO_SERVICE_DATE:-2026-09-29}
@@ -74,9 +69,6 @@ services:
     build:
       context: .
       dockerfile: deploy/web/Dockerfile
-      args:
-        # live by default (see the Dockerfile). Set VITE_DATA_SOURCE=mock to build the fixture app instead.
-        VITE_DATA_SOURCE: ${VITE_DATA_SOURCE:-live}
     depends_on:
       api:
         condition: service_healthy

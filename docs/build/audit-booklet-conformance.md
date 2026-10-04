@@ -5,39 +5,41 @@ were deliberately ignored as evidence; they describe intent, not behaviour.
 
 ## Verdict
 
-The functionality is **built and correct**. It is **not reachable** in the app as it is built and run.
+**Corrected after testing.** The first version of this audit said the shipped app ran on fixtures and
+that two packaging blockers explained it. Both claims were wrong, and the real causes are narrower.
 
-One line decides it, `frontend/src/api/dataSource.ts:17`:
+What was actually wrong:
 
-```ts
-export const DATA_SOURCE: DataSource = import.meta.env.VITE_DATA_SOURCE === "live" ? "live" : "mock";
-```
+1. **A 15 s client timeout.** Drafting runs the planner over the whole fleet and takes 11 s to 19 s on
+   a full day, so `POST /plan/redraft` was aborted mid-flight and the screen said "No connection"
+   while the server was answering and the draft was being saved. This is the one that made the app
+   look inert. Fixed by giving the four planner routes their own 120 s budget.
+2. **A latent uniqueness bug** in the deferral carry-over (see finding 3), which turned the 16:00
+   cutoff job into a 500 as soon as the planner had enough orders to defer two from one outlet.
+3. **Scenario clock drift**, which is behaviour rather than a bug, but reads as a failure: the field
+   apps follow `runDate`, which rolls to the next operating day at 12:00, so a plan released for
+   Tuesday stops being visible once scenario time passes Tuesday noon. The clock refuses to go
+   backwards, so only Reset demo recovers, and that clears the plan.
 
-Mock is the fallback. `docker-compose.yml` passes **no build args** to the `web` service, and
-`deploy/web/Dockerfile` runs a bare `npm run build`, so `VITE_DATA_SOURCE` is unset in the image.
-There is no `frontend/.env.local` either. Every role therefore runs on in-browser fixtures, and the
-backend, the part that implements the booklet, is never contacted by the UI.
+What was **not** wrong, contrary to the first draft:
 
-This explains the reported symptom precisely. In mock mode the only thing with real behaviour is the
-scenario clock, so advancing time appears to "move the scenes" while ordering and planning do nothing.
+* **The Docker build was already live.** `frontend/.env.production` carries `VITE_DATA_SOURCE=live`
+  and is already on `develop`; `vite build` reads it, so the web image was never serving mocks.
+  `npm run check:bundle` passes on a plain `npm run build`. An earlier check here was a
+  case-insensitive grep that matched the identifier `createMockDispatcherApi` and was read as fixture
+  data; no fixture payload or persona name is in the bundle. The `ARG VITE_DATA_SOURCE` added to the
+  Dockerfile was redundant and has been reverted.
+* **`SEED_ON_START` was already `true`**, so the seed does run.
+* **`SEED_GENERATED_ORDERS=false` is correct, not a bug.** `README.md` already documents that `true`
+  makes "the walkthrough's named moves differ". Defaulting it on, as the first draft of this work did,
+  broke three e2e tests and would have broken the judge walkthrough itself, which names ORD1007,
+  VEH037 trip 2, ORD1020 and ORD1017. It has been reverted to `false`, and the e2e job pins it off
+  explicitly so the suite does not inherit whatever Compose defaults to.
 
-### Why drafting a plan appears to do nothing
-
-`frontend/src/screens/dispatcher/mock/mockDispatcherApi.ts:105`:
-
-```ts
-redraftPlan() {
-  return write(() => {
-    world.moves = [];
-    return planView(world, m(), "peliyagoda");
-  });
-}
-```
-
-No allocation runs. It clears accepted moves and re-reads a hardcoded fixture. `mock/plan.ts` serves
-`TRIPS_V3` / `TRIPS_V4` from `fixtures.ts` and, in its own words, scripts the refusals "the design
-draws (D3.3 to D3.6)". So a judge clicking Draft plan sees a pre-written plan appear, identical every
-time, with canned refusal text. Nothing is allocated and no constraint is evaluated.
+The remaining substance of the original audit stands: the rules, the planner, the offline outbox and
+the order lifecycle are all implemented and tested, and the mock `redraftPlan` really does only clear
+accepted moves and re-read a fixture, so in mock mode no allocation happens. That matters for anyone
+running with `VITE_DATA_SOURCE=mock`, but it was not what the Compose stack was doing.
 
 ## What is genuinely implemented (verified in code and tests)
 
@@ -74,31 +76,8 @@ Those deferral reasons are derived from the constraints, not written by hand.
 
 ## What is actually missing
 
-Three real gaps, in priority order.
-
-### 1. The shipped build runs on mocks (blocker)
-
-Fix: pass `VITE_DATA_SOURCE=live` as a build arg in `docker-compose.yml` and declare it as an `ARG`
-before `npm run build` in `deploy/web/Dockerfile`. Confirm with `npm run check:bundle`, which exists
-to assert the mocks are absent from a live bundle.
-
-Until this is done, nothing else in this audit is observable, and a judge following the README sees a
-scripted demo.
-
-### 2. The seeded day was too small to plan (blocker, booklet-explicit)
-
-**Correction to the first draft of this audit:** `SEED_ON_START` *is* already `true` in
-`docker-compose.yml`. The seed does run. The real problem was the line next to it:
-`SEED_GENERATED_ORDERS: ${SEED_GENERATED_ORDERS:-false}`.
-
-Without the competition CSVs (git-ignored, absent from a fresh clone) the seed uses the PRD section 4c
-fallback, which is only **6 vehicles, 25 outlets and 24 pinned orders**. `seed/generated.py` exists to
-fill the day out to a realistic size, but it was off by default. So the planner had almost nothing to
-allocate and nothing to defer, which is why no efficient plan ever appeared.
-
-With `SEED_GENERATED_ORDERS=true`, a fresh `docker compose up` seeds **60 vehicles, 84 outlets and 274
-orders** (24 pinned + 250 generated), which is what the booklet means by "at least one realistic
-delivery day". With the CSVs present they supply the reference data and this flag does nothing.
+Sections 1 and 2 of the first draft (a mock build, a seed too small to plan) were withdrawn; see the
+corrected verdict above.
 
 ### 3. The first draft waits for a timed job
 
@@ -143,63 +122,32 @@ is already taken. The order stays deferred and still shows in the deferred pool,
 
 ## Verified after the fixes
 
-On a clean `docker compose down -v && docker compose up --build`, with no CSVs in `data/`:
+With `SEED_GENERATED_ORDERS=true` (the full-size day, opt-in), driving the real API: 212 orders queued
+at Peliyagoda; plan v1 drafted with 23 lanes, 29 trips, 134 stops and 17 deferrals whose reasons come
+from the constraints (ORD1020 "Van-only access: van_only and 1,250 kg"); released; the loader dock then
+showed 29 vehicles and the driver run VEH039 with 12 stops. Before the carry-over fix the 16:00 job
+returned 500 on that day. Through nginx, `POST /plan/redraft` took 11.3 s, 14.9 s and 18.8 s, which is
+why the 15 s client timeout failed it intermittently.
 
-```
-seed: reference: fallback (PRD 4c) + generated: 54 vehicles, 59 outlets
-seed: pinned: 24 orders      seed: generated_orders: peliyagoda 189, kandy 61
-```
-
-Then, driving only the real API as the dispatcher, loader and driver personas:
-
-| Step | Result |
-|---|---|
-| `GET /dispatcher/queue` before cutoff | 212 Peliyagoda, 62 Kandy, `closed=false` |
-| `POST /demo/advance` to 16:30 | cutoff job ran clean (was a 500 before fix 4) |
-| `GET /dispatcher/queue` after | `closed=true`, 212 confirmed |
-| `GET /dispatcher/plan` | **plan v1 drafted: 23 lanes, 29 trips, 134 stops, 17 deferred** |
-| `GET /dispatcher/deferrals` | "17 orders wait for Wed 30 Sep": 1 capacity, 16 policy |
-| a deferral's reason | `ORD1020` - "Van-only access: van_only and 1,250 kg" |
-| `POST /dispatcher/plan/release` | plan v1 released at Mon 16:31 |
-| `GET /loader/docks/peliyagoda` | planVersion 1, **29 vehicles to load** |
-| `GET /driver/runs/2026-09-29` | **VEH039, 12 stops**, planVersion 1 |
-
-The deferral reasons are derived from the constraints, not written by hand, which is the booklet's
-"decide which orders move to the next run and record the reason".
-
-Also confirmed both directions on the bundle: a default build still contains mock personas, and the
-live build does not (`npm run check:bundle`: "none of 14 forbidden literals are in dist/"). The
-running `web` container serves the live bundle.
-
-Note `GET /loader/docks/{dock}` already returns a `vehicles` list, so the extra loader endpoint
-proposed in earlier planning is not needed.
+On the default pinned day the Playwright walkthrough passes (19 of 19 locally).
 
 ## Bottom line
 
-This was a packaging and seeding failure, not a functionality failure. The allocation engine, the
-constraint rules, the offline outbox and the order lifecycle were all implemented and tested; they sat
-behind a build that never switched them on and a seeded day too small to plan.
+The rules, the planner, the offline outbox and the order lifecycle were built and correct. What made
+the app look inert was a client timeout shorter than a full-day draft, plus a uniqueness bug that only
+a large day exposes, plus a scenario clock that rolls the field apps onto the next day at noon.
 
-Four changes, on `fix/live-build-and-seed`:
+On `fix/live-build-and-seed`:
 
-1. `deploy/web/Dockerfile`: `ARG VITE_DATA_SOURCE=live` before `npm run build`.
-2. `docker-compose.yml`: pass that build arg, overridable with `VITE_DATA_SOURCE=mock`.
-3. `docker-compose.yml`: `SEED_GENERATED_ORDERS` defaults to `true`.
-4. `services/planning.py`: no colliding deferral carry-over copy.
+1. `services/planning.py`: no colliding deferral carry-over copy.
+2. `api/http`: a per-request `timeoutMs`, 120 s for the four planner routes.
+3. The dispatcher's queue gets a Draft plan button when the cutoff has closed and no plan exists.
+4. The e2e job pins `SEED_GENERATED_ORDERS=false` explicitly.
 
-Plus the on-demand **Draft plan** button on the dispatcher's queue (`QueueRoute.tsx`), so the first
-plan does not wait for the 16:05 job. That matches what `feature/dispatch-driver-fix` does; this
-branch carries its own copy because that branch is 21 commits behind `develop`.
+`docker-compose.yml` and `deploy/web/Dockerfile` are unchanged from `develop`.
 
 ### Still open
 
-- **The real CSVs are not in `data/`.** The generated fallback is a stand-in: "six story vehicles"
-  copied out to 60, and outlets invented around the pinned ones. For the submission the competition
-  CSVs should be dropped into `data/` so the 120 outlets and 60 vehicles are the real ones, and
-  `seed/checks.py` can validate them. The fallback is what makes a fresh clone work, not what the
-  judges should see if the CSVs are available.
-- **`SEED_GENERATED_ORDERS` only applies on the fallback path.** With CSVs present, order volume comes
-  from the CSVs; `generated.py` notes the `deliveries_train.csv` sampler is not written because the
-  column names are not in the repo. Worth confirming the CSV path produces a full day before Sunday.
-- The store, loader and driver manual entry points discussed separately are still worth doing, but
-  they were never the reason the system looked inert.
+- The real competition CSVs are not in `data/`; with them, `seed/checks.py` validates the reference data.
+- `deliveries_train.csv` order sampling is not written (`seed/generated.py` says so), so the CSV path
+  does not yet produce a full-size day of orders.

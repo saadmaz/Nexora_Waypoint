@@ -22,9 +22,18 @@ Sign in with any of these; the password for all of them is `waypoint-demo`:
 | Loader | `loader@waypoint.demo` | Peliyagoda dock tablet |
 | Driver | `driver@waypoint.demo` | Nimal, VEH039 |
 
-On a fresh database the seed loads **60 vehicles, 84 outlets and 274 orders** for Tue 29 Sep. Without
-the competition CSVs in `data/` these are the generated stand-ins (PRD section 4c plus
-`seed/generated.py`); with the CSVs present the real reference data is used instead.
+On a fresh database the seed loads the pinned scenario day for Tue 29 Sep: the six story vehicles and
+24 orders. That is the world the judge walkthrough is written against, so its named steps (ORD1007 onto
+VEH037 trip 2, ORD1020, ORD1017) work as the README describes.
+
+For the planner at full scale, start with `SEED_GENERATED_ORDERS=true`, which adds the generated day:
+60 vehicles, 84 outlets and 274 orders. The planner then builds a different plan, so the walkthrough's
+named moves no longer exist. Pick one: the walkthrough, or the big day.
+
+```bash
+SEED_GENERATED_ORDERS=true docker compose up --build   # full-size day
+docker compose up --build                              # the walkthrough's day
+```
 
 ## Pause the clock first
 
@@ -73,8 +82,8 @@ Ordered. The weight and volume are computed by the server from the outlet's own 
 the screen.
 
 **2. Dispatcher: close the cutoff.** The queue is read-only until 16:00. Use the presenter control
-("Go to next step") to move the clock past the cutoff. The queue then shows **212 Peliyagoda and 62
-Kandy orders** confirmed.
+("Go to next step") to move the clock past the cutoff. The queue then shows the day's confirmed orders:
+24 on the pinned day, or 212 Peliyagoda and 62 Kandy with `SEED_GENERATED_ORDERS=true`.
 
 **3. Dispatcher: draft the plan.** With the queue closed and no plan yet, a **Draft plan** button sits
 next to "Go to capacity board". Press it. The planner runs for real and you land on the trip board:
@@ -105,7 +114,7 @@ reconnect.
 ## Resetting
 
 The dispatcher's avatar menu has **Reset demo**. It truncates the operational tables and reseeds, so
-the clock returns to Mon 15:30 with the full 274-order day and no plan. Use it between runs.
+the clock returns to Mon 15:30 with the seeded day and no plan. Use it between runs.
 
 After a reset there is no plan, so the loader dock and the driver run are empty until you draft and
 release again. That is correct, not a regression.
