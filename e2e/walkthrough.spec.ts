@@ -11,7 +11,7 @@ test("0. the demo starts at the checkpoint, with the delivery day from the serve
   await reset(request);
   const c = await clock(request);
   expect(c.now.slice(11, 16)).toBe("15:30");
-  expect(c.rate).toBe(0); // the suite needs a clock that holds still between steps: run the API with CLOCK_RATE=0
+  expect(c.rate).toBe(0); // the suite needs a clock that holds still between steps, which is the CLOCK_RATE default
   expect(c.serviceDate > c.checkpoint.slice(0, 10)).toBe(true);
 });
 

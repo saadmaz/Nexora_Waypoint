@@ -39,7 +39,9 @@ services:
       SEED_ON_START: ${SEED_ON_START:-true}
       SEED_GENERATED_ORDERS: ${SEED_GENERATED_ORDERS:-false}
       DEMO_PASSWORD: ${DEMO_PASSWORD:-waypoint-demo}
-      CLOCK_RATE: ${CLOCK_RATE:-1}
+      # Held still, so the seeded day stays the active run however long the stack is up. The presenter's jumps run the
+      # due jobs. CLOCK_RATE=1 ticks in real time, and the queue empties when scenario time passes the service day's noon.
+      CLOCK_RATE: ${CLOCK_RATE:-0}
       SCENARIO_SERVICE_DATE: ${SCENARIO_SERVICE_DATE:-2026-09-29}
       JOB_LOOP: ${JOB_LOOP:-true}
       # The presenter controls, /demo/reset among them, which truncates the operational tables. Unset follows

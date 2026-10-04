@@ -175,3 +175,39 @@ def test_jobs_after_a_big_jump_run_in_time_order(client, auth, reseed):
         assert times == sorted(times)  # all on the evening of the 28th, so clock order is time order
         assert times[:2] == ["16:00", "16:05"]
         assert db.get(Clock, 1) is not None
+
+
+def test_drift_past_the_seeded_run_is_detected(client, auth, reseed, wall):
+    """A clock left ticking rolls the active run past the seeded day, and the dispatcher's queue goes empty.
+
+    The queue filters on the active run (``active_service_date``), which becomes the next operating day at noon, while
+    every seeded order is pinned to ``SCENARIO_SERVICE_DATE``. At rate 1 that is about 20 wall hours after the seed.
+    ``seed.run.drifted_past_run`` is what a restart uses to notice and start the demo again.
+    """
+    from app.db import SessionLocal
+    from seed.run import drifted_past_run
+
+    def rows() -> int:
+        res = client.get("/api/v1/dispatcher/queue", params={"depot": "peliyagoda"}, headers=auth("dispatcher"))
+        assert res.status_code == 200, res.text
+        return int(res.json()["total"])
+
+    with SessionLocal() as db:
+        _anchor(db, 1.0)
+        assert not drifted_past_run(db)
+    seeded = rows()
+    assert seeded > 0, "the seeded run should have orders before the clock drifts"
+
+    # Tue 12:00 is the moment the active run becomes Wed's, and the seeded day stops being anyone's run.
+    wall.tick(hours=21)
+    with SessionLocal() as db:
+        assert clock.now(db) > datetime.fromisoformat("2026-09-29T12:00:00+05:30")
+        assert drifted_past_run(db)
+    assert rows() < seeded, "a drifted clock empties the queue against an intact database"
+
+    # Back at the checkpoint, the seeded day is the active run again.
+    with SessionLocal() as db:
+        clock.set_to_checkpoint(db)
+        db.commit()
+        assert not drifted_past_run(db)
+    assert rows() == seeded

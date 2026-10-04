@@ -8,7 +8,7 @@ import { defineConfig, devices } from "@playwright/test";
  *
  * Against a local build instead: E2E_BASE_URL=http://localhost:4173 E2E_API_URL=http://localhost:8000 npm test
  *
- * The steps share one database and one scenario clock, so they run in order, one at a time. Run the API with CLOCK_RATE=0 so
+ * The steps share one database and one scenario clock, so they run in order, one at a time. The API's CLOCK_RATE must be 0 (its default) so
  * the clock moves only when a step moves it (the default of 1 would let real time pass between steps).
  */
 export default defineConfig({

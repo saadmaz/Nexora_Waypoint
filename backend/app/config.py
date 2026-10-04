@@ -49,8 +49,14 @@ class Settings(BaseSettings):
     #: day is the operating day before it, and the clock starts there at 15:30 Asia/Colombo. Must be an operating day.
     scenario_service_date: date = date(2026, 9, 29)
 
-    #: Scenario seconds per wall second: 1 is real time, 0 is paused, 60 is a minute a second (DP-26).
-    clock_rate: float = 1.0
+    #: Scenario seconds per wall second: 1 is real time, 0 is held still, 60 is a minute a second (DP-26).
+    #:
+    #: Held still by default. Every seeded order is pinned to ``scenario_service_date``, and the dispatcher's queue is
+    #: the *active* run, which rolls to the next operating day at noon. At rate 1 that happens about 20 hours after the
+    #: seed, and from then on a cold open shows an empty queue instead of the seeded day. The presenter's jumps run the
+    #: due jobs themselves, so a held clock loses no part of the walkthrough; set ``CLOCK_RATE=1`` to watch countdowns
+    #: move in real time, and reset within the day.
+    clock_rate: float = 0.0
     #: Run the due jobs on a timer inside the API process. Off in tests, which drive the clock themselves.
     job_loop: bool = True
     job_loop_seconds: float = 5.0
