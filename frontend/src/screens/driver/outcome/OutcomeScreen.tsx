@@ -243,6 +243,7 @@ export function OutcomeScreen({ connectivityOverride, stopIdOverride, subviewOve
     </OfflineBanner>,
   );
 
+  const sameOutcomeLabel = stop.orders.length === 2 ? t("outcome.sameOutcome") : t("outcome.sameOutcomeAll", { count: stop.orders.length });
   const needsProofChosen = sameOutcome ? stopOutcome === "Delivered" || stopOutcome === "Damaged" : stop.orders.some((o) => {
     const oc = orderDraft(stop, o.id).outcome;
     return oc === "Delivered" || oc === "Damaged";
@@ -330,8 +331,8 @@ export function OutcomeScreen({ connectivityOverride, stopIdOverride, subviewOve
     >
       {stop.orders.length > 1 && (
         <div className={styles.switchRow}>
-          <span className={styles.label}>{t("outcome.sameOutcome")}</span>
-          <FieldSwitch checked={sameOutcome} onCheckedChange={setSameOutcome} label={t("outcome.sameOutcome")} />
+          <span className={styles.label}>{sameOutcomeLabel}</span>
+          <FieldSwitch checked={sameOutcome} onCheckedChange={setSameOutcome} label={sameOutcomeLabel} />
         </div>
       )}
 

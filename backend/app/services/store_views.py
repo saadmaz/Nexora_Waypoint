@@ -214,7 +214,9 @@ def load_facts(db: Session, outlet: reference.Outlet, orders: list[om.Order]) ->
         for a in db.scalars(select(AuditEvent).where(AuditEvent.entity_type == "exception", AuditEvent.type == AuditType.ISSUE_REPORTED, AuditEvent.entity_id.in_([str(e.id) for e in facts.issues]))):
             facts.issue_photo[int(a.entity_id)] = bool((a.payload or {}).get("photo"))
 
-    vehicles = {p.vehicle_id for p in facts.placed.values()}
+    # The vehicles carrying the orders, and the ones that delivered them: a stop deferred after the truck left is on no trip
+    # in the latest plan, but its proof still names the driver (S3.1).
+    vehicles = {p.vehicle_id for p in facts.placed.values()} | {r.vehicle_id for r in facts.outcomes.values() if r.vehicle_id}
     if vehicles:
         facts.drivers = {d.vehicle_id: d.name for d in db.scalars(select(people.Driver).where(people.Driver.vehicle_id.in_(vehicles)))}
         facts.depots = {v.id: v.depot_id for v in db.scalars(select(reference.Vehicle).where(reference.Vehicle.id.in_(vehicles)))}

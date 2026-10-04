@@ -67,7 +67,7 @@ function SampleCard(props: { icon: ReactNode; title: string; sub: string | undef
       </div>
       {props.sub && <span className={styles.small}>{props.sub}</span>}
       <div className={styles.figure}>{props.figure}</div>
-      <Meter value={props.used} max={props.limit} tone="route" />
+      <Meter value={props.used} max={props.limit} tone="route" label={props.title} />
       {props.notes.map((n) => (
         <span key={n} className={styles.small}>
           {n}

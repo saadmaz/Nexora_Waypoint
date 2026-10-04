@@ -120,7 +120,9 @@ export function StopScreen({ connectivityOverride, forceSaveError, forceJustSave
     <>
       <h3 className={styles.subheading}>{t("stop.unloading")}</h3>
       <p className={styles.body}>
-        {t("stop.unloadingNote", { dock: dockLabel(stop.dock), parking: stop.parkingNote ?? "", minutes: stop.unloadMinutes ?? 15 })}
+        {stop.parkingNote
+          ? t("stop.unloadingNote", { dock: dockLabel(stop.dock), parking: stop.parkingNote, minutes: stop.unloadMinutes ?? 15 })
+          : t("stop.unloadingNoteNoParking", { dock: dockLabel(stop.dock), minutes: stop.unloadMinutes ?? 15 })}
       </p>
     </>
   );
@@ -301,7 +303,7 @@ export function StopScreen({ connectivityOverride, forceSaveError, forceJustSave
             <span className={styles.statValue}>
               {t("stop.windowOpened")} <Mono>{stop.window.open}</Mono>
             </span>
-            <span className={styles.statLabel}>{t("stop.waited", { minutes: Math.max(0, minutesBetween(arrivalTime, stop.window.open)) })}</span>
+            <span className={styles.statLabel}>{minutesBetween(arrivalTime, stop.window.open) > 0 ? t("stop.waited", { minutes: minutesBetween(arrivalTime, stop.window.open) }) : t("stop.noWait")}</span>
           </div>
         </div>
         {ordersSection}

@@ -175,15 +175,33 @@ See [the v3 data model](docs/data-model.md) and [database validation](docs/datab
 
 ## 🎯 Judge Walkthrough
 
-The complete workflow can be demonstrated using the seeded accounts:
+The demo is one Tuesday morning of deliveries, played across the four roles. Every step below is played in a real browser by `e2e/` on each push.
 
-1. **Store Manager** → Create an order
-2. **Dispatcher** → Plan and allocate deliveries (steps in [Dispatcher](#-dispatcher-waypoint-dispatch))
-3. **Loader** → Load the assigned vehicle
-4. **Driver** → Complete the delivery
-5. **Store Manager** → Confirm receipt
+**Accounts.** All four use the password `waypoint-demo`: `store@waypoint.demo`, `dispatcher@waypoint.demo`, `loader@waypoint.demo`, `driver@waypoint.demo`. Open `/start` to sign in as each role in its own tab. The loader enters a PIN for each action: **Priya `1234`** at Peliyagoda, **Ruwan `5678`** at Kandy. Use phone width for the store, loader and driver, and a laptop for Dispatch.
 
-See the deployed application and `/docs` for the full walkthrough.
+| # | Clock | Who | Do this | You should see |
+|---|---|---|---|---|
+| 1 | Mon 15:40 | Store | Orders tab: Chilled 12, Dry 8, review, **Place orders** | "Received 15:40", "Counts for Tue 29 Sep", "You can edit until 16:00" |
+| 2 | 15:40 | Dispatcher | Queue, Kandy | ORD2001 and ORD2002 under OUT084, still Ordered |
+| 3 | Go to 16:05 | (the system) | Nothing to press | The 16:00 cutoff closes the queue and plan v1 is drafted; the store sees "Confirmed" |
+| 4 | 16:06 | Dispatcher | Trips, Peliyagoda: drag **ORD1007** to **VEH037 trip 2**, then **ORD1016** to **VEH037 trip 1**, then **ORD1001** to the pool | Each refusal names every rule it breaks: over volume and "arrives 11:54, after OUT015 closes at 11:00"; "needs a reefer" and "two brands on one trip"; "OUT012 was deferred yesterday; the continuity guard protects it" |
+| 5 | 16:06 | Dispatcher | Deferrals: open **ORD1020** (capacity) and **ORD1017** (policy) | Type, what binds it, impact on the store, what it frees, next run |
+| 6 | Go to 23:35 | Dispatcher | **Release plan** (it is ready to release; the release itself is yours) | Plan v3 released; each dock waits for its acknowledgement; the store sees an arrival time |
+| 7 | Tue 00:10, then 02:55 | Loader, Peliyagoda | At 00:10 acknowledge v3 with PIN `1234`. At 02:55 open VEH003, **Flag issue**, **Vehicle check failed** | The dock shows acknowledged; then VEH003 is **Held** and Dispatch has a decision to make |
+| 8 | 03:00 | Dispatcher | Open the exception in the inbox and accept the swap | Plan v4: VEH036 stands in for VEH003 |
+| 9 | 03:04 | Loader, Peliyagoda | Review what changed, acknowledge v4 (`1234`), load VEH036, confirm the gate | The changes screen names VEH036; the vehicle shows loaded |
+| 10 | Go to 04:10 | Loader, Kandy | Switch dock to Kandy, acknowledge v4 (`5678`), load VEH039, confirm the gate | The dock shows acknowledged; the driver will see "Confirmed by Ruwan · 04:50" |
+| 11 | 05:00 to 05:10 | Driver | Acknowledge v4 (two taps), then **Start route** | "Departed"; the store's delivery says it is on the way |
+| 12 | Go to 05:19 | Driver | Nothing: the phone drops off the network (or turn on **Simulate offline** in the outbox sheet) | "Offline · last sync"; Dispatch sees the vehicle as unknown while offline |
+| 13 | 05:21 | Dispatcher | Live board: **Defer stop** OUT084, reason store request | The dialog warns the driver is offline; plan v5; the driver still holds v4 |
+| 14 | Go to 05:30 | Driver (offline) | Arrive at OUT084, wait for 05:30, **Record outcome**: Delivered, photo, receiver S. Fernando; then OUT087, receiver M. Perera | The outbox counts 1, 3, then 5 waiting |
+| 15 | Go to 06:40 | Driver | Network returns; open the run | "3 synced · 1 stop (2 orders) sent for review"; the store sees **Under review** |
+| 16 | 06:44 | Dispatcher | Inbox, the reconciliation, **keep delivery** | The driver gets a notice; the store sees Delivered and the deferral withdrawn |
+| 17 | Go to 07:31 | Store | Bell, Updates; open the delivery, check the proof, **Confirm receipt** | The updates feed tells the whole story, and Dispatch sees the receipt |
+| 18 | 07:31 | Driver | **Finish run** | The run lands in History |
+| 19 | any | Anyone | Presenter control: **Reset demo** | Back to Monday 15:30 |
+
+Branches worth showing: a shortfall (keep 10 of 12 at step 16), editing or cancelling an order before 16:00, an order after the cutoff, a road problem from the driver. A driver is told "sent for review", never "conflict", and a store never sees the word either.
 
 **The clock.** Scenario time starts at 15:30 the day before the delivery day and **ticks in real time**, so countdowns and
 "last heard" ages move on their own, and the 16:00 cutoff and the 16:05 draft happen when the clock reaches them. You do not
@@ -198,6 +216,8 @@ departure DP-26 in `waypoint-prd-v3.md`.
 CLOCK_RATE=0 docker compose up --build -d
 cd e2e && npm ci && npx playwright install chromium && npm test
 ```
+
+More: [architecture](docs/architecture.md), [API reference](docs/api.md), [data model](docs/data-model.md), [AI disclosure](docs/ai-disclosure.md).
 
 ---
 
@@ -1189,8 +1209,8 @@ npm run compare -- driver R1.1 R3.1   # frame screenshots beside Figma (needs th
 npm run test:hero        # the hero path end to end against a running dev server (see "Checks run")
 npm run test:hero -- --partial   # the same, ending with the presenter's "Keep as Partial (10 of 12)"
 npm test                 # vitest, 55 tests
-npm run build && npm run preview   # then, in another terminal:
-npm run test:offline -- --base http://localhost:4173   # the production build opens with no network
+VITE_API_BASE=http://localhost:8000 npm run build && npm run preview   # then, in another terminal (the API on :8000, :4173 in CORS_ORIGINS):
+npm run test:offline -- --base http://localhost:4173   # the production build works with no network, then syncs
 ```
 
 Add `?presenter=1` to any driver URL to get the presenter controls in the Outbox sheet (see "The Outbox").
@@ -1272,7 +1292,7 @@ R8.1 (`notices/NotificationsScreen.tsx`, route `/driver/notifications`) lists on
 
 ### Real devices, the service worker and the iOS note (driver prompt 4, O6)
 
-- **Offline after one visit.** The production build registers a service worker (`vite-plugin-pwa`). `npm run test:offline` checks it: after one visit it sets the browser offline, reloads, and checks that the cached run is on screen, that a departure recorded offline survives a reload, and that the Me tab shows storage used. This passes on desktop Chromium.
+- **Offline after one visit.** The production build registers a service worker (`vite-plugin-pwa`). `npm run test:offline` checks it against the real API (a production build runs nothing else): after one visit it sets the browser offline, reloads, and checks that the cached run is on screen, that a departure recorded offline survives a reload and has not reached the server, that the Me tab shows storage used, and that once the network returns the departure reaches the server. It resets the demo first. This passes on desktop Chromium.
 - **Storage.** `startFieldRuntime` asks `navigator.storage.persist()` at first run; the browser decides, and desktop Chromium usually says no for a new origin. The Me tab shows "N MB used" from `navigator.storage.estimate()`.
 - **iOS has no Background Sync API.** Safari on iPhone will not wake the app to send records. Syncing happens only while the app is open: on the `online` event, on the 30 s timer, and on "Send now". A driver who records a stop in a dead zone and closes the app sends nothing until the app is opened again with coverage. The app does not register a background sync on Android either, so it behaves the same way there.
 - **The physical-phone check has not been done.** It needs a person with a phone. Checklist, on a production build served over HTTPS (`npm run build`, then any HTTPS host):
@@ -1440,17 +1460,18 @@ Every role runs on its mock by default. Each can be switched to the real backend
 
 ### Flags
 
-All are read at build time and every one defaults to `mock` in development. Set them in the shell that starts Vite (or in `frontend/.env.local`, which is git-ignored).
+All are read at build time. Set them in the shell that starts Vite, in `frontend/.env.local` (git-ignored), or in the host's build variables.
 
-**A production build is always on the database.** `frontend/.env.production` (committed, no secrets) sets the five `VITE_<ROLE>_API` flags to `api`, so `npm run build`, the Docker web image and any static host serve every role from the API. Nothing in a deployed build reads a mock. A static host with no `/api` proxy (Cloudflare Pages or Workers assets) must also set `VITE_API_BASE` at build time to the API's origin and add the site's origin to the API's `CORS_ORIGINS`; behind the Docker nginx the default (same origin) is right.
+**One switch: `VITE_DATA_SOURCE`.** `live` puts every role on the database through the API; `mock`, unset or any other value puts every role on the in-browser mocks, so **mock is the fallback**. A per-role flag (`VITE_<ROLE>_API`, `VITE_AUTH_API`) overrides it for that role only. `frontend/.env.production` (committed, no secrets) sets `VITE_DATA_SOURCE=live`, so `npm run build`, the Docker web image and any static host serve the database; a host's build variable or the shell can still set `mock`. A live build leaves the mocks out of the bundle (`npm run check:bundle`). A static host with no `/api` proxy (Cloudflare Pages or Workers assets) must also set `VITE_API_BASE` at build time to the API's origin and add the site's origin to the API's `CORS_ORIGINS`; behind the Docker nginx the default (same origin) is right.
 
 | Variable | Values | What it switches |
 |---|---|---|
-| `VITE_AUTH_API` | `mock` (default), `api` | Sign-in and sessions: `apiAuthApi` instead of the mock |
-| `VITE_STORE_API` | `mock` (default), `api` | `StoreApi`: `createApiStoreApi` instead of the mock. `?state=` and `?preset=` do nothing in `api` |
-| `VITE_DRIVER_API` | `mock` (default), `api` | `DriverApi` and the driver's sync handlers |
-| `VITE_LOADER_API` | `mock` (default), `api` | `LoaderApi` and the loader's sync handlers |
-| `VITE_DISPATCHER_API` | `mock` (default), `api` | `DispatcherApi`: `createHttpDispatcherApi` instead of the mock, plus the server's scenario clock and the presenter control's `/demo` routes. `?state=`, `?preset=`, `?at=` and `?date=` do nothing in `api` |
+| `VITE_DATA_SOURCE` | `mock` (default), `live` | Every role at once: `live` reads and writes the database, `mock` uses the in-browser mocks |
+| `VITE_AUTH_API` | unset (follows `VITE_DATA_SOURCE`), `mock`, `api` | Sign-in and sessions: `apiAuthApi` instead of the mock |
+| `VITE_STORE_API` | unset (follows `VITE_DATA_SOURCE`), `mock`, `api` | `StoreApi`: `createApiStoreApi` instead of the mock. `?state=` and `?preset=` do nothing in `api` |
+| `VITE_DRIVER_API` | unset (follows `VITE_DATA_SOURCE`), `mock`, `api` | `DriverApi` and the driver's sync handlers |
+| `VITE_LOADER_API` | unset (follows `VITE_DATA_SOURCE`), `mock`, `api` | `LoaderApi` and the loader's sync handlers |
+| `VITE_DISPATCHER_API` | unset (follows `VITE_DATA_SOURCE`), `mock`, `api` | `DispatcherApi`: `createHttpDispatcherApi` instead of the mock, plus the server's scenario clock and the presenter control's `/demo` routes. `?state=`, `?preset=`, `?at=` and `?date=` do nothing in `api` |
 | `VITE_API_BASE` | an origin, no trailing slash | Where the API is. Unset: `http://localhost:8000` in `npm run dev`, the same origin in a production build (nginx proxies `/api` in Docker) |
 
 The two field roles share one transport. With neither on `api` nothing changes. With either on `api`, `startFieldRuntime()` installs a routing transport that sends each operation to the real `fetch` transport only when that operation's own role is on `api`, and to the mock otherwise, so a loader on the API and a driver on the mock can share a page.
@@ -1483,7 +1504,8 @@ CORS_ORIGINS='["http://localhost:8080","http://localhost:5173","http://localhost
 | `npm run test:api-roles -- --base http://localhost:5192` | the API (with `:5192` in `CORS_ORIGINS`), the app with all four flags | Each role's first screen read goes to the real route with that role's own token; the transport gets a live 200 from `/me`, the server's own 404 from `driver.getRun` while no plan is released, hands a record to `/sync`, and makes no request offline (run it on a freshly seeded database) |
 | `npm run test:api-dispatcher -- --base http://localhost:5173` | the API, the app with `VITE_AUTH_API=api VITE_DISPATCHER_API=api` | All 20 dispatcher operations: 401 with no token, 403 with a driver token, the typed 501 with a dispatcher token (or the real answer, compared with the mock's view, for a route that has landed); the same 20 through the app's client; the 501 on each of the nine screens' own error states; offline and recovery on the live board; the presenter control against `/demo/advance` and `/demo/reset`; a rejected token. It resets the demo at the end |
 | `npm run test:api-sync` | the API (`docker compose up -d --build db api`); no app | The offline path over HTTP: the gate confirmation, the phone's start, a store-request deferral at 05:21, then a 06:40 sync on the old plan that comes back accepted plus one conflict per deferred stop; the same batch again is all duplicate; the photo uploads once; D7 recommends and keeps the delivery; a dock acknowledgement of the replaced plan is a conflict. ORD2001 + ORD2002 are placed by the store, so until `POST /store/orders` lands it defers the first stop of VEH039 trip 1 instead and skips the board checks. It resets the demo at the start and the end |
-| `npm run test:hero`, `npm run test:offline` | the app in mock mode | The mock path is unchanged |
+| `npm run test:hero` | the app in mock mode (`npm run dev`) | The mock path is unchanged |
+| `npm run test:offline -- --base http://localhost:4173` | the API, and a production build with `VITE_API_BASE=http://localhost:8000` in `npm run preview` | The shipped build works offline after one visit and its offline record reaches the server once back online. It resets the demo first |
 
 ### What the backend answers today (3 Oct)
 
