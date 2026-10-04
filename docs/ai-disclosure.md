@@ -1,8 +1,10 @@
 # AI disclosure
 
-Waypoint was built with AI coding assistants. This file is the single place we say where and how, as the Challenge Booklet asks and as `Contributing.md` §19 and §24 require. There are no "Mock data" chips or AI badges on any screen; the disclosure lives here, in the Figma AI disclosure page (F17), in the README and in the submission video.
+Waypoint was built with AI coding assistants. This file is the single place we say where and how, as the Challenge Booklet asks and as `Contributing.md` §29 requires. There are no "Mock data" chips or AI badges on any screen; the disclosure lives here, in the Figma AI disclosure page (F17), in the README and in the submission video.
 
 Add a line to the table below when an AI tool does a meaningful part of your pull request. One row per branch; add to it, do not replace another branch's row. Keep it factual: what it wrote, what you checked.
+
+The rows are a dated build log, oldest first. A row describes the code on its date: where an early row says a route was still 501 or a client was proven against a stub, a later row records that it was built and checked. Read them in order.
 
 ## What AI did, and what a person checked
 
@@ -30,6 +32,8 @@ Add a line to the table below when an AI tool does a meaningful part of your pul
 | 4 Oct | Offline sync hardening (`fix/offline-sync-clock`): a race when one phone syncs from two tabs at once, `test:offline` against the real API | Claude Code (Claude Opus 5.5) | The fix in `backend/app/services/sync.py`, `tests/api/test_sync_resilience.py` (5 tests), the rewritten `scripts/driver-offline-shell.ts` and README rows | A person set the goal and reviewed the result. The full backend suite (493) and frontend checks (307 unit tests), `test:hero` (mock), `test:offline` and `test:api-sync` against the API in Docker, and the offline record reaching the server in the browser in API mode |
 | 4 Oct | Store contract fixes (`feature/store-live-checks`): the four breaks the live scripts found, and the tests that hold them | Claude Code (Claude Opus 5) | `waypoint_rules/receipts.py` (new, the A50 shortfall rule), `ReviewOut` with `asked` in `schemas/store.py`, `services/store_views.py` (`stamp()` with the Colombo offset, the A51 gate, the run and driver found by the vehicle on the driver's record), `services/store_writes.py` (the receipt refusals), the `asked` flag through `domain/delivery.ts`, `storeMappers.ts`, `mockDeliveries.ts`, `DeliveriesPage.tsx` and `ReceiptPage.tsx`, a regenerated `schema.ts`, and `tests/api/test_store_contract.py` (13 tests) plus `tests/rules/test_receipts.py` (5) | A person set the scope from the live-script failures and reviewed each step. The fix for `askedAt` changed an existing assertion in `test_store_field.py` from 06:40 to 05:21: PRD Q2, H10 and the "Why you're seeing this" copy all make it the store's own call to hold the delivery, so the old value was the bug, not the new one. ruff, mypy, one Alembic head, the full backend suite, frontend lint, typecheck, build and 293 unit tests all pass |
 
+| 4 Oct | Security hardening (`feature/security-hardening`): the seven P0 findings of the architecture audit, and the roadmap for the rest | Claude Code (Claude Opus 5) | `services/sync.py` (the delivery scope guard), `GET /attachments/{id}` with byte-level type checks in `services/attachments.py`, the gated demo router in `routers/shared.py` and `main.py`, migration `0005` (order id sequence, partial unique index) with `services/store_writes.py` (sequence ids, 409 on conflict, `Idempotency-Key`), the catch-all handler and request id in `errors.py`, `app/logs.py` (new), split `/health/live` and `/health/ready`, a regenerated `schema.ts`, `tests/api/test_p0_hardening.py` (21 tests) and `docs/security-hardening.md` | A person supplied the audit, chose the scope and settled the one real conflict it raised: the audit asked for a unique index on live orders, which the generated day (A41) deliberately breaks by giving an outlet about four, so the index covers store-placed orders only and the migration says why. Three existing tests changed: the queue test moved off OUT001 (ORD1020-R, the policy deferral re-run, already holds OUT001 chilled on 30 Sep, and `place()` refuses that order for the same reason), the empty-attachment test now expects 415 rather than 422, and the route contract gained the three new routes. EXIF stripping and S3 signed URLs were left out on purpose, with the reason in the document. ruff, mypy, one Alembic head, the full backend suite, frontend lint, typecheck and build all pass |
+
 ## Invented data
 
 PRD §4d is the full register. Every figure, time and name the Day 5 design did not give us was invented or inferred and is listed there (A1 to A58). The competition CSVs supply the real reference data: outlets, vehicles, the calendar, district travel, service allowances and traffic speeds.
@@ -49,5 +53,5 @@ The driver app offers Sinhala and Tamil (R1.9). Those strings are a machine draf
 ## What AI did not do
 
 - No rule, constraint or refusal message was invented by a tool. They come from the Challenge Booklet and live in `backend/waypoint_rules`.
-- No competition CSV row was pasted into an AI tool (`Contributing.md` §19).
+- No competition CSV row was pasted into an AI tool (`Contributing.md` §29).
 - Nothing in the Figma file was created, moved, renamed or edited; it is read-only to us now.

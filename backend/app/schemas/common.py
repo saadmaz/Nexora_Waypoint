@@ -15,6 +15,16 @@ class HealthOut(ApiModel):
     status: str = "ok"
 
 
+class ReadyOut(ApiModel):
+    """``GET /health/ready``: whether this process should be sent traffic, and why not when it should not."""
+
+    status: str = "ok"
+    #: Seconds since the job loop last finished a tick, or null when the loop is not running in this process.
+    job_lag_seconds: float | None = None
+    #: Set when ``status`` is not ``ok``: ``database``, ``job_loop``.
+    failing: list[str] = Field(default_factory=list)
+
+
 class LoginIn(ApiModel):
     email: str
     password: str
