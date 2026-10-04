@@ -179,7 +179,9 @@ const en: Dict = {
   "run.downloadFailedTitle": "Route didn't download",
   "run.downloadFailedBody": "Connect before you leave the depot - the route must be on this phone.",
   "run.downloadedCount": "Downloaded",
-  "run.callDispatch": "Call Dispatch",
+  "run.callDispatch": "Ask Dispatch to call",
+  "run.callDispatchRoute": "Please call me. My route didn't download.",
+  "run.callDispatchSync": "Please call me. My records won't sync.",
   "run.dispatchDesk": "Peliyagoda dispatch desk",
   "run.startRouteLocked": "Locked until your route is on this phone.",
   "run.startRouteHelper": "This records your departure and starts tracking distance. Works offline.",
@@ -239,8 +241,7 @@ const en: Dict = {
   "stop.subtitleOnline": "{district}",
   "stop.loadingTitle": "Stop",
 
-  "action.callStore": "Call store",
-  "action.callStoreNone": "No store number on file",
+  "action.cantReachStore": "Can't reach the store",
 
   "outcome.title": "Deliver · Stop {number}",
   "outcome.sameOutcome": "Same outcome for both orders",

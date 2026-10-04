@@ -5,6 +5,7 @@ import type { ConflictView, ConflictResolution } from "../../../api/DispatcherAp
 import { ApiError } from "../../../api/DispatcherApi";
 import { Mono } from "../../../shared/ui/Mono";
 import { useToast } from "../../../shared/ui/useToast";
+import { useContact } from "../useContact";
 import { AppBar } from "../chrome/AppBar";
 import { PageHeader } from "../chrome/PageHeader";
 import { ROUTES } from "../chrome/routes";
@@ -33,6 +34,7 @@ export function ConflictRoute() {
   const { id = "c1" } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
+  const contact = useContact();
   // Kandy is where the conflict lives, whichever depot the dispatcher had open.
   const load = useLoad(() => api.getConflict(id), [id], 5_000);
   const view = load.data;
@@ -104,7 +106,7 @@ export function ConflictRoute() {
       />
     );
   } else if (view) {
-    body = <Body view={view} busy={busy || offline} failed={failed} onAsk={ask} onResolve={resolve} onBack={back} onCall={() => toast.show(`Calling ${view.outletId}...`)} />;
+    body = <Body view={view} busy={busy || offline} failed={failed} onAsk={ask} onResolve={resolve} onBack={back} onCall={() => void contact({ to: "store", outletId: view.outletId, about: "the delivery under review" })} />;
   }
 
   const resolved = view?.state === "resolved";
@@ -335,7 +337,7 @@ function Body({ view, busy, failed, onAsk, onResolve, onBack, onCall }: BodyProp
           <>
             {reported ? (
               <Btn variant="secondary" icon={<Phone size={16} />} onClick={onCall}>
-                Call store
+                Ask store to call
               </Btn>
             ) : (
               <Btn variant="secondary" icon={<Store size={16} />} disabled={busy} onClick={onAsk}>

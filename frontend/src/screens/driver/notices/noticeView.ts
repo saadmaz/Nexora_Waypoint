@@ -16,6 +16,7 @@ const CATEGORY: Record<DriverNoticeKind, Category> = {
   plan_received: "run",
   orders_on_board: "run",
   plan_released: "run",
+  call_request: "dispatch",
 };
 
 export type NoticeTone = "success" | "danger" | "review" | "route" | "offline";
@@ -29,6 +30,7 @@ const LOOK: Record<DriverNoticeKind, { icon: IconName; tone: NoticeTone }> = {
   plan_received: { icon: "route", tone: "route" },
   orders_on_board: { icon: "check", tone: "success" },
   plan_released: { icon: "route", tone: "route" },
+  call_request: { icon: "phone", tone: "review" },
 };
 
 export function noticeLook(notice: DriverNotice): { icon: IconName; tone: NoticeTone } {

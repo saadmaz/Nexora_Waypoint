@@ -26,7 +26,7 @@ export type FlagSubmit = {
   photo?: File;
 };
 
-export type FlagPrefill = { type?: ExceptionType; orderId?: string; unitsShort?: number; reason?: string };
+export type FlagPrefill = { type?: ExceptionType; orderId?: string; unitsShort?: number; reason?: string; note?: string };
 
 /** The "Sent to Dispatch" sheet (L3.3). */
 export type FlagSentModel = {
@@ -80,7 +80,7 @@ export function FlagSheet(props: FlagSheetProps) {
   const firstOrder = props.orders[0]?.orderId;
   const [orderId, setOrderId] = useState<string | undefined>(props.prefill?.orderId ?? firstOrder);
   const [units, setUnits] = useState<number>(props.prefill?.unitsShort ?? 1);
-  const [note, setNote] = useState("");
+  const [note, setNote] = useState(props.prefill?.note ?? "");
   const [photo, setPhoto] = useState<File | undefined>();
 
   const chosenOrder = props.orders.find((o) => o.orderId === orderId);

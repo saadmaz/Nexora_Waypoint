@@ -466,7 +466,7 @@ function HeldView({ departsAt, heldReason, heldGoTo, rows, onCallDispatch }: Loa
       ))}
       <div className={styles.pinnedPlain}>
         <Button variant="secondary" icon="phone" onClick={onCallDispatch}>
-          Call Dispatch
+          Ask Dispatch to call
         </Button>
         <p className={styles.pinnedHelper}>Peliyagoda dispatch desk</p>
         <p className={styles.pinnedHelper}>Dispatch decides what happens next</p>

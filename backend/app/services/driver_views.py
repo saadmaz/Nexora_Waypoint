@@ -66,8 +66,11 @@ def notice_kind(tag: str, refs: dict[str, Any]) -> str | None:
     """The driver app's notice kind for a stored notice, or None for one the phone has no screen for.
 
     ``Plan`` is a release. ``Change`` is a later version that changed this run (a deferred stop, a swapped trip), which
-    the phone shows as a plan released. ``Review`` with a conflict is Dispatch's decision on it.
+    the phone shows as a plan released. ``Review`` with a conflict is Dispatch's decision on it. A notice marked
+    ``refs.kind == "contact"`` is Dispatch asking the driver to call back (``services/contact.py``).
     """
+    if refs.get("kind") == "contact":
+        return "call_request"
     if tag == "Review" and refs.get("conflictId") is not None:
         return "resolved"
     if tag in ("Plan", "Change"):

@@ -779,6 +779,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dispatcher/contact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Contact Someone
+         * @description D5, D7 "Call": a call-back request in the store's updates, the driver's notifications or on the dock.
+         */
+        post: operations["contact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/loader/docks/{dock}": {
         parameters: {
             query?: never;
@@ -1437,6 +1457,40 @@ export interface components {
             recommendation: components["schemas"]["ConflictRecommendationView"];
             resolved?: components["schemas"]["ConflictResolved"] | null;
         };
+        /**
+         * ContactIn
+         * @description Ask someone to call Dispatch back. The dataset has no phone numbers and none is invented (Contributing §29).
+         */
+        ContactIn: {
+            /**
+             * To
+             * @enum {string}
+             */
+            to: "store" | "driver" | "dock";
+            /** Outletid */
+            outletId?: string | null;
+            /** Vehicleid */
+            vehicleId?: string | null;
+            /** Depot */
+            depot?: ("peliyagoda" | "kandy") | null;
+            /** About */
+            about?: string | null;
+        };
+        /** ContactOut */
+        ContactOut: {
+            /**
+             * To
+             * @enum {string}
+             */
+            to: "store" | "driver" | "dock";
+            /** Recipient */
+            recipient: string;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+        };
         /** Continuity */
         Continuity: {
             /** Protected */
@@ -1827,6 +1881,28 @@ export interface components {
             acknowledgedBy?: string | null;
             /** Acknowledgedat */
             acknowledgedAt?: string | null;
+            /**
+             * Requests
+             * @default []
+             */
+            requests: components["schemas"]["DockRequestOut"][];
+        };
+        /**
+         * DockRequestOut
+         * @description A call-back request from Dispatch (``POST /dispatcher/contact``), shown as a banner on L1.
+         */
+        DockRequestOut: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Body */
+            body: string;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
         };
         /**
          * DockType
@@ -2611,6 +2687,8 @@ export interface components {
              * @enum {string}
              */
             depot: "peliyagoda" | "kandy";
+            /** Orderid */
+            orderId?: string | null;
         };
         /** NotifyDeferralsOut */
         NotifyDeferralsOut: {
@@ -6699,6 +6777,84 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ExceptionView"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    contact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContactIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactOut"];
                 };
             };
             /** @description Unauthorized */

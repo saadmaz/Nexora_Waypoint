@@ -123,6 +123,7 @@ export function mapDock(out: Schemas["DockOut"], dockId: DepotId, local: LocalLo
     acknowledgement,
     newerVersionExists: acknowledgement !== undefined && acknowledgement.version < out.planVersion,
     vehicles: summaries,
+    ...(out.requests?.[0] ? { dispatchRequest: { title: out.requests[0].title, body: out.requests[0].body, at: hhmm(out.requests[0].at) } } : {}),
   };
 }
 
