@@ -8,6 +8,18 @@ Read `Contributing.md` first (sections 2, 8, 9, 17, 18, 19, 24, 29) and `waypoin
 touch shared contracts (section 18): the API contract, `waypoint_rules`, `frontend/src/domain`. Each task
 below says when it does, and that needs a note in the PR description.
 
+## Baseline
+
+Verified against **`origin/develop` at `e7ef9ee`**, merged into this branch. The first pass of the review ran
+against `main` at `b7a1308`, which is six commits behind develop; every task below was then re-checked on
+develop and still reproduces, except **task 10, which develop already fixed** (see its entry).
+
+Re-check this before starting if develop has moved again:
+
+```bash
+git fetch origin develop && git log --oneline origin/develop -1
+```
+
 ## How to work
 
 Work the tasks in the order given. P0 first: those are the ones a judge sees.
@@ -370,6 +382,12 @@ weight_kg = round(line.line.units * f.kg, 3)
 volume_m3 = round(line.line.units * f.m3, 3)
 ```
 
+Follow the pattern develop just set for the same class of problem: `feature/store-live-checks` moved the
+receipt shortfall-reason rule into `backend/waypoint_rules/receipts.py` so the screen and the API refuse
+the same thing. A unit-to-weight conversion belongs there too, as `waypoint_rules/units.py` with the
+outlet's factors passed in, leaving `store_views` to supply them. That keeps `store_writes` free of the
+arithmetic and gives the Datathon notebook the same function.
+
 Keep `estimated_kg` and `estimated_m3` in the request schema so no client breaks, but ignore them for
 storage. Document that in the field docstrings, since the OpenAPI schema is the contract. If the client's
 figure differs from the server's by more than a rounding margin, log it at `info` — do not refuse, the
@@ -403,26 +421,19 @@ keep it. Confirm nothing references the removed file.
 
 ## P1 — after the freeze, before the final merge if there is room
 
-### 10. Keep the store's journey timeline from rewinding past facts
+### 10. ~~Keep the store's journey timeline from rewinding past facts~~ — already fixed on develop
 
-`store_views` lines 423 and 428 gate the Loaded and Departed steps on the order's *current* status:
+**No work. Do not implement.** Kept with its number so the numbering in review notes still lines up.
 
-```python
-if placement and any(shown[o.id] in LOADED_OR_LATER for o in orders):   # line 423
-if run and run.departed_at and any(shown[o.id] in DEPARTED_OR_LATER for o in orders):   # line 428
-```
+On `main` the Loaded and Departed journey steps were gated on the order's *current* status, so the 05:21
+deferral dropped `Loaded 04:50` and `Departed 05:10` and the store read "Planned" while the goods were on a
+truck that had left. `feature/store-live-checks` fixed it before this review: `store_views._delivery` now
+carries `reached = any(shown[o.id] in LOADED_OR_LATER for o in orders) or deferral is not None`, adds
+`_run_that_drove` and `_gate_that_loaded` to find the records when the plan has moved off them, and has a
+delivery back-fill the earlier steps.
 
-After the 05:21 deferral the status becomes `deferred`, which is in neither set, so `Loaded 04:50` and
-`Departed 05:10` both drop and the store reads "Planned" while the goods are on a truck that has left.
-
-A confirmed load gate and a run's `departed_at` are past facts. Gate them on the record existing, not on
-the current status: keep the `placement` / `run and run.departed_at` conditions and drop the
-`any(shown[...])` clauses. Leave `Delivered` as it is — a delivery that went to conflict and was resolved
-the other way genuinely did not happen.
-
-**Acceptance:** `backend/tests/api/test_store_field.py` — after a confirmed load, a departure and then a
-`store_request` deferral, the journey still reports `Loaded` and `Departed` with their times, and
-`Delivered` stays pending.
+Re-verified on develop: after the deferral the journey still reports `Loaded 04:50` and
+`Departed 05:10 (current)`, with `Delivered` pending and the order's status `deferred`. Nothing to do.
 
 ### 11. One confirmation notice per outlet, not per order
 
