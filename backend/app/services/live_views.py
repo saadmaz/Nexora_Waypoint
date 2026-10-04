@@ -395,6 +395,25 @@ def decision_entries(live: LiveDay) -> list[tuple[str, s.Decision]]:
                     )
                 )
 
+    # A short load is news Dispatch needs before the truck arrives: the dock and the driver both know, D6 did not.
+    for (vid, trip_no), counts in sorted(live.short_loaded.items()):
+        if not counts or not any(t.vehicle_id == vid for t in day.trips):
+            continue
+        short = ", ".join(f"{oid} short {n}" for oid, n in sorted(counts.items()))
+        outlets = sorted({day.orders[oid].outlet_id for oid in counts if oid in day.orders})
+        out.append(
+            (
+                day.ref.vehicles[vid].depot,
+                s.Decision(
+                    id=f"short-{vid}-{trip_no}",
+                    kind="info",
+                    title=f"{vid} trip {trip_no} loaded short",
+                    text=f"{short}. {' + '.join(outlets)} told." if outlets else f"{short}.",
+                    info_only=True,
+                ),
+            )
+        )
+
     for vid in sorted({t.vehicle_id for t in day.trips}):
         f = _facts(live, vid)
         if f is None or not (f.change_pending and f.offline):

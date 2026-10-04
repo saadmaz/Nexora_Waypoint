@@ -129,6 +129,7 @@ function mapDeliveryOrder(out: Schemas["DeliveryOrderOut"]): DeliveryOrder {
     status: statusFromApi(out.status),
     ...(out.issue != null ? { issue: issueType(out.issue) } : {}),
     ...(out.received != null ? { received: out.received } : {}),
+    ...(out.loadedUnits != null ? { loadedUnits: out.loadedUnits } : {}),
   };
 }
 

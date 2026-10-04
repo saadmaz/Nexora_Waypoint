@@ -94,6 +94,19 @@ def load_live(db: Session, service_date: date, now: datetime) -> LiveDay:
         if a.driver_vehicle_id:
             live.acknowledged[a.driver_vehicle_id] = max(live.acknowledged.get(a.driver_vehicle_id, 0), number_of[a.plan_version_id])
 
+    for check, trip in db.execute(
+        select(plans.LoadCheck, plans.Trip)
+        .join(plans.Trip, plans.Trip.id == plans.LoadCheck.trip_id)
+        .where(plans.Trip.plan_version_id.in_(list(number_of) or [0]))
+        .order_by(plans.LoadCheck.checked_at)
+    ):
+        short = max(check.units_expected - check.units_loaded, 0)
+        counts = live.short_loaded.setdefault((trip.vehicle_id, trip.trip_no), {})
+        if short > 0:
+            counts[check.order_id] = short
+        else:
+            counts.pop(check.order_id, None)  # a recount that came out right clears the earlier one
+
     for e in db.scalars(select(field.FieldException).order_by(field.FieldException.id)):
         live.exceptions.append(row_of(e))
     for c in db.scalars(select(field.Conflict).order_by(field.Conflict.id)):

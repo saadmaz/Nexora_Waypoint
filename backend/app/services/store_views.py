@@ -152,6 +152,8 @@ class Facts:
     conflicts: list[f.Conflict] = field(default_factory=list)
     runs: dict[tuple[date, str, int], f.Run] = field(default_factory=dict)
     gates: dict[tuple[date, str, int], plans.LoadGate] = field(default_factory=dict)
+    #: What the dock counted onto the truck, by order id, when it was short of the order.
+    short_loaded: dict[str, int] = field(default_factory=dict)
     issues: list[f.FieldException] = field(default_factory=list)
     issue_photo: dict[int, bool] = field(default_factory=dict)
     drivers: dict[str, str] = field(default_factory=dict)
@@ -211,6 +213,9 @@ def load_facts(db: Session, outlet: reference.Outlet, orders: list[om.Order]) ->
         .where(plans.PlanVersion.service_date.in_(dates))
     ):
         facts.gates[(version.service_date, trip.vehicle_id, trip.trip_no)] = gate
+    # The dock's own counts: a short load is a fact the store needs before the truck arrives, not after.
+    for check in db.scalars(select(plans.LoadCheck).where(plans.LoadCheck.order_id.in_(ids)).order_by(plans.LoadCheck.checked_at)):
+        facts.short_loaded[check.order_id] = check.units_loaded
 
     facts.issues = list(
         db.scalars(select(f.FieldException).where(f.FieldException.kind == ExceptionKind.STORE_ISSUE, f.FieldException.id.in_(select(f.ExceptionOrder.exception_id).where(f.ExceptionOrder.order_id.in_(ids)))).order_by(f.FieldException.id))
@@ -446,6 +451,8 @@ def _delivery(db: Session, facts: Facts, day: date, orders: list[om.Order], now:
         for line in issue.lines:
             issue_by_order.setdefault(line.order_id, issue)
 
+    # Only a count below the order is worth showing: a full load is what the store already expects.
+    loaded_short = {o.id: facts.short_loaded[o.id] for o in orders if o.id in facts.short_loaded and facts.short_loaded[o.id] < o.units}
     delivery_orders: list[s.DeliveryOrderOut] = []
     for o in orders:
         receipt = facts.receipts.get(o.id)
@@ -458,6 +465,7 @@ def _delivery(db: Session, facts: Facts, day: date, orders: list[om.Order], now:
             s.DeliveryOrderOut(
                 id=o.id, kind=o.temp, units=o.units, status=shown[o.id], issue=tag,
                 received=receipt.units_received if receipt is not None and receipt.units_received < o.units else None,
+                loaded_units=loaded_short.get(o.id),
             )
         )
 

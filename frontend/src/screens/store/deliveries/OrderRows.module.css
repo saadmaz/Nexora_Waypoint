@@ -25,3 +25,10 @@
   font: var(--text-body-sm);
   color: var(--ink-muted);
 }
+
+/* A dock count below the order: the store staffs for what is actually on the truck. */
+.short {
+  margin-top: var(--space-1);
+  font: var(--text-caption);
+  color: var(--warning);
+}

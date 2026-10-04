@@ -92,6 +92,8 @@ class DeliveryOrderOut(ApiModel):
     status: OrderStatus
     issue: str | None = None
     received: int | None = None
+    #: What the dock counted onto the truck, when it is fewer than ``units``. The store staffs for this.
+    loaded_units: int | None = None
 
 
 class ArrivalRange(ApiModel):
