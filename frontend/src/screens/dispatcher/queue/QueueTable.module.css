@@ -9,6 +9,21 @@
   font-size: 12px;
 }
 
+/* The header and rows scroll sideways inside the card when a laptop is narrower than the columns' minimum, instead of
+   the card clipping the status column. The toolbar and footer stay put. */
+.tableScroll {
+  overflow-x: auto;
+}
+
+/* The sum of the fixed and minimum column widths below, so rows, group bands and borders span the whole scroll width. */
+.table {
+  min-width: 1246px;
+}
+
+.kandyTable {
+  min-width: 1150px;
+}
+
 /* Twelve columns that share the width: fixed where the content is fixed, flexible for status. */
 .cols {
   display: grid;

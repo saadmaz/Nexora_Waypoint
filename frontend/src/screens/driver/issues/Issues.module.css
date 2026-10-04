@@ -1,6 +1,9 @@
 /* R6 Problem and the R6.4 Issues tab. Rows follow the R8.1 list; spacing and type come from the field tokens. */
 
 .list {
+  /* Full height inside the shell's scrolling <main>: with overflow hidden a flex item may shrink below its content,
+     which clipped the rows instead of letting <main> scroll. */
+  flex: none;
   display: flex;
   flex-direction: column;
   margin: 0;
@@ -234,4 +237,96 @@
   border-radius: 50%;
   background: var(--route-soft);
   color: var(--route);
+}
+
+/* R6.3 on the Issues list: the problem just saved on the phone, above its new row. */
+.savedBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--route-soft);
+}
+
+.savedBannerIcon {
+  display: inline-flex;
+  flex: none;
+  color: var(--route);
+}
+
+/* R6.2 photos: a grid of square thumbnails, each removable while it is only on this form, then an Add tile. */
+.photoGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.photoTile {
+  position: relative;
+  aspect-ratio: 1;
+}
+
+.photoOpen,
+.photoAdd,
+.photoMissing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md, 8px);
+  background: var(--surface-2, var(--surface-0));
+  color: var(--ink-muted);
+  font: var(--text-body-sm, var(--text-body));
+  text-align: center;
+}
+
+.photoOpen,
+.photoAdd {
+  cursor: pointer;
+}
+
+.photoAdd {
+  border-style: dashed;
+  color: var(--route);
+  font-weight: 600;
+}
+
+.photoImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photoRemove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--surface-0);
+  cursor: pointer;
+}
+
+.photoFull {
+  display: block;
+  width: 100%;
+  max-height: 70dvh;
+  object-fit: contain;
 }

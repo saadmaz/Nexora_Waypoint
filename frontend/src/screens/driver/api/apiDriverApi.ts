@@ -234,6 +234,9 @@ export function createApiDriverApi(now: () => number): DriverApi {
 
   return {
     getRun,
+    refreshRun: async (date) => {
+      await refresh(date);
+    },
     downloadRun,
     acknowledgePlan: device.acknowledgePlan,
     startRoute: device.startRoute,

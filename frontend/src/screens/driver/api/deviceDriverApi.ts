@@ -27,6 +27,7 @@ import type {
   Resolution,
   RunDistance,
 } from "../types";
+import { problemPhotoIds } from "../types";
 import type { DriverApi } from "./DriverApi";
 
 /**
@@ -362,7 +363,7 @@ export function createDeviceOps(now: () => number, options: DeviceOpsOptions): D
     local.problems = [...(local.problems ?? []), record];
     await writeState(date, local);
     if (!isolated) {
-      const blobIds = input.photoBlobId ? [input.photoBlobId] : [];
+      const blobIds = problemPhotoIds(input);
       // The photo is tied to its record before the record is queued, so it never uploads ahead of it.
       await Promise.all(blobIds.map((id) => attachBlob(id, record.clientId)));
       await enqueue({

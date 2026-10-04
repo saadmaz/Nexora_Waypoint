@@ -26,6 +26,7 @@ export function CameraCapture({ title, subtitle, helper, onCancel, onCapture }: 
   const now = useNow();
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const [captured, setCaptured] = useState<{ blob: Blob; url: string } | null>(null);
   const [unavailable, setUnavailable] = useState(() => !navigator.mediaDevices?.getUserMedia);
   const [saving, setSaving] = useState(false);
@@ -42,14 +43,21 @@ export function CameraCapture({ title, subtitle, helper, onCancel, onCapture }: 
           return;
         }
         stream = s;
+        streamRef.current = s;
         if (videoRef.current) videoRef.current.srcObject = s;
       })
       .catch(() => setUnavailable(true));
     return () => {
       active = false;
+      streamRef.current = null;
       stream?.getTracks().forEach((track) => track.stop());
     };
   }, []);
+
+  // Retake swaps the preview back for a new <video>, which starts without a source: give it the open stream again.
+  useEffect(() => {
+    if (!captured && videoRef.current && streamRef.current) videoRef.current.srcObject = streamRef.current;
+  }, [captured]);
 
   function shutter() {
     const video = videoRef.current;
