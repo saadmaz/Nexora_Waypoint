@@ -215,7 +215,7 @@ db    postgres:18.6, waits until pg_isready
 ```
 
 `api` waits for `db` to be healthy and `web` waits for `api`, so the order is handled for you. The seed is
-**idempotent**, so restarting does not duplicate rows. A fresh start runs migrations `0001` through `0004`.
+**idempotent**, so restarting does not duplicate rows. A fresh start runs migrations `0001` through `0005`.
 
 ### Configuration
 
