@@ -1,10 +1,12 @@
-import { ChevronRight, Pause, Play, RotateCcw } from "lucide-react";
+import { ChevronRight, Pause, Play, RotateCcw, TriangleAlert } from "lucide-react";
+import { useState } from "react";
 import { clockTime, dayLabel } from "../../../domain/format";
 import { colomboMs } from "../../../field/clock/clock";
 import { toIsoDate } from "../../../domain/schedule";
 import { Mono } from "../../../shared/ui/Mono";
 import { useDispatcher } from "../context";
 import { useNow } from "../hooks";
+import { presenterFailure } from "./presenterFailure";
 import styles from "./PresenterControl.module.css";
 
 /** The walkthrough moments the dispatcher sees (PRD v3 section 16, steps 1 to 17): where "Go to next step" moves the clock. */
@@ -32,11 +34,26 @@ const STEPS: { time: string; label: string }[] = [
  * the avatar menu or `?presenter=1`, that moves the scenario clock forward to the next walkthrough moment and
  * starts the demo again. It never goes backwards; Reset demo reloads the app at the address it opened at. On the real API
  * (`VITE_DISPATCHER_API=api`) the same two buttons call `/demo/advance` and `/demo/reset`.
+ *
+ * Every button reports what happened. A refused jump (the clock never goes backwards) and an API with no presenter
+ * routes both used to leave the panel silent, which reads as a broken button.
  */
 export function PresenterControl() {
   const { advanceTo, presenter, resetDemo, pauseClock, resumeClock, paused, scenarioDays } = useDispatcher();
   const now = useNow();
+  const [failed, setFailed] = useState("");
+  const [busy, setBusy] = useState("");
   if (!advanceTo || !presenter) return null;
+
+  /** Runs one presenter action, keeping its failure on the panel until the next one succeeds. */
+  const act = (name: string, run: () => void | Promise<unknown>) => () => {
+    setFailed("");
+    setBusy(name);
+    void Promise.resolve()
+      .then(run)
+      .catch((error: unknown) => setFailed(presenterFailure(error)))
+      .finally(() => setBusy(""));
+  };
 
   // A time before noon is on the service date, the rest on the planning day before it. Both dates come from the server.
   const scenarioTime = (hhmm: string) =>
@@ -49,7 +66,12 @@ export function PresenterControl() {
         {dayLabel(toIsoDate(now))} <Mono>{clockTime(now)}</Mono>
       </p>
       {next ? (
-        <button type="button" className={styles.next} onClick={() => advanceTo(scenarioTime(next.time))}>
+        <button
+          type="button"
+          className={styles.next}
+          disabled={busy !== ""}
+          onClick={act("next", () => advanceTo(scenarioTime(next.time)))}
+        >
           <span>
             Go to <Mono>{next.time}</Mono> · {next.label}
           </span>
@@ -59,15 +81,31 @@ export function PresenterControl() {
         <p className={styles.end}>End of the dispatcher's walkthrough.</p>
       )}
       {pauseClock && resumeClock && (
-        <button type="button" className={styles.reset} onClick={() => void (paused ? resumeClock() : pauseClock()).catch(() => undefined)}>
+        <button
+          type="button"
+          className={styles.reset}
+          disabled={busy !== ""}
+          onClick={act("rate", () => (paused ? resumeClock() : pauseClock()))}
+        >
           {paused ? <Play size={14} /> : <Pause size={14} />}
           {paused ? "Resume clock" : "Pause clock"}
         </button>
       )}
-      <button type="button" className={styles.reset} onClick={() => (resetDemo ? void resetDemo().catch(() => undefined) : window.location.reload())}>
+      <button
+        type="button"
+        className={styles.reset}
+        disabled={busy !== ""}
+        onClick={act("reset", () => (resetDemo ? resetDemo() : window.location.reload()))}
+      >
         <RotateCcw size={14} />
-        Reset demo
+        {busy === "reset" ? "Resetting" : "Reset demo"}
       </button>
+      {failed && (
+        <p className={styles.failed} role="alert">
+          <TriangleAlert size={14} aria-hidden />
+          {failed}
+        </p>
+      )}
     </aside>
   );
 }

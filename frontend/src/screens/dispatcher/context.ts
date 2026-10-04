@@ -11,8 +11,11 @@ export type DispatcherContextValue = {
   now: () => Date;
   /** Bumped whenever the clock jumps, so screens re-read "now" at once instead of on the next tick. */
   clockVersion: number;
-  /** Moves the scenario clock forward (the presenter control); absent when the clock is real time. */
-  advanceTo?: (to: Date) => void;
+  /**
+   * Moves the scenario clock forward (the presenter control); absent when the clock is real time. On the real API it
+   * resolves when the server has moved and rejects with the server's `ApiError`, so the control can say why it did not.
+   */
+  advanceTo?: (to: Date) => void | Promise<void>;
   /**
    * Starts the demo again on the server (the presenter control's "Reset demo"), then the clock and the screens reload.
    * Absent for the mock, where the control reloads the page.
