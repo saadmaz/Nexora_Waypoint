@@ -154,7 +154,14 @@ export function mapDelivery(out: Schemas["DeliveryOut"]): Delivery {
     receiversCue: out.receiversCue,
     ...(out.deferral ? { deferral: mapDeferral(out.deferral) } : {}),
     ...(out.review
-      ? { review: { askedAt: field(out.review, "askedAt", "review"), deliveredAt: field(out.review, "deliveredAt", "review"), receivedBy: field(out.review, "receivedBy", "review") } }
+      ? {
+          review: {
+            askedAt: field(out.review, "askedAt", "review"),
+            deliveredAt: field(out.review, "deliveredAt", "review"),
+            receivedBy: field(out.review, "receivedBy", "review"),
+            asked: out.review.asked ?? false,
+          },
+        }
       : {}),
     ...(out.proof ? { proof: { receivedBy: out.proof.receivedBy, at: out.proof.at, driver: out.proof.driver, vehicle: out.proof.vehicle, units: out.proof.units } } : {}),
     tags: (out.tags ?? []).map((tag) => oneOf(Object.keys(DELIVERY_TAGS) as DeliveryTag[], tag, "delivery tag")),

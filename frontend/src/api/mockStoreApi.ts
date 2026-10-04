@@ -59,14 +59,14 @@ function out009Orders(): Order[] {
       window: OUT009_OUTLET.window,
       line: { id: "ORD1002-L1", kind: "chilled", units: 35, estimatedKg: 210, estimatedM3: 1.4 },
       status: "Ordered",
-      receivedAt: "2026-09-28T14:02:00",
+      receivedAt: "2026-09-28T14:02:00+05:30",
       afterCutoff: false,
     },
   ];
 }
 
 const HERO_DELIVERY_DATE = "2026-09-29";
-const HERO_RECEIVED_AT = "2026-09-28T15:40:00";
+const HERO_RECEIVED_AT = "2026-09-28T15:40:00+05:30";
 
 function heroFixture(): Order[] {
   return [

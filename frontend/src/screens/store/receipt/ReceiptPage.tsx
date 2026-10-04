@@ -253,8 +253,9 @@ export function ReceiptPage({ outletId: outletIdProp, date, preview, openReport 
     );
   } else if (delivery.issues.length > 0 || delivery.receiptConfirmedAt) {
     content = <ReceiptOutcome delivery={delivery} reviewOpen={Boolean(delivery.review)} />;
-  } else if (preview === "asked" && delivery.review) {
+  } else if ((preview === "asked" || delivery.review?.asked) && delivery.review) {
     // S3.5: Dispatch asks whether the delivery arrived. Yes settles it (S2.8); Report issue opens S3.3.
+    // A51: the real signal is `review.asked`; `?preview=asked` reaches the same state in the mock gallery.
     content = (
       <>
         <ReviewNotice review={delivery.review} icon="store" />

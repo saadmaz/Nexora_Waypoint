@@ -12,7 +12,7 @@ from datetime import date, datetime, time
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from waypoint_rules import OrderEvent, OrderStatus
+from waypoint_rules import OrderEvent, OrderStatus, receipts
 from waypoint_rules.schedule import service_day_for
 from waypoint_rules.vocab import Temp
 
@@ -242,7 +242,14 @@ def confirm_receipt(db: Session, user: CurrentUser, body: s.ConfirmReceiptIn) ->
         if views.status_of(order) not in views.DELIVERED_LIKE:
             raise ApiError(409, "not_delivered", f"{order.id} has not been delivered yet, so there is nothing to confirm.")
 
+    # A50: a short count has to say why, and the reason is one of the four the sheet offers. The rule is
+    # ``waypoint_rules.receipts``, so the screen and the API refuse the same thing (§19: rules live in one place).
     reason = (body.reason or "").strip() or None
+    if receipts.needs_reason([(line.received, orders[line.order_id].units) for line in body.lines]):
+        if reason is None:
+            raise ApiError(422, "reason_required", receipts.reason_missing(), {"rule": "A50", "reasons": list(receipts.SHORTFALL_REASONS)})
+        if reason not in receipts.SHORTFALL_REASONS:
+            raise ApiError(422, "unknown_reason", receipts.unknown_reason(reason), {"rule": "A50", "reasons": list(receipts.SHORTFALL_REASONS)})
     for line in body.lines:
         order = orders[line.order_id]
         short = line.received < order.units
