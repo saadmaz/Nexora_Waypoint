@@ -1,6 +1,9 @@
 /* R6 Problem and the R6.4 Issues tab. Rows follow the R8.1 list; spacing and type come from the field tokens. */
 
 .list {
+  /* Full height inside the shell's scrolling <main>: with overflow hidden a flex item may shrink below its content,
+     which clipped the rows instead of letting <main> scroll. */
+  flex: none;
   display: flex;
   flex-direction: column;
   margin: 0;
