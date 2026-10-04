@@ -37,6 +37,7 @@ services:
       JWT_TTL_HOURS: ${JWT_TTL_HOURS:-12}
       CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:8080","http://localhost:5173"]}
       SEED_ON_START: ${SEED_ON_START:-true}
+      SEED_GENERATED_ORDERS: ${SEED_GENERATED_ORDERS:-false}
       DEMO_PASSWORD: ${DEMO_PASSWORD:-waypoint-demo}
       CLOCK_RATE: ${CLOCK_RATE:-1}
       SCENARIO_SERVICE_DATE: ${SCENARIO_SERVICE_DATE:-2026-09-29}
