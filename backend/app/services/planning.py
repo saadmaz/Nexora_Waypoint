@@ -218,10 +218,27 @@ def sync_rerun_copies(db: Session, service_date: date, deferred: dict[str, date 
         if c.deferred_from_order_id is not None
     }
     rows = _order_rows(db, set(deferred) | {k for k in existing})
+    # One live order per outlet, day and temperature (``uq_orders_live_outlet_day_temp``). The copy is written as
+    # "system", so it is not exempt the way a seeded order is: an outlet that already has an order for the next run,
+    # or a second deferral of the same kind, must not produce a second copy. The order stays deferred either way,
+    # and the dispatcher sees it in the deferred pool.
+    taken = {
+        (o.outlet_id, o.service_date, o.temp)
+        for o in db.scalars(
+            select(order_models.Order).where(
+                order_models.Order.service_date.in_({d for d in deferred.values() if d is not None}),
+                order_models.Order.cancelled_at.is_(None),
+            )
+        )
+    }
     for oid, next_run in sorted(deferred.items()):
         source = rows.get(oid)
         if source is None or next_run is None or oid in existing:
             continue
+        key = (source.outlet_id, next_run, source.temp)
+        if key in taken:
+            continue
+        taken.add(key)
         db.add(
             order_models.Order(
                 id=f"{oid}-R",

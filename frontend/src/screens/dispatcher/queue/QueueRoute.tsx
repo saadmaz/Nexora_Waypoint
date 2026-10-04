@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ChevronRight, CircleAlert, Clock3, Info, Lock, RefreshCw } from "lucide-react";
+import { ChevronRight, CircleAlert, Clock3, Info, Lock, RefreshCw, Sparkles } from "lucide-react";
 import { NO_FILTERS, type Brand, type DepotId, type OrderTemp, type QueueFilters } from "../../../api/DispatcherApi";
 import { isPastCutoff } from "../../../domain/schedule";
 import { Mono } from "../../../shared/ui/Mono";
+import { useToast } from "../../../shared/ui/useToast";
 import { AppBar } from "../chrome/AppBar";
 import { PageHeader } from "../chrome/PageHeader";
 import { ROUTES, withDepot } from "../chrome/routes";
@@ -60,6 +61,27 @@ export function QueueRoute() {
   const cached = Boolean(view) && (offline || load.status === "error");
   const chips = useMemo(() => activeChips(filters, setFilters), [filters]);
 
+  // Once the queue has closed, whether a plan exists yet: without one the dispatcher drafts it here
+  // rather than waiting for the 16:05 job, so the walkthrough runs whatever time the clock is at.
+  const plan = useLoad(() => (closed ? api.getPlan({ depot }) : Promise.resolve(undefined)), [closed, depot]);
+  const noPlanYet = closed && plan.data !== undefined && plan.data.version.number === 0;
+  const toast = useToast();
+  const [drafting, setDrafting] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const draftPlan = async () => {
+    setDrafting(true);
+    setDraftError(null);
+    try {
+      const next = await api.redraftPlan();
+      toast.show(`Drafted plan v${next.version.number}. Trips placed by the planner.`);
+      navigate(withDepot(ROUTES.trips, depot));
+    } catch (error) {
+      setDraftError(error instanceof Error ? error.message : "The plan could not be drafted.");
+    } finally {
+      setDrafting(false);
+    }
+  };
+
   const open = (id: string) => setParams((p) => { const next = new URLSearchParams(p); next.set("order", id); return next; });
   const closeDrawer = () => setParams((p) => { const next = new URLSearchParams(p); next.delete("order"); return next; });
   const goCapacity = () => navigate(withDepot(ROUTES.capacity, depot));
@@ -88,9 +110,16 @@ export function QueueRoute() {
       title={`Orders for ${dayLabel(day)}`}
       titleAddon={addon}
       actions={
-        <Btn iconRight={<ChevronRight size={16} />} disabled={!closed} onClick={goCapacity}>
-          Go to capacity board
-        </Btn>
+        <>
+          {noPlanYet && (
+            <Btn variant="secondary" icon={<Sparkles size={16} />} disabled={offline || drafting} onClick={() => void draftPlan()}>
+              {drafting ? "Drafting..." : "Draft plan"}
+            </Btn>
+          )}
+          <Btn iconRight={<ChevronRight size={16} />} disabled={!closed} onClick={goCapacity}>
+            Go to capacity board
+          </Btn>
+        </>
       }
       reason={
         closed ? undefined : (
@@ -207,6 +236,20 @@ export function QueueRoute() {
         {closed && depot === "peliyagoda" && !filtering && (
           <Banner tone="info" icon={<Info size={20} />} title={`Cutoff closed at 16:00, ${view.counts.peliyagoda} orders confirmed for ${dayLabel(day)}`}>
             {view.carryOvers} carry-overs from yesterday are pinned first.
+          </Banner>
+        )}
+        {draftError && (
+          <Banner
+            tone="danger"
+            icon={<CircleAlert size={20} />}
+            title="The plan was not drafted"
+            actions={
+              <Btn variant="secondary" size="sm" onClick={() => setDraftError(null)}>
+                Dismiss
+              </Btn>
+            }
+          >
+            {draftError}
           </Banner>
         )}
         {depot === "kandy" ? <KandyTable {...table} /> : <QueueTable {...table} />}

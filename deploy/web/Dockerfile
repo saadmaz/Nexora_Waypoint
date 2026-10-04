@@ -5,6 +5,11 @@ WORKDIR /frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ ./
+# live: every role reads and writes the database through the API. Unset, the app falls back to the
+# in-browser mocks (frontend/src/api/dataSource.ts), which serve fixtures and never call the API, so
+# ordering and planning would appear to do nothing. The API is same-origin here: nginx proxies /api.
+ARG VITE_DATA_SOURCE=live
+ENV VITE_DATA_SOURCE=$VITE_DATA_SOURCE
 RUN npm run build
 
 FROM nginx:1.27-alpine
