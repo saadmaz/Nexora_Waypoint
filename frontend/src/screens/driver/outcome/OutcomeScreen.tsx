@@ -230,7 +230,7 @@ export function OutcomeScreen({ connectivityOverride, stopIdOverride, subviewOve
     return (
       <div>
         <FieldTopBar title={t("signature.title")} onBack={() => setSubview("form")} />
-        <SignaturePad receiverName={receiverName || "—"} deviceTime={photo?.time ?? formatTime(now)} onSave={handleSignatureSave} />
+        <SignaturePad receiverName={receiverName || t("signature.noName")} deviceTime={photo?.time ?? formatTime(now)} onSave={handleSignatureSave} />
       </div>
     );
   }

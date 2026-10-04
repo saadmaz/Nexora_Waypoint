@@ -89,12 +89,15 @@ carries a `clientId`, so sending it twice is a no-op (`duplicate`). The server a
 package are cached by a service worker, so a reload with no network still opens. Reconciliation rules and the walkthrough that exercises them
 are in PRD sections 15 and 16, and `e2e/offline.spec.ts` cuts the browser's network to prove them.
 
-## Mocks are development only
+## Mocks are a fallback, switched off by `VITE_DATA_SOURCE=live`
 
-Each role has a mock implementation of its API interface for design work. A production build always runs on the API: `roleApiMode()` returns
-`api` unless `import.meta.env.DEV`, and the mocks load only through `src/devMocks/`, behind a dynamic import inside that same check, so the
-bundler drops them. CI builds and fails if any seed id, persona name or calendar date written for the mocks is in `dist/`
-(`npm run check:bundle`).
+Each role has a mock implementation of its API interface for design work. Which one runs is decided at build time: `roleApiMode()` returns
+`api` only when `VITE_DATA_SOURCE=live` (or a per-role `VITE_<ROLE>_API=api` says so), and `mock` otherwise, so **mock is the fallback**.
+`frontend/.env.production` sets `live`, so `npm run build`, the Docker web image and the hosted demo all serve the database; `npm run dev`
+has no such file and serves the mocks. The mocks load only through `src/devMocks/`, behind a dynamic import guarded by the same variables
+in `main.tsx`, so a live build drops them. CI builds and fails if any seed id, persona name or calendar date written for the mocks is in
+`dist/` (`npm run check:bundle`). That proves the mocks are absent from a live bundle; it does not prove a host built in live mode, which is
+why the README says to set `VITE_DATA_SOURCE` explicitly on any host other than Compose.
 
 ## Quality gates
 

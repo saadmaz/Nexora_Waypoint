@@ -1,8 +1,10 @@
 # AI disclosure
 
-Waypoint was built with AI coding assistants. This file is the single place we say where and how, as the Challenge Booklet asks and as `Contributing.md` §19 and §24 require. There are no "Mock data" chips or AI badges on any screen; the disclosure lives here, in the Figma AI disclosure page (F17), in the README and in the submission video.
+Waypoint was built with AI coding assistants. This file is the single place we say where and how, as the Challenge Booklet asks and as `Contributing.md` §29 requires. There are no "Mock data" chips or AI badges on any screen; the disclosure lives here, in the Figma AI disclosure page (F17), in the README and in the submission video.
 
 Add a line to the table below when an AI tool does a meaningful part of your pull request. One row per branch; add to it, do not replace another branch's row. Keep it factual: what it wrote, what you checked.
+
+The rows are a dated build log, oldest first. A row describes the code on its date: where an early row says a route was still 501 or a client was proven against a stub, a later row records that it was built and checked. Read them in order.
 
 ## What AI did, and what a person checked
 
@@ -49,5 +51,5 @@ The driver app offers Sinhala and Tamil (R1.9). Those strings are a machine draf
 ## What AI did not do
 
 - No rule, constraint or refusal message was invented by a tool. They come from the Challenge Booklet and live in `backend/waypoint_rules`.
-- No competition CSV row was pasted into an AI tool (`Contributing.md` §19).
+- No competition CSV row was pasted into an AI tool (`Contributing.md` §29).
 - Nothing in the Figma file was created, moved, renamed or edited; it is read-only to us now.
