@@ -139,7 +139,7 @@ export function TripCard(props: TripCardProps) {
               {trip.kgCap ? ` / ${num(trip.kgCap)}` : ""} kg
             </Mono>
           </dd>
-          <span className={styles.bar} style={{ width: `${Math.min(100, trip.fill.kg * 100)}%` }} />
+          <dd className={styles.bar} aria-hidden="true" style={{ width: `${Math.min(100, trip.fill.kg * 100)}%` }} />
         </div>
         <div>
           <dt>Volume</dt>
@@ -149,14 +149,14 @@ export function TripCard(props: TripCardProps) {
               {trip.m3Cap ? ` / ${trip.m3Cap.toFixed(1)}` : ""} m³
             </Mono>
           </dd>
-          <span className={styles.bar} style={{ width: `${Math.min(100, trip.fill.m3 * 100)}%` }} />
+          <dd className={styles.bar} aria-hidden="true" style={{ width: `${Math.min(100, trip.fill.m3 * 100)}%` }} />
         </div>
         <div>
           <dt>Trip</dt>
           <dd>
             <Mono>{trip.minutes} min</Mono>
           </dd>
-          <span className={styles.bar} style={{ width: `${Math.min(100, trip.fill.minutes * 100)}%` }} />
+          <dd className={styles.bar} aria-hidden="true" style={{ width: `${Math.min(100, trip.fill.minutes * 100)}%` }} />
         </div>
       </dl>
     </article>
