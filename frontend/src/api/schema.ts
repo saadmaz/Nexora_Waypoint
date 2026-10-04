@@ -1677,10 +1677,7 @@ export interface components {
             /** Receiverscue */
             receiversCue: boolean;
             deferral?: components["schemas"]["DeliveryDeferralOut"] | null;
-            /** Review */
-            review?: {
-                [key: string]: string;
-            } | null;
+            review?: components["schemas"]["ReviewOut"] | null;
             proof?: components["schemas"]["ProofOfDeliveryOut"] | null;
             /** Tags */
             tags?: string[];
@@ -3117,6 +3114,25 @@ export interface components {
         /** ResolveConflictIn */
         ResolveConflictIn: {
             resolution: components["schemas"]["ConflictRecommendation"];
+        };
+        /**
+         * ReviewOut
+         * @description Why the store sees "Under review" (S2.7, S3.1). Stores never see the word "Conflict".
+         */
+        ReviewOut: {
+            /** Askedat */
+            askedAt: string;
+            /** Deliveredat */
+            deliveredAt: string;
+            /** Receivedby */
+            receivedBy: string;
+            /** Conflictid */
+            conflictId: string;
+            /**
+             * Asked
+             * @default false
+             */
+            asked: boolean;
         };
         /**
          * Role

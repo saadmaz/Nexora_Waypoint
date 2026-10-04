@@ -121,6 +121,18 @@ class DeliveryDeferralOut(ApiModel):
     acknowledged: bool
 
 
+class ReviewOut(ApiModel):
+    """Why the store sees "Under review" (S2.7, S3.1). Stores never see the word "Conflict"."""
+
+    asked_at: str
+    delivered_at: str
+    received_by: str
+    conflict_id: str
+    #: A51: true only once Dispatch has asked ("Review with store first", D7.2). The explanation shows
+    #: either way; the question "Did you receive this delivery?" waits for this.
+    asked: bool = False
+
+
 class ProofOfDeliveryOut(ApiModel):
     received_by: str
     at: str
@@ -166,7 +178,7 @@ class DeliveryOut(ApiModel):
     last_update: str | None = None
     receivers_cue: bool
     deferral: DeliveryDeferralOut | None = None
-    review: dict[str, str] | None = None
+    review: ReviewOut | None = None
     proof: ProofOfDeliveryOut | None = None
     tags: list[str] = Field(default_factory=list)
     withdrawn_note: str | None = None

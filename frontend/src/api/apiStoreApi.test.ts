@@ -272,4 +272,20 @@ describe("routes keyed by something other than the day", () => {
     expect((error as ApiError).code).toBe("unexpected_reply");
     expect(calls).toHaveLength(1);
   });
+
+  // A51: the question "Did you receive this delivery?" waits for Dispatch to ask. The screens read
+  // `review.asked`, so the mapper has to carry it and default it to false when the reply omits it.
+  it("carries whether Dispatch has asked the store, defaulting to not asked", async () => {
+    const base = { askedAt: "05:21", deliveredAt: "05:42", receivedBy: "S. Fernando", conflictId: "12" };
+    for (const [wire, expected] of [
+      [{ ...base, asked: true }, true],
+      [{ ...base, asked: false }, false],
+      [base, false],
+    ] as const) {
+      const { api } = stub(json([{ ...deliveryOut, status: "conflict", review: wire }]));
+      const [delivery] = await api.listDeliveries("OUT084", "2026-09-29");
+      expect(delivery?.review?.asked).toBe(expected);
+      expect(delivery?.review?.askedAt).toBe("05:21");
+    }
+  });
 });
