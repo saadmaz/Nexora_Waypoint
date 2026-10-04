@@ -1,3 +1,4 @@
+import { roleApiMode } from "../../api/http/config";
 import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { ClockProvider } from "../../field/clock/ClockContext";
 import { devMocks } from "../../devMocks/registry";
@@ -27,7 +28,7 @@ const LOADER_THEME = "dark";
  */
 export function LoaderApp() {
   // Where the mock clock starts. On the real API the clock is the server's and this is never read.
-  const start = import.meta.env.DEV ? devMocks().fieldClock.LOADER_START : undefined;
+  const start = roleApiMode("loader") === "mock" ? devMocks().fieldClock.LOADER_START : undefined;
   return (
     <Routes>
       {import.meta.env.DEV && <Route path="_states" element={<LoaderGallery />} />}

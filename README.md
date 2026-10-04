@@ -1440,17 +1440,18 @@ Every role runs on its mock by default. Each can be switched to the real backend
 
 ### Flags
 
-All are read at build time and every one defaults to `mock` in development. Set them in the shell that starts Vite (or in `frontend/.env.local`, which is git-ignored).
+All are read at build time. Set them in the shell that starts Vite, in `frontend/.env.local` (git-ignored), or in the host's build variables.
 
-**A production build is always on the database.** `frontend/.env.production` (committed, no secrets) sets the five `VITE_<ROLE>_API` flags to `api`, so `npm run build`, the Docker web image and any static host serve every role from the API. Nothing in a deployed build reads a mock. A static host with no `/api` proxy (Cloudflare Pages or Workers assets) must also set `VITE_API_BASE` at build time to the API's origin and add the site's origin to the API's `CORS_ORIGINS`; behind the Docker nginx the default (same origin) is right.
+**One switch: `VITE_DATA_SOURCE`.** `live` puts every role on the database through the API; `mock`, unset or any other value puts every role on the in-browser mocks, so **mock is the fallback**. A per-role flag (`VITE_<ROLE>_API`, `VITE_AUTH_API`) overrides it for that role only. `frontend/.env.production` (committed, no secrets) sets `VITE_DATA_SOURCE=live`, so `npm run build`, the Docker web image and any static host serve the database; a host's build variable or the shell can still set `mock`. A live build leaves the mocks out of the bundle (`npm run check:bundle`). A static host with no `/api` proxy (Cloudflare Pages or Workers assets) must also set `VITE_API_BASE` at build time to the API's origin and add the site's origin to the API's `CORS_ORIGINS`; behind the Docker nginx the default (same origin) is right.
 
 | Variable | Values | What it switches |
 |---|---|---|
-| `VITE_AUTH_API` | `mock` (default), `api` | Sign-in and sessions: `apiAuthApi` instead of the mock |
-| `VITE_STORE_API` | `mock` (default), `api` | `StoreApi`: `createApiStoreApi` instead of the mock. `?state=` and `?preset=` do nothing in `api` |
-| `VITE_DRIVER_API` | `mock` (default), `api` | `DriverApi` and the driver's sync handlers |
-| `VITE_LOADER_API` | `mock` (default), `api` | `LoaderApi` and the loader's sync handlers |
-| `VITE_DISPATCHER_API` | `mock` (default), `api` | `DispatcherApi`: `createHttpDispatcherApi` instead of the mock, plus the server's scenario clock and the presenter control's `/demo` routes. `?state=`, `?preset=`, `?at=` and `?date=` do nothing in `api` |
+| `VITE_DATA_SOURCE` | `mock` (default), `live` | Every role at once: `live` reads and writes the database, `mock` uses the in-browser mocks |
+| `VITE_AUTH_API` | unset (follows `VITE_DATA_SOURCE`), `mock`, `api` | Sign-in and sessions: `apiAuthApi` instead of the mock |
+| `VITE_STORE_API` | unset (follows `VITE_DATA_SOURCE`), `mock`, `api` | `StoreApi`: `createApiStoreApi` instead of the mock. `?state=` and `?preset=` do nothing in `api` |
+| `VITE_DRIVER_API` | unset (follows `VITE_DATA_SOURCE`), `mock`, `api` | `DriverApi` and the driver's sync handlers |
+| `VITE_LOADER_API` | unset (follows `VITE_DATA_SOURCE`), `mock`, `api` | `LoaderApi` and the loader's sync handlers |
+| `VITE_DISPATCHER_API` | unset (follows `VITE_DATA_SOURCE`), `mock`, `api` | `DispatcherApi`: `createHttpDispatcherApi` instead of the mock, plus the server's scenario clock and the presenter control's `/demo` routes. `?state=`, `?preset=`, `?at=` and `?date=` do nothing in `api` |
 | `VITE_API_BASE` | an origin, no trailing slash | Where the API is. Unset: `http://localhost:8000` in `npm run dev`, the same origin in a production build (nginx proxies `/api` in Docker) |
 
 The two field roles share one transport. With neither on `api` nothing changes. With either on `api`, `startFieldRuntime()` installs a routing transport that sends each operation to the real `fetch` transport only when that operation's own role is on `api`, and to the mock otherwise, so a loader on the API and a driver on the mock can share a page.
