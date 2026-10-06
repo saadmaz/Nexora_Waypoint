@@ -39,7 +39,7 @@ flowchart TD
 
     subgraph Task 2B ["Task 2B: Peak-Day MILP Allocator"]
         MILP_Form["Combinatorial Set-Partitioning MILP"]
-        HiGHS_Solv["HiGHS 1.15.1 Solver (0.00% Gap)"]
+        HiGHS_Solv["HiGHS 1.15.1 Solver (0.0099% Gap)"]
         Check_Alloc{"check_allocation.py Gate"}
         Sub2B["submission_task2b.csv (79 Served, 6 Deferred)"]
         Doc_Pol["Prioritization Policy Document"]
@@ -88,11 +88,42 @@ flowchart TD
   7. Vehicle weight and volume capacities.
   8. Trip limit (maximum 2 trips per vehicle per day).
   9. Pre-dawn window budget ($\le 270$ min for Fresh) and Daytime window budget ($\le 480$ min for Style/Tech).
-- **Outcome:** **79 served, 6 deferred** (0.00% optimality gap in 26.4 seconds). Passed official `check_allocation.py` with zero warnings or errors.
+- **Outcome:** **79 served, 6 deferred** across **22 vehicle trips** (0.0099% optimality gap within 0.01% MIP tolerance). Passed official `check_allocation.py` with zero warnings or errors.
 
 ---
 
-## 3. Competition Verification & Compliance Register
+## 3. Proposed Production Deployment Architecture
+Per official Challenge Booklet requirements (p. 22: *"Show your models, preprocessing pipeline, and proposed deployment approach"*):
+
+```mermaid
+flowchart LR
+    subgraph Ingestion ["Real-Time Ingestion Layer"]
+        ERP["ERP Order Stream (Kafka / RabbitMQ)"]
+        Tele["Fleet Telematics & GPS Traces"]
+        Traffic["Live Road & Traffic Ingestion"]
+    end
+
+    subgraph Service ["Inference & Scheduling Microservice"]
+        Feat_Store["Real-time Feature Store (Redis)"]
+        Model_Server["FastAPI Model Server (Triton / ONNX)"]
+        MILP_Engine["HiGHS Operational Dispatch Engine"]
+    end
+
+    subgraph Outputs ["Waypoint Dispatch & Store UI"]
+        Disp_App["Dispatcher Mission Control Dashboard"]
+        Driver_App["Driver Turn-by-Turn Waypoint App"]
+        Store_App["Store Receiving Portal (ETA & Window Tracking)"]
+    end
+
+    ERP & Tele & Traffic --> Feat_Store
+    Feat_Store --> Model_Server
+    Model_Server -->|Service & Lateness Estimates| MILP_Engine
+    MILP_Engine -->|Optimal Trip Manifests| Disp_App & Driver_App & Store_App
+```
+
+---
+
+## 4. Competition Verification & Compliance Register
 - [x] **Zero Pre-trained Models:** All LightGBM, Ridge, and MILP formulations trained from scratch.
 - [x] **Zero External / Proprietary APIs:** All features derived solely from shipped competition files.
 - [x] **Air-Gapped Git Storage:** Shipped datasets and derived CSV submissions are stored externally in `~/Development/TechTriathlon2026_Datasets/` and strictly ignored in `.gitignore`. Verified by `bash datathon/scripts/no_data_in_git.sh`.

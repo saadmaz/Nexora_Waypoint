@@ -171,13 +171,95 @@ def train_and_forecast_series(
     return s_test[["row_id", "depot", "brand", "iso_year", "iso_week", "pred_total_volume_m3", "pred_chilled_volume_m3"]]
 
 
+def evaluate_task2a_backtest(hist_df: pd.DataFrame, n_weeks: int = 10) -> pd.DataFrame:
+    """Evaluates 10-week rolling backtest on the final 10 historical weeks (2026-W04 to W13)
+    comparing the LightGBM+Ridge ensemble against a Seasonal Naive (lag_52) baseline.
+    """
+    depots = ["Kandy", "Peliyagoda"]
+    brands = ["Fresh", "Style", "Tech"]
+    results = []
+    
+    feature_cols = [
+        "iso_week", "operating_days", "festival_ramp_sum",
+        "festival_days", "payday_count", "holiday_count",
+        "monsoon_mean", "lag_52", "week_idx"
+    ]
+    
+    for d in depots:
+        for b in brands:
+            s_hist = hist_df[(hist_df.depot == d) & (hist_df.brand == b)].sort_values(["iso_year", "iso_week"]).copy().reset_index(drop=True)
+            s_hist["week_idx"] = np.arange(len(s_hist))
+            vol_lookup = {(r.iso_year, r.iso_week): r.total_volume_m3 for r in s_hist.itertuples()}
+            
+            def get_lag52(row):
+                prev_year = row.iso_year - 1
+                wk = row.iso_week
+                return vol_lookup.get((prev_year, wk), s_hist["total_volume_m3"].mean())
+            s_hist["lag_52"] = s_hist.apply(get_lag52, axis=1)
+            
+            tr_part = s_hist.iloc[52:-n_weeks].copy()
+            te_part = s_hist.iloc[-n_weeks:].copy()
+            
+            X_tr = tr_part[feature_cols]
+            y_tr = tr_part["total_volume_m3"].values
+            X_te = te_part[feature_cols]
+            y_te = te_part["total_volume_m3"].values
+            
+            m_lgb = lgb.LGBMRegressor(
+                objective="regression",
+                metric="mae",
+                learning_rate=0.04,
+                num_leaves=15,
+                n_estimators=150,
+                subsample=0.8,
+                colsample_bytree=0.8,
+                random_state=42,
+                verbose=-1
+            )
+            m_lgb.fit(X_tr, y_tr)
+            p_lgb = m_lgb.predict(X_te)
+            
+            m_ridge = Ridge(alpha=10.0)
+            m_ridge.fit(X_tr, y_tr)
+            p_ridge = m_ridge.predict(X_te)
+            
+            p_ens = 0.7 * p_lgb + 0.3 * p_ridge
+            recent_m = tr_part["total_volume_m3"].iloc[-8:].mean()
+            p_ens = np.maximum(recent_m * 0.4, p_ens)
+            
+            p_naive = te_part["lag_52"].values
+            
+            mae_model = mean_absolute_error(y_te, p_ens)
+            mae_naive = mean_absolute_error(y_te, p_naive)
+            wape_model = np.sum(np.abs(y_te - p_ens)) / np.sum(y_te) * 100.0
+            wape_naive = np.sum(np.abs(y_te - p_naive)) / np.sum(y_te) * 100.0
+            
+            results.append({
+                "depot": d, "brand": b,
+                "model_mae": round(float(mae_model), 2),
+                "naive_mae": round(float(mae_naive), 2),
+                "model_wape_pct": round(float(wape_model), 2),
+                "naive_wape_pct": round(float(wape_naive), 2),
+                "gain_pct": round(float((wape_naive - wape_model) / wape_naive * 100.0), 1)
+            })
+            
+    return pd.DataFrame(results)
+
+
 def run_task2a_pipeline() -> tuple[pd.DataFrame, dict]:
     hist_df, test_df = load_and_aggregate_weekly_data()
     
-    # Backtest evaluation: evaluate on last 10 weeks of historical data (2026-W04 to W13)
     print("=" * 60)
     print("TASK 2A: 10-Week Demand Forecasting Pipeline")
     print("=" * 60)
+    
+    # 1. Backtest evaluation on last 10 historical weeks
+    df_backtest = evaluate_task2a_backtest(hist_df, n_weeks=10)
+    print("Task 2A Historical 10-Week Backtest vs Seasonal-Naive:")
+    print(df_backtest.to_string(index=False))
+    mean_wape = df_backtest["model_wape_pct"].mean()
+    mean_naive = df_backtest["naive_wape_pct"].mean()
+    print(f"\nMean Model WAPE: {mean_wape:.2f}% vs Seasonal-Naive WAPE: {mean_naive:.2f}%\n")
     
     all_series_results = []
     

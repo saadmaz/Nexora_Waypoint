@@ -6,42 +6,53 @@
 ---
 
 ## 1. Executive Summary & Optimization Outcome
-On Scenario S1, 85 customer orders across three retail brands (Fresh, Style, Tech) were requested for fulfillment from the Peliyagoda depot. With 28 available fleet vehicles and 10 vehicles immobilized in workshop maintenance, Team Nexora deployed an exact Mixed-Integer Linear Programming (MILP) formulation using HiGHS. The solver achieved global optimality (0.00% duality gap), successfully serving **79 out of 85 orders (92.9% fulfillment rate)** across 23 vehicle trips, with **zero feasibility violations** under the official `check_allocation.py` validation harness.
+On Scenario S1, 85 customer orders across three retail brands (Fresh, Style, Tech) were requested for fulfillment from the Peliyagoda depot. With 28 available fleet vehicles and 10 vehicles immobilized in workshop maintenance, Team Nexora deployed an exact Mixed-Integer Linear Programming (MILP) formulation using HiGHS. The solver achieved provable global optimality within a **0.0099% duality gap** (well within the standard 0.01% MIP tolerance), successfully serving **79 out of 85 orders (92.9% fulfillment rate)** across **22 vehicle trips** (17 vehicles utilized), with **zero feasibility violations** under the official `check_allocation.py` validation harness.
 
 Only **6 orders** were deferred. This document articulates the binding operational bottlenecks, categorizes the deferrals into physical impossibilities versus economic policy trade-offs, and details operational remedies.
 
 ---
 
 ## 2. Active Operational Bottlenecks
-Mathematical profiling reveals that vehicle fleet count is not the aggregate bottleneck (16 ambient vehicles remained in depot reserve). Rather, the operational constraints form two binding bottlenecks:
 
-1. **Refrigerated Vehicle Scarcity:**
-   - 26 orders in Scenario S1 require chilled transport (exclusively Fresh).
-   - Only **4 refrigerated vehicles** are operational at Peliyagoda (`VEH003`, `VEH006`, `VEH007` [5,000 kg / 25 $m^3$ trucks] and `VEH036` [1,500 kg / 9 $m^3$ van]).
-   - Under the rule capping vehicles at 2 trips/day, the maximum theoretical reefer trip capacity across Peliyagoda is $4 \times 2 = 8$ trips.
-   - Chilled orders are dispersed across **7 distinct geographic districts** (Colombo, Gampaha, Kalutara, Galle, Kurunegala, Matara, Puttalam). Because the operating rules strictly forbid multi-district trips ("one district per trip"), serving all 7 districts would require at least 7 trips, consuming 87.5% of all reefer trip slots.
+### 2.1 The "8 vs. 9 Reefer Slots" Impossibility Proof
+Mathematical profiling reveals that vehicle fleet count is not the aggregate bottleneck (11 ambient vehicles remained idle in depot reserve). Rather, refrigerated capacity and geographic dispersion create an insurmountable structural bottleneck:
+- **Available Refrigerated Fleet:** Only **4 refrigerated vehicles** are operational at Peliyagoda:
+  - `VEH006` (truck, reefer): 33.4 $m^3$ / 6,840 kg
+  - `VEH003` (truck, reefer): 26.4 $m^3$ / 5,510 kg
+  - `VEH007` (truck, reefer): 19.4 $m^3$ / 3,610 kg
+  - `VEH036` (van, reefer): 7.0 $m^3$ / 1,040 kg
+- **Maximum Reefer Slot Budget:** Under the official competition rule capping each vehicle at a maximum of 2 trips per day, the absolute maximum theoretical chilled trip capacity is $4 \times 2 = \mathbf{8\text{ trip slots}}$.
+- **Chilled District Demand:** 26 orders in Scenario S1 require chilled transport, dispersed across **7 distinct geographic districts**:
+  1. **Colombo:** 9 orders, 51.60 $m^3$ $\implies$ Exceeds single-truck maximum capacity (33.4 $m^3$); strictly requires $\ge 2$ trips.
+  2. **Gampaha:** 6 orders, 48.06 $m^3$ $\implies$ Exceeds single-truck maximum capacity; strictly requires $\ge 2$ trips.
+  3. **Kalutara:** 3 orders, 16.03 $m^3$ $\implies$ Requires $\ge 1$ trip.
+  4. **Kurunegala:** 3 orders, 25.04 $m^3$ $\implies$ Requires $\ge 1$ trip.
+  5. **Galle:** 2 orders, 20.27 $m^3$ $\implies$ Requires $\ge 1$ trip.
+  6. **Matara:** 2 orders, 11.98 $m^3$ $\implies$ Requires $\ge 1$ trip.
+  7. **Puttalam:** 1 order, 8.66 $m^3$ $\implies$ Requires $\ge 1$ trip.
+- **The Mathematical Impossibility:** Under the single-district per trip rule, covering all 7 chilled districts requires at least $2 + 2 + 1 + 1 + 1 + 1 + 1 = \mathbf{9\text{ trip slots}}$.
+  $$\text{Required Slots (9)} > \text{Available Slots (8)}$$
+  **Conclusion:** Serving all 7 chilled districts is physically and mathematically impossible. At least one district was guaranteed to experience deferral; the solver's task was determining *which* district deferrals minimize systemic damage.
 
-2. **Pre-Dawn Fresh Delivery Window (270-Minute Budget):**
-   - Fresh orders must be completed between 03:30 and 08:00 (a rigid 270-minute window).
-   - Peripheral districts demand substantial line-haul transit times from Peliyagoda:
-     - **Puttalam:** 173 min free-flow outbound + 24 min inter-stop.
-     - **Matara:** 137 min free-flow outbound + 10 min inter-stop.
-     - **Kurunegala:** 127 min free-flow outbound + 19 min inter-stop.
-     - **Galle:** 103 min free-flow outbound + 9 min inter-stop.
-   - Any vehicle dispatched on a long-haul trip (e.g., Puttalam at 173 min + handling = 193 min) expends $>70\%$ of its entire daily Fresh budget on a single trip, precluding it from executing a second long-haul run.
+### 2.2 Pre-Dawn Fresh Delivery Window (270-Minute Budget)
+Fresh deliveries operate strictly within the pre-dawn window ($03:30 - 08:00$, a 270-minute budget):
+- **Puttalam:** 173 min free-flow outbound + 25 min handling = 198 min ($73.3\%$ of the entire daily Fresh shift for 1 order).
+- **Matara:** 137 min free-flow outbound + 29 min handling = 166 min ($61.5\%$ of shift for 2 orders).
+- **Galle:** 103 min free-flow outbound + 40 min handling = 143 min ($53.0\%$ of shift for 2 orders).
+Committing a reefer truck to a 198-minute Puttalam run exhausts the vehicle's pre-dawn shift on a single stop, starving dense urban clusters where a single truck services 6 to 9 stores.
 
 ---
 
 ## 3. Categorization of Deferrals: Unavoidable vs. Chosen Trade-Offs ("Price of Fairness")
 
-| Order Ref | Brand | District | Temp | Volume ($m^3$) | Days Unserved | Category | Binding Constraint Value | Counterfactual Opportunity Cost (Orders Displaced if Forced) |
-| :--- | :--- | :--- | :--- | :---: | :---: | :--- | :--- | :--- |
-| **S1-078** | Style | Kurunegala | Ambient | **40.66** | 2 | **Unavoidable** | **Volume Cap Violation:** Max available truck volume is $38.0\,\text{m}^3$ (exceeded by $+2.66\,\text{m}^3$). | **$0.00$** — Physically unservable without parcel partitioning. |
-| **S1-083** | Fresh | Puttalam | Chilled | 8.66 | 5 | **Chosen** | **Transit Time:** Peliyagoda $\to$ Puttalam is 173 min one-way. Trip consumes 198 min out of 270 min pre-dawn budget. | **4–5 Colombo/Gampaha Outlets:** Serving S1-083 starves $26.4\,\text{m}^3$ of chilled dairy/produce across high-density urban clusters. |
-| **S1-056** | Fresh | Galle | Chilled | 3.75 | 2 | **Chosen** | **Reefer Fleet Cap:** Only 4 reefer trucks operational. Galle line-haul is 103 min outbound + 25 min service. | Displaces 3 urban stores in Gampaha. |
-| **S1-058** | Fresh | Galle | Chilled | 16.52 | 1 | **Chosen** | **Reefer Fleet Cap:** Paired with S1-056 in Galle district. Dispatched volume prioritized closer urban clusters. | Displaces 3 urban stores in Colombo. |
-| **S1-064** | Fresh | Matara | Chilled | 6.78 | 1 | **Chosen** | **Window Depletion:** Peliyagoda $\to$ Matara is 137 min outbound. Consumes 65.5% of driver shift for only 2 stops. | Prevents 2 separate full-capacity local morning shuttle runs. |
-| **S1-067** | Fresh | Matara | Chilled | 5.19 | 1 | **Chosen** | **Window Depletion:** Paired with S1-064 in Matara district. | Conserves reefer truck for second-wave city replenishment. |
+| Order Ref | Outlet | Brand | District | Temp | Volume ($m^3$) | Def. Yest. | Days Unserved | Category | Binding Constraint | Counterfactual Solved Opportunity Cost (Orders Displaced if Forced) |
+| :--- | :--- | :--- | :--- | :--- | :---: | :---: | :---: | :--- | :--- | :--- |
+| **S1-078** | OUT070 | Style | Kurunegala | Ambient | **40.66** | 0 | 2 | **Unavoidable** | **Individual Volume Cap:** Max truck volume in fleet is 38.0 $m^3$. | **$0.00$** — Physically unservable under single-order vehicle rules. |
+| **S1-083** | OUT074 | Fresh | Puttalam | Chilled | 8.66 | 1 | 5 | **Chosen** | **Transit Time & Reefer Slot Cap:** 173 min line-haul. | **4 Orders Displaced:** Forcing S1-083 drops S1-075, S1-073, S1-071 (Kurunegala) and S1-003 (Colombo) — a net loss of **26.89 $m^3$** chilled volume ($>3\times$ volume loss). |
+| **S1-056** | OUT053 | Fresh | Galle | Chilled | 3.75 | 0 | 2 | **Chosen** | **Reefer Fleet Cap:** Paired with S1-058 in Galle. | **2 Orders Displaced:** Forcing S1-056 drops S1-021 and S1-003 in Colombo — a net loss of **11.74 $m^3$** chilled volume. |
+| **S1-058** | OUT054 | Fresh | Galle | Chilled | 16.52 | 0 | 1 | **Chosen** | **Reefer Fleet Cap:** Dispatched volume prioritized closer urban clusters. | Paired with S1-056; displaces Colombo high-density stores. |
+| **S1-064** | OUT060 | Fresh | Matara | Chilled | 6.78 | 0 | 1 | **Chosen** | **Window Depletion:** Peliyagoda $\to$ Matara is 137 min outbound (65.5% shift). | **4 Orders Displaced:** Forcing S1-064 drops S1-075, S1-073, S1-071, and S1-003 (**26.89 $m^3$** chilled volume loss). |
+| **S1-067** | OUT062 | Fresh | Matara | Chilled | 5.19 | 0 | 1 | **Chosen** | **Window Depletion:** Paired with S1-064 in Matara district. | Conserves reefer truck for second-wave city replenishment. |
 
 ---
 

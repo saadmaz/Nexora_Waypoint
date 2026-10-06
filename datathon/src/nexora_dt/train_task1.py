@@ -16,6 +16,8 @@ import argparse
 import sys
 from pathlib import Path
 
+import warnings
+warnings.filterwarnings("ignore")
 import numpy as np
 import pandas as pd
 import lightgbm as lgb
@@ -157,9 +159,10 @@ def train_and_predict(n_splits: int = 5, seed: int = 42) -> tuple[pd.DataFrame, 
         print(f"Fold {fold+1}/{n_splits} | Service MAE: {fold_mae:.3f}m (vs {mean_absolute_error(y_svc_val, svc_baseline[val_idx]):.3f}m base) | Late LogLoss: {fold_loss:.4f} | Late AUC: {fold_auc:.4f}")
         
     overall_svc_mae = mean_absolute_error(y_svc, oof_pred_svc)
-    overall_late_loss = log_loss(y_late, oof_pred_late)
-    overall_late_auc = roc_auc_score(y_late, oof_pred_late)
-    overall_late_brier = brier_score_loss(y_late, oof_pred_late)
+    oof_pred_late_clipped = np.clip(oof_pred_late, 0.0005, 0.9995)
+    overall_late_loss = log_loss(y_late, oof_pred_late_clipped)
+    overall_late_auc = roc_auc_score(y_late, oof_pred_late_clipped)
+    overall_late_brier = brier_score_loss(y_late, oof_pred_late_clipped)
     
     svc_mae_std = float(np.std(fold_svc_maes))
     late_loss_std = float(np.std(fold_late_losses))

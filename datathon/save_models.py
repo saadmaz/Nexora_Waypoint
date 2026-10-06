@@ -155,7 +155,12 @@ def save_all_models():
             ridge_2a = Ridge(alpha=10.0)
             ridge_2a.fit(X_2a, y_2a)
             
+            s_test = test_df[(test_df.depot == d) & (test_df.brand == b)].sort_values(["iso_year", "iso_week"]).copy().reset_index(drop=True)
+            start_test_idx = len(s_hist)
+            s_test["week_idx"] = np.arange(start_test_idx, start_test_idx + len(s_test))
+            s_test["lag_52"] = s_test.apply(get_lag52, axis=1)
             chilled_ratio = (s_hist["chilled_volume_m3"].sum() / s_hist["total_volume_m3"].sum()) if b == "Fresh" else 0.0
+            X_test_2a = s_test[["row_id"] + feat_cols_2a].copy()
             
             task2a_models[(d, b)] = {
                 "lgb": lgb_2a,
@@ -163,7 +168,8 @@ def save_all_models():
                 "chilled_ratio": chilled_ratio,
                 "recent_mean": float(s_hist["total_volume_m3"].iloc[-8:].mean()),
                 "vol_lookup": vol_lookup,
-                "feature_cols": feat_cols_2a
+                "feature_cols": feat_cols_2a,
+                "test_features": X_test_2a
             }
             
     t2a_path = models_dir_repo / "models_task2a.joblib"
