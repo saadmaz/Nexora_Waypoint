@@ -52,3 +52,23 @@ __pycache__/
 
 # POD photos and signatures uploaded to a local API
 backend/uploads/
+
+# Datathon competition data and artifacts (strictly local / uncommitted)
+datathon/data/
+datathon/models/
+datathon/output/
+datathon/submissions/
+datathon/artifacts/
+datathon/.venv/
+datathon/*.csv
+datathon/*.parquet
+*.csv
+*.parquet
+*.pkl
+*.joblib
+ruvector.db
+datathon/ruvector.db
+.claude-flow/
+datathon/.claude-flow/
+.swarm/
+
