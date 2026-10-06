@@ -32,7 +32,9 @@ def load_and_aggregate_weekly_data() -> tuple[pd.DataFrame, pd.DataFrame]:
     dels_tr = pd.read_csv(TRAIN / "deliveries_train.csv")
     dels_te = pd.read_csv(TEST / "task1_test_inputs.csv")
     all_dels = pd.concat([dels_tr, dels_te], ignore_index=True)
-    all_dels["date"] = all_dels["dispatch_date"].fillna(all_dels["order_date"])
+    # Per Booklet p.17: "Assign each order to the week the store requested the order...
+    # Count every order once, including orders that were deferred or never dispatched."
+    all_dels["date"] = all_dels["order_date"]
     
     # 2. Calendar data
     cal = pd.read_csv(GENERAL / "calendar.csv")

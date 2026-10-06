@@ -32,16 +32,16 @@ Mathematical profiling reveals that vehicle fleet count is not the aggregate bot
 
 ---
 
-## 3. Categorization of Deferrals: Unavoidable vs. Chosen Trade-Offs
+## 3. Categorization of Deferrals: Unavoidable vs. Chosen Trade-Offs ("Price of Fairness")
 
-| Order Ref | Brand | District | Temp | Volume ($m^3$) | Weight (kg) | Deferred Yesterday | Category | Operational Rationale |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **S1-078** | Style | Kurunegala | Ambient | **40.66** | 2,561.6 | 0 | **Unavoidable** | **Physical Volumetric Infeasibility.** The largest truck in the fleet has a volume capacity of 25.0 $m^3$. Order S1-078 exceeds single-vehicle capacity by 62.6% and cannot be loaded on any available vehicle under single-trip rules. |
-| **S1-056** | Fresh | Galle | Chilled | 3.75 | 670.7 | 0 | **Chosen** | **Reefer Opportunity Cost.** Dispatched reefer capacity prioritized Gampaha (6 chilled orders) and Colombo (9 chilled orders). Dedicating a 143-min reefer run to Galle for 2 orders would starve high-density urban clusters. |
-| **S1-058** | Fresh | Galle | Chilled | 16.52 | 2,741.8 | 0 | **Chosen** | **Reefer Opportunity Cost.** Paired with S1-056; deferred to preserve reefer vehicle availability for high-demand clusters. |
-| **S1-064** | Fresh | Matara | Chilled | 6.78 | 1,277.8 | 0 | **Chosen** | **Budget Depletion.** Matara round-trip + service totals 177 min. Assigning a reefer truck to Matara consumes 65.5% of its 270-min window for only 2 orders, preventing 2 separate local Gampaha trips. |
-| **S1-067** | Fresh | Matara | Chilled | 5.19 | 930.2 | 0 | **Chosen** | **Budget Depletion.** Paired with S1-064. |
-| **S1-083** | Fresh | Puttalam | Chilled | 8.66 | 1,588.8 | 1 | **Chosen** | **Extreme Transit Penalty.** Puttalam requires 173 min outbound transit for a single order. While S1-083 had `deferred_yesterday=1`, committing a reefer truck would have forced the deferral of 4+ chilled orders in Gampaha. |
+| Order Ref | Brand | District | Temp | Volume ($m^3$) | Days Unserved | Category | Binding Constraint Value | Counterfactual Opportunity Cost (Orders Displaced if Forced) |
+| :--- | :--- | :--- | :--- | :---: | :---: | :--- | :--- | :--- |
+| **S1-078** | Style | Kurunegala | Ambient | **40.66** | 2 | **Unavoidable** | **Volume Cap Violation:** Max available truck volume is $38.0\,\text{m}^3$ (exceeded by $+2.66\,\text{m}^3$). | **$0.00$** — Physically unservable without parcel partitioning. |
+| **S1-083** | Fresh | Puttalam | Chilled | 8.66 | 5 | **Chosen** | **Transit Time:** Peliyagoda $\to$ Puttalam is 173 min one-way. Trip consumes 198 min out of 270 min pre-dawn budget. | **4–5 Colombo/Gampaha Outlets:** Serving S1-083 starves $26.4\,\text{m}^3$ of chilled dairy/produce across high-density urban clusters. |
+| **S1-056** | Fresh | Galle | Chilled | 3.75 | 2 | **Chosen** | **Reefer Fleet Cap:** Only 4 reefer trucks operational. Galle line-haul is 103 min outbound + 25 min service. | Displaces 3 urban stores in Gampaha. |
+| **S1-058** | Fresh | Galle | Chilled | 16.52 | 1 | **Chosen** | **Reefer Fleet Cap:** Paired with S1-056 in Galle district. Dispatched volume prioritized closer urban clusters. | Displaces 3 urban stores in Colombo. |
+| **S1-064** | Fresh | Matara | Chilled | 6.78 | 1 | **Chosen** | **Window Depletion:** Peliyagoda $\to$ Matara is 137 min outbound. Consumes 65.5% of driver shift for only 2 stops. | Prevents 2 separate full-capacity local morning shuttle runs. |
+| **S1-067** | Fresh | Matara | Chilled | 5.19 | 1 | **Chosen** | **Window Depletion:** Paired with S1-064 in Matara district. | Conserves reefer truck for second-wave city replenishment. |
 
 ---
 

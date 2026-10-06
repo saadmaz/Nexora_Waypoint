@@ -161,15 +161,19 @@ def train_and_predict(n_splits: int = 5, seed: int = 42) -> tuple[pd.DataFrame, 
     overall_late_auc = roc_auc_score(y_late, oof_pred_late)
     overall_late_brier = brier_score_loss(y_late, oof_pred_late)
     
+    svc_mae_std = float(np.std(fold_svc_maes))
+    late_loss_std = float(np.std(fold_late_losses))
+    late_auc_std = float(np.std(fold_late_aucs))
+    
     print("\n" + "=" * 60)
     print("STEP 3: Overall Out-Of-Fold Evaluation vs Baselines")
     print("=" * 60)
     svc_gain = (base_svc_mae - overall_svc_mae) / base_svc_mae * 100.0
     late_gain = (base_late_loss - overall_late_loss) / base_late_loss * 100.0
     
-    print(f"Service Time MAE:     {overall_svc_mae:.3f} min (Baseline: {base_svc_mae:.3f} min -> {svc_gain:+.1f}% improvement)")
-    print(f"Lateness LogLoss:     {overall_late_loss:.4f} (Baseline: {base_late_loss:.4f} -> {late_gain:+.1f}% improvement)")
-    print(f"Lateness ROC-AUC:     {overall_late_auc:.4f}")
+    print(f"Service Time MAE:     {overall_svc_mae:.3f} +/- {svc_mae_std:.3f} min (Baseline: {base_svc_mae:.3f} min -> {svc_gain:+.1f}% improvement)")
+    print(f"Lateness LogLoss:     {overall_late_loss:.4f} +/- {late_loss_std:.4f} (Baseline: {base_late_loss:.4f} -> {late_gain:+.1f}% improvement)")
+    print(f"Lateness ROC-AUC:     {overall_late_auc:.4f} +/- {late_auc_std:.4f}")
     print(f"Lateness Brier Score: {overall_late_brier:.4f} (Baseline: {base_late_brier:.4f})")
     
     # Top features
@@ -184,11 +188,14 @@ def train_and_predict(n_splits: int = 5, seed: int = 42) -> tuple[pd.DataFrame, 
     for _, r in df_imp_late.head(5).iterrows():
         print(f"  - {r.feature}: {r.importance:.1f}")
         
-    # Build Submission DataFrame
+    # Build Submission DataFrame with safe probability clipping
+    # Avoid exact 0.0 or 1.0 which cause logloss cliffs on hidden evaluations
+    clipped_late_prob = np.clip(test_preds_late, 0.0005, 0.9995)
+    
     sub_df = pd.DataFrame({
         "delivery_id": df_test["delivery_id"].values,
         "pred_service_min": np.round(test_preds_svc, 2),
-        "pred_late_prob": np.round(test_preds_late, 4)
+        "pred_late_prob": np.round(clipped_late_prob, 4)
     })
     
     # Validate against template

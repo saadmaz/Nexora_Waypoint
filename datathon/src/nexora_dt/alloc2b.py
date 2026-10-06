@@ -105,6 +105,14 @@ def solve(scenario: str, out_path: Path, time_limit: int = 300) -> int:
         for slot in (1, 2):
             prob += pulp.lpSum(y[tr] for tr in trips if tr[0] == v and tr[1] == slot) <= 1
         prob += pulp.lpSum(y[tr] for tr in trips if tr[0] == v) <= MAX_TRIPS
+        
+        # Operational hygiene: Trip 1 must be utilized before Trip 2 is scheduled
+        prob += pulp.lpSum(y[tr] for tr in trips if tr[0] == v and tr[1] == 2) <= pulp.lpSum(y[tr] for tr in trips if tr[0] == v and tr[1] == 1)
+        
+        # Pre-dawn Fresh deliveries occur 03:00-07:30 before daytime routes; must occupy slot 1
+        fresh_in_slot2 = pulp.lpSum(y[tr] for tr in trips if tr[0] == v and tr[1] == 2 and tr[2] == "Fresh")
+        fresh_in_slot1 = pulp.lpSum(y[tr] for tr in trips if tr[0] == v and tr[1] == 1 and tr[2] == "Fresh")
+        prob += fresh_in_slot2 <= fresh_in_slot1
 
     # Linear trip-time expression, identical to check_allocation.trip_time().
     def trip_time_expr(tr):

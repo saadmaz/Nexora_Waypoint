@@ -149,8 +149,10 @@ def extract_raw_features(split: str = "train") -> pd.DataFrame:
     feats["cal_hour"] = m["cal_hour"].astype(float).values
     feats["cal_iso_week"] = m["iso_week"].astype(float).values
     
-    feats["geo_disruption_index"] = m["disruption_index"].fillna(0.0).astype(float).values
-    feats["geo_speed_index"] = m["speed_index"].fillna(1.0).astype(float).values
+    # In road_conditions and traffic_speed, 100 is clear / free-flow.
+    # We normalize to [0, 1] where 1.0 = clear, and impute missing with 1.0 (clear).
+    feats["geo_disruption_index"] = (m["disruption_index"].fillna(100.0) / 100.0).astype(float).values
+    feats["geo_speed_index"] = (m["speed_index"].fillna(100.0) / 100.0).astype(float).values
     feats["geo_freeflow_kmh"] = m["free_flow_kmh"].astype(float).values
     feats["geo_depot_to_dist_km"] = m["depot_to_district_km"].astype(float).values
     feats["geo_depot_to_dist_min"] = m["depot_to_district_freeflow_min"].astype(float).values
@@ -158,7 +160,7 @@ def extract_raw_features(split: str = "train") -> pd.DataFrame:
     feats["geo_mall_window"] = m["mall_window"].notna().astype(float).values
     feats["geo_is_van_only"] = (m["parking_constraint"] == "van_only").astype(float).values
     
-    # Speed comparison feature
+    # Speed comparison feature: planned speed vs expected traffic speed
     feats["plan_speed_vs_traffic"] = (feats["plan_speed_kmh"] / (feats["geo_speed_index"] * feats["geo_freeflow_kmh"] + 1e-4)).values
     
     # Categoricals for LightGBM
@@ -170,8 +172,8 @@ def extract_raw_features(split: str = "train") -> pd.DataFrame:
     depot_map = {"Peliyagoda": 0, "Kandy": 1}
     feats["geo_depot_cat"] = m["depot"].map(depot_map).fillna(0).astype(int).values
     
-    # Dock type: rear_dock=0, street=1, mall_dock=2
-    dock_map = {"rear_dock": 0, "street": 1, "mall_dock": 2}
+    # Dock type: rear_dock=0, street=1, mall_bay/mall_dock=2
+    dock_map = {"rear_dock": 0, "street": 1, "mall_bay": 2, "mall_dock": 2}
     feats["geo_dock_cat"] = m["dock_type"].map(dock_map).fillna(0).astype(int).values
     
     # Keep outlet_id for out-of-fold target encoding

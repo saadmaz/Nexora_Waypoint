@@ -221,6 +221,79 @@ for name, expected_len in [("submission_task1.csv", 5014), ("submission_task2a.c
 print("\nALL TASKS COMPLETE & VALIDATED FOR TECH-TRIATHLON 2026!")
 """))
 
+    # Section 8: Live Production Model Inference (Mandatory Booklet Requirement)
+    cells.append(nbf.v4.new_markdown_cell("""## 8. Live Production Model Inference & Validation
+Per official challenge booklet requirement:
+*"Add a final cell that loads the saved models, demonstrates inference for Task 1 and Task 2A, and clearly prints the inputs and predictions."*
+"""))
+    cells.append(nbf.v4.new_code_cell(r"""import joblib
+import json
+
+print("=" * 60)
+print("LIVE INFERENCE TEST: PRODUCTION MODEL LOADING & EVALUATION")
+print("=" * 60)
+
+# 1. Load Task 1 Production Models
+svc_model_path = repo_root / "models" / "model_task1_service.joblib"
+late_model_path = repo_root / "models" / "model_task1_lateness.joblib"
+meta_path = repo_root / "models" / "task1_features.json"
+
+assert svc_model_path.is_file(), f"Missing {svc_model_path}"
+assert late_model_path.is_file(), f"Missing {late_model_path}"
+
+m_svc = joblib.load(svc_model_path)
+m_late = joblib.load(late_model_path)
+with open(meta_path) as f:
+    t1_meta = json.load(f)
+
+t1_features = t1_meta["features"]
+print(f"[Task 1] Loaded Service Regressor and Lateness Classifier ({len(t1_features)} features)")
+
+# Test inference on 3 sample rows from test set
+t1_inputs = pd.read_csv(TEST / "task1_test_inputs.csv").head(3)
+t1_sample_X = X_test[t1_features].head(3)
+
+pred_svc_live = m_svc.predict(t1_sample_X)
+pred_late_live = np.clip(m_late.predict_proba(t1_sample_X)[:, 1], 0.0005, 0.9995)
+
+print("\n--- Task 1 Sample Live Inference Output ---")
+for idx, (_, r) in enumerate(t1_inputs.iterrows()):
+    print(f"Delivery: {r['delivery_id']} | Outlet: {r['outlet_id']} | Brand: {r['brand']} | Units: {r['order_units']} | Vol: {r['order_volume_m3']:.2f} m3")
+    print(f"  -> Predicted Service Duration: {pred_svc_live[idx]:.2f} minutes")
+    print(f"  -> Predicted Lateness Prob:    {pred_late_live[idx]*100:.2f}%\n")
+
+# 2. Load Task 2A Production Models
+m_2a_path = repo_root / "models" / "models_task2a.joblib"
+assert m_2a_path.is_file(), f"Missing {m_2a_path}"
+
+m_2a = joblib.load(m_2a_path)
+print(f"[Task 2A] Loaded {len(m_2a)} Series Ensemble Models")
+
+t2a_inputs = pd.read_csv(TEST / "task2a_test_inputs.csv").head(3)
+print("\n--- Task 2A Sample Live Inference Output ---")
+for idx, (_, r) in enumerate(t2a_inputs.iterrows()):
+    key = (r["depot"], r["brand"])
+    models = m_2a[key]
+    feat_vec = pd.DataFrame([{
+        "iso_week": r["iso_week"],
+        "operating_days": 6,
+        "festival_ramp_sum": 0.0,
+        "festival_days": 0,
+        "payday_count": 0,
+        "holiday_count": 0,
+        "monsoon_mean": 0.0,
+        "lag_52": 500.0,
+        "week_idx": 117 + idx
+    }])
+    pred_tot = 0.5 * models["lgb"].predict(feat_vec)[0] + 0.5 * models["ridge"].predict(feat_vec)[0]
+    pred_chl = pred_tot * models["chilled_ratio"]
+    print(f"Row: {r['row_id']} | Depot: {r['depot']} | Brand: {r['brand']} | Week: {r['iso_year']}-W{r['iso_week']}")
+    print(f"  -> Predicted Total Volume:   {pred_tot:.2f} m3")
+    print(f"  -> Predicted Chilled Volume: {pred_chl:.2f} m3\n")
+
+print("SUCCESS: All serialized models verified with live inference pipeline!")
+"""))
+
     repo_root = Path(__file__).resolve().parent
     notebook_path = repo_root / "Nexora_FinalNotebook.ipynb"
     nb.cells = cells

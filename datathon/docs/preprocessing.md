@@ -60,5 +60,24 @@ To capture outlet-specific handling speeds and local congestion without data lea
 
 ## 3. Data Cleaning & Auxiliary Table Integration
 1. **Deliveries to Route Legs Merge:** 91,894 runnable training deliveries join strictly 1:1 on `(route_id, seq_in_route) == (route_id, seq)`. 413 unassigned orders (`dispatch_status == 'not_run'`) possess no actual leg and are excluded from label training.
-2. **Road Conditions & Traffic Speed:** Joined on `(district, date)` and `(district, hour, monsoon)`. Missing traffic indices are imputed with nominal 1.0 free-flow index.
-3. **Calendar Data:** Shipped `calendar.csv` contains complete holiday, payday, and festival ramp schedules across all 910 days of the evaluation horizon.
+2. **Road Conditions & Traffic Speed:** Joined on `(district, date)` and `(district, hour, monsoon)`. Road conditions and traffic speed indices are normalized to $[0.0, 1.0]$ where $1.0 = \text{clear/free-flow}$. Missing entries default to $1.0$ (nominal free-flow).
+3. **Dock Type Standardization:** Standardized to include `rear_dock` (0), `street` (1), and `mall_bay` / `mall_dock` (2) matching all 120 physical outlets.
+4. **Calendar Data:** Shipped `calendar.csv` contains complete holiday, payday, and festival ramp schedules across all 910 days of the evaluation horizon.
+
+---
+
+## 4. Task 2A Demand Accounting & Unconstrained Volume Construction
+Per the official competition booklet rules (p. 17):
+> *"Count every order once, including orders that were deferred or never dispatched. They still represent demand. Assign each order to the week the store requested the order. Use iso_year and iso_week from calendar.csv so the forecast periods match the supplied calendar. Only Fresh has chilled demand. Set pred_chilled_volume_m3 to 0 for Style and Tech."*
+
+### 4.1 Methodology & Rationale
+1. **Order Date Primacy (`order_date`):** Demand forecasting models store ordering behavior, not depot dispatch logistics. Dispatched orders that experienced multi-day deferrals (1,956 historical orders) were requested on `order_date`. Assigning orders to `dispatch_date` creates artificial weekly demand distortions across ISO week boundaries. Therefore, demand is aggregated strictly on `order_date`.
+2. **Inclusive Dispatch Status Accounting:** All three dispatch categories represent genuine consumer demand:
+   - `attempted` (90,351 rows): Dispatched on order date.
+   - `deferred` (1,543 rows): Dispatched on subsequent days due to fleet shortages.
+   - `not_run` (413 rows): Orders that were placed by retail stores but never dispatched due to insurmountable stockout or vehicle bottlenecks.
+   Every order row is counted exactly once into weekly aggregate demand.
+3. **Cold Chain Separation:**
+   - Style and Tech series strictly output `pred_chilled_volume_m3 = 0.000` under domain rules.
+   - Fresh series models empirical chilled proportion ($\approx 36.8\%$ at Peliyagoda, $\approx 36.3\%$ at Kandy) decomposed via joint multi-series LightGBM and Ridge estimators.
+
